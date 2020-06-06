@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -66,8 +66,9 @@ namespace SpdReaderWriter {
 				"For additional help, visit: https://github.com/1a2m3/ or https://forums.evga.com/FindPost/3053544",
 				"",
 				"This program is free to use, but if you like it and wish to support me, I am accepting donations via systems listed below:",
-				"Paypal: http://paypal.me/mik4rt3m",
-				"Bitcoin: 3Pe9VhVaUygyMFGT3pFuQ3dAghS36NPJTz"
+				"Paypal:  http://paypal.me/mik4rt3m",
+				"Bitcoin: 3Pe9VhVaUygyMFGT3pFuQ3dAghS36NPJTz",
+				""
 			};
 
 			foreach (string line in help) {
