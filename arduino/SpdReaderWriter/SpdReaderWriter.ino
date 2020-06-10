@@ -17,13 +17,13 @@
 #define SWP3 0x30  // Set Write Protection for block 3 (addresses 180h to 1FFh) (384-511)
 #define CWP  0x33  // Clear Write Protection for all 4 blocks
 
-#define OPTCO 13 // Optocoupler switch pin
+#define HVSW 13    // High Voltage (Optocoupler) switch pin
 
 int eeAddress = 0; // EE Page address
 
 void setup() {
 
-  pinMode(OPTCO, OUTPUT);
+  pinMode(HVSW, OUTPUT);
 
   Wire.begin();
   Serial.begin(SERIAL_BAUD_RATE);
@@ -37,7 +37,7 @@ void setup() {
 // Reverses software write protection
 bool clearWriteProtection() {
 
-  digitalWrite(OPTCO, HIGH); // Turn on the optocoupler
+  digitalWrite(HVSW, HIGH); // Turn on the optocoupler
   delay(10);
 
   Wire.beginTransmission(CWP);
@@ -46,12 +46,9 @@ bool clearWriteProtection() {
   int status = Wire.endTransmission();
   delay(10);
 
-  digitalWrite(OPTCO, LOW); // Turn off the optocoupler
+  digitalWrite(HVSW, LOW); // Turn off the optocoupler
 
-  if (status == 0) {
-    return true;
-  }
-  return false;
+  return status == 0;
 }
 
 // Enables write protection on specified block
@@ -78,21 +75,18 @@ bool setWriteProtection(uint8_t block) {
       break;
   }
 
-  digitalWrite(OPTCO, HIGH); // Turn on the optocoupler
+  digitalWrite(HVSW, HIGH); // Turn on the optocoupler
   delay(10);
 
   Wire.beginTransmission(cmd);
   Wire.write(0x00); // "Dummy" writes
   Wire.write(0x00); // Works without them, but PDFs say these are needed
-  int status = Wire.endTransmission();
+  int status = Wire.endTransmission(); // status == 0 when SWP is enabled
   delay(10);
 
-  digitalWrite(OPTCO, LOW); // Turn off the optocoupler
+  digitalWrite(HVSW, LOW); // Turn off the optocoupler
 
-  if (status == 0) { // SWP enabled
-    return true;
-  }
-  return false;
+  return status == 0;
 }
 
 // Reads a byte
@@ -122,10 +116,7 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
 
   delay(10); // This has to go after endTransmission, not before!
   
-  if (status == 0) {
-    return true;
-  }
-  return false;
+  return status == 0;
 }
 
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
@@ -156,10 +147,8 @@ void adjustPageAddress(uint16_t offset) {
 // Tests I2C bus for connected devices
 bool probe(uint8_t address) {
   Wire.beginTransmission(address);
-  if (Wire.endTransmission() == 0) {
-    return true;
-  }
-  return false;
+
+  return Wire.endTransmission() == 0;
 }
 
 //Command handlers
@@ -179,8 +168,8 @@ void cmdScan() {
     Also it can trigger write protection when devices 0x30 (SWP3), 0x31 (SWP0), 0x34 (SWP1), or 0x35 (SWP2) are accessed and SA0 is connected to HV source
   */
 
-  //startAddress = (startAddress < 0x50) ? 0x50 : startAddress;
-  //endAddress = (endAddress > 0x57) ? 0x57 : endAddress;
+  startAddress = (startAddress < 0x50) ? 0x50 : startAddress;
+  endAddress = (endAddress > 0x57) ? 0x57 : endAddress;
 
   for (int i = startAddress; i <= endAddress; i++) {
     if (probe(i)) {
@@ -188,7 +177,7 @@ void cmdScan() {
     }
   }
   Serial.write(0); // Send 0 to prevent application from waiting in case no devices are present
-  return;
+  //return;
 }
 
 void cmdRead() {
@@ -196,7 +185,7 @@ void cmdRead() {
   int offset  = Serial.parseInt(); // Offset address
 
   Serial.write(readByte(address, offset));
-  return;
+  //return;
 }
 
 void cmdWrite() {
@@ -210,7 +199,7 @@ void cmdWrite() {
   }
 
   Serial.write(1); // Error
-  return;
+  //return;
 }
 
 void cmdTest() {
@@ -226,7 +215,7 @@ void cmdProbe() {
     return;
   }
   Serial.write(0); // Error
-  return;
+  //return;
 }
 
 void cmdClearWP() {
@@ -238,7 +227,7 @@ void cmdClearWP() {
   }
   Serial.write(1); // Error
   //Serial.println("WP NOT cleared");
-  return;
+  //return;
 }
 
 void cmdEnableWP() {
@@ -256,7 +245,7 @@ void cmdEnableWP() {
   //Serial.print("Nothing changed with block ");
   //Serial.println(block, HEX);
   Serial.write(1); // Error
-  return;
+  //return;
 }
 
 void parseCommand() {
