@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -33,6 +33,11 @@ namespace SpdReaderWriterGUI {
 		// Screenshot template
 		Bitmap bmp;
 
+		// Command line arguments
+		string[] args = Environment.GetCommandLineArgs();
+		
+
+
 		private void FormMain_Load(object sender, EventArgs e) {
 
 			Logger("Program started");
@@ -51,6 +56,10 @@ namespace SpdReaderWriterGUI {
 			}
 			labelTopOffsetHex.Text = BinToHex(_offsetTable);
 
+			// Open file dragged onto executable
+			if (args.Length == 2 && File.Exists(args[1])) {
+				openFile(args[1], null);
+			}
 		}
 
 		private bool validateCrc(byte[] input) {
@@ -323,9 +332,8 @@ namespace SpdReaderWriterGUI {
 				if ((i + 1 & 0x0F) % bytesGroup == 0 && i % bytesPerRow != bytesPerRow - 1) {
 					output += " ";
 				}
-
-				
 			}
+
 			return output;
 		}
 
@@ -429,31 +437,44 @@ namespace SpdReaderWriterGUI {
 
 		private void openFile(object sender, EventArgs e) {
 
-			OpenFileDialog inputFilePath = new OpenFileDialog();
+			string path = "";
 
-			inputFilePath.Filter = "Binary files (*.bin)|*.bin|SPD Dumps (*.spd)|*.spd|All files (*.*)|*.*";
-			inputFilePath.FilterIndex = 0;
-			inputFilePath.RestoreDirectory = true;
+			// A fix to prevent opening file "Open" if it exists in the same directory where the binary is located
+			if (sender.GetType() == typeof(String)) { 
+				path = sender.ToString();
+			}
 
-			if (inputFilePath.ShowDialog() == DialogResult.OK && inputFilePath.FileName != "") {
+			if (!File.Exists(path)) {
+				var inputFilePath = new OpenFileDialog();
 
-				byte[] _SpdContents = File.ReadAllBytes(inputFilePath.FileName);
-				if (_SpdContents.Length > 1024) {
-					string _errorMessage = "File \"{0}\" not opened, too big";
-					Logger(String.Format(_errorMessage, inputFilePath.FileName));
-					MessageBox.Show(String.Format(_errorMessage, Path.GetFileName(inputFilePath.FileName)), inputFilePath.FileName, MessageBoxButtons.OK, MessageBoxIcon.Error);
-					//currentFileName = "";
-					//SpdContents = new byte[0];
+				inputFilePath.Filter = "Binary files (*.bin)|*.bin|SPD Dumps (*.spd)|*.spd|All files (*.*)|*.*";
+				inputFilePath.FilterIndex = 0;
+				inputFilePath.RestoreDirectory = true;
+
+				if (inputFilePath.ShowDialog() == DialogResult.OK && inputFilePath.FileName != "") {
+					path = inputFilePath.FileName;
+				}
+				else {
 					return;
 				}
-				currentFileName = inputFilePath.FileName;
-
-				SpdContents = _SpdContents;
-				displayContents(SpdContents);
-				statusProgressBar.Value = statusProgressBar.Maximum;
-				crcValidChecksum = validateCrc(SpdContents);
-				Logger($"Opened file '{currentFileName}'");
 			}
+			
+			byte[] _SpdContents = File.ReadAllBytes(path);
+			if (_SpdContents.Length > 1024) {
+				string _errorMessage = "File \"{0}\" not opened, too big";
+				Logger(String.Format(_errorMessage, path));
+				MessageBox.Show(String.Format(_errorMessage, Path.GetFileName(path)), path, MessageBoxButtons.OK, MessageBoxIcon.Error);
+				//currentFileName = "";
+				//SpdContents = new byte[0];
+				return;
+			}
+			currentFileName = path;
+
+			SpdContents = _SpdContents;
+			displayContents(SpdContents);
+			statusProgressBar.Value = statusProgressBar.Maximum;
+			crcValidChecksum = validateCrc(SpdContents);
+			Logger($"Opened file '{currentFileName}'");
 		}
 
 		private void displayContents(byte[] input) {
