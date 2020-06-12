@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Threading;
 using System.Windows.Forms;
@@ -31,23 +32,21 @@ namespace SpdReaderWriterGUI {
 		private bool crcValidChecksum;
 
 		// Screenshot template
-		Bitmap bmp;
+		Bitmap png;
 
 		// Command line arguments
 		string[] args = Environment.GetCommandLineArgs();
-		
-
 
 		private void FormMain_Load(object sender, EventArgs e) {
 
 			Logger("Program started");
 
 			SetStyle(ControlStyles.DoubleBuffer, true);
-			
-			populateDevices(new object(), new EventArgs());
+
+			populateDevices(this, new EventArgs());
 
 			// Prepare screenshot 
-			bmp = new Bitmap(Size.Width, Size.Height, CreateGraphics());
+			png = new Bitmap(Size.Width, Size.Height, CreateGraphics());
 
 			// Fill top offset line
 			byte[] _offsetTable = new byte[16];
@@ -75,7 +74,7 @@ namespace SpdReaderWriterGUI {
 					return false;
 				}
 			}
-			
+
 			return true;
 		}
 
@@ -103,7 +102,7 @@ namespace SpdReaderWriterGUI {
 				byte CrcMsb = (byte)(crc >> 8);
 
 				if (_spd[_headerStart + headerLength + 0] != CrcLsb || // MSB
-				    _spd[_headerStart + headerLength + 1] != CrcMsb) { //LSB
+					_spd[_headerStart + headerLength + 1] != CrcMsb) { //LSB
 
 					_spd[_headerStart + headerLength + 0] = CrcLsb;
 					_spd[_headerStart + headerLength + 1] = CrcMsb;
@@ -140,7 +139,7 @@ namespace SpdReaderWriterGUI {
 			Logger(_message);
 			MessageBox.Show($"{_message}{_messageAdd}", "CRC information", MessageBoxButtons.OK, _icon);
 		}
-		
+
 		private void populateDevices(object sender, EventArgs e) {
 
 			foundDevices = null;
@@ -169,9 +168,9 @@ namespace SpdReaderWriterGUI {
 			}
 
 			// Remove existing old items, except for connected devices
-			ToolStripItem[] _existingDeviceItem =  toolStripDeviceButton.DropDownItems.Find("FoundDevicePortAddress", false);
-			if (_existingDeviceItem.Length > 0) {
+			ToolStripItem[] _existingDeviceItem = toolStripDeviceButton.DropDownItems.Find("FoundDevicePortAddress", false);
 
+			if (_existingDeviceItem.Length > 0) {
 				for (int i = 0; i < _existingDeviceItem.Length; i++) {
 					if (!((ToolStripMenuItem)_existingDeviceItem[i]).Checked) {
 						toolStripDeviceButton.DropDownItems.Remove(_existingDeviceItem[i]);
@@ -185,7 +184,7 @@ namespace SpdReaderWriterGUI {
 			if (foundDevices != null && foundDevices.Length > 0) {
 				for (int i = 0; i < foundDevices.Length; i++) {
 					string _label = foundDevices[i];
-					ToolStripMenuItem _item = new ToolStripMenuItem(_label,null, connectToDevice);
+					ToolStripMenuItem _item = new ToolStripMenuItem(_label, null, connectToDevice);
 					_item.Name = "FoundDevicePortAddress";
 					toolStripDeviceButton.DropDownItems.Add(_item);
 				}
@@ -218,27 +217,35 @@ namespace SpdReaderWriterGUI {
 			int _address = Int32.Parse(_sender.Text.Split(':')[1]);
 
 			// Disconnect
-			if (MySpdReader != null 
-			    && MySpdReader.PortName == _port 
-			    && MySpdReader.EepromAddress == _address 
-			    && MySpdReader.IsConnected) {
+			if (MySpdReader != null && MySpdReader.IsConnected) {
 				if (MySpdReader.Disconnect()) {
 					Logger($"{MySpdReader.PortName}:{MySpdReader.EepromAddress} disconnected");
 				}
 
 				if (!MySpdReader.IsConnected) {
-					// Uncheck current device
-					_sender.Checked = false;
+					// Uncheck all devices
+					ToolStripItem[] _existingDeviceItem = toolStripDeviceButton.DropDownItems.Find("FoundDevicePortAddress", false);
+
+					if (_existingDeviceItem.Length > 0) {
+						foreach (ToolStripMenuItem toolStripItem in _existingDeviceItem) {
+							toolStripItem.Checked = false;
+						}
+					}
+					//_sender.Checked = false;
+				}
+
+				// Do not reconnect if checked item was clicked
+				if (MySpdReader.PortName == _port && MySpdReader.EepromAddress == _address) {
+					return;
 				}
 			}
+
 			// Connect
-			else {
+			if (MySpdReader == null || !MySpdReader.IsConnected) {
 				MySpdReader = new Device(_port, _address, SpdSize.DDR4_SPD_SIZE);
 				if (MySpdReader.Connect()) {
-					//toolStripDeviceButton.Text = _sender.Text;
-					//toolStripDeviceButton.ToolTipText = $"Connected to {toolStripDeviceButton.Text}";
 					_sender.Checked = true;
-					Logger($"Connected to {_port}:{_address}");
+					Logger($"{_port}:{_address} connected");
 				}
 			}
 		}
@@ -246,7 +253,7 @@ namespace SpdReaderWriterGUI {
 		private void readSpdFromEeprom(object sender, EventArgs e) {
 
 			int start = Environment.TickCount;
-		
+
 			// Clear viewer
 			//displayContents(new byte[0]);
 
@@ -258,7 +265,7 @@ namespace SpdReaderWriterGUI {
 			// Read each byte to display status in the progress bar
 			for (int i = 0; i < SpdContents.Length; i++) {
 				SpdContents[i] = Eeprom.ReadByte(MySpdReader, i);
-				statusProgressBar.Value = i + 1; 
+				statusProgressBar.Value = i + 1;
 				Application.DoEvents();
 			}
 
@@ -271,7 +278,7 @@ namespace SpdReaderWriterGUI {
 				crcValidChecksum = validateCrc(SpdContents);
 				tabPageMain.Text = $"{MySpdReader.PortName}:{MySpdReader.EepromAddress}";
 			}
-			
+
 			Logger($"Read SPD ({SpdContents.Length} bytes) from {MySpdReader.PortName}:{MySpdReader.EepromAddress} in {stop - start} ms");
 		}
 
@@ -309,7 +316,7 @@ namespace SpdReaderWriterGUI {
 		}
 
 		private string BinToHex(byte[] input, int bytesPerRow = 16, int bytesGroup = 4) {
-			
+
 			string output = "";
 
 			// Print contents
@@ -352,17 +359,17 @@ namespace SpdReaderWriterGUI {
 			if (saveFileDialog.ShowDialog() == DialogResult.OK && saveFileDialog.FileName != "") {
 				currentFileName = saveFileDialog.FileName;
 				File.WriteAllBytes(currentFileName, SpdContents);
-				Logger($"Saved {SpdContents.Length} byte(s) to {currentFileName}");
+				Logger($"Saved {SpdContents.Length} byte(s) to '{currentFileName}'");
 			}
 		}
 
 		private void writeSpdToEeprom(object sender, EventArgs e) {
 
 			DialogResult _writeConfirmation = MessageBox.Show(
-				"Are you sure you want to write SPD to EEPROM?\n\nThis process is irreversible and you will not be able to restore old SPD, unless you have a backup copy.", 
+				"Are you sure you want to write SPD to EEPROM?\n\nThis process is irreversible and you will not be able to restore old SPD, unless you have a backup copy.",
 				"Write",
-				MessageBoxButtons.YesNo, 
-				MessageBoxIcon.Exclamation, 
+				MessageBoxButtons.YesNo,
+				MessageBoxIcon.Exclamation,
 				MessageBoxDefaultButton.Button2);
 
 			if (_writeConfirmation == DialogResult.No) {
@@ -374,9 +381,9 @@ namespace SpdReaderWriterGUI {
 			// Warn if CRC is invalid
 			if (!crcValidChecksum) {
 				DialogResult _crcConfirmation = MessageBox.Show(
-					"The loaded SPD CRC is not valid!\n\nAre you sure you want to write this SPD?", 
-					"Warning", 
-					MessageBoxButtons.YesNo, 
+					"The loaded SPD CRC is not valid!\n\nAre you sure you want to write this SPD?",
+					"Warning",
+					MessageBoxButtons.YesNo,
 					MessageBoxIcon.Warning);
 				if (_crcConfirmation == DialogResult.No) {
 					Logger("Invalid CRC - write aborted by user");
@@ -403,7 +410,7 @@ namespace SpdReaderWriterGUI {
 						// Yes button pressed
 						if (_result == DialogResult.Retry) {
 							Logger("Attempting to clear write protection");
-							clearWriteProtection(null, null);
+							clearWriteProtection(this, null);
 							Thread.Sleep(100);
 							i--; // Decrement the value of i to retry writing the same byte after WP clear is attempted
 							continue;
@@ -440,7 +447,7 @@ namespace SpdReaderWriterGUI {
 			string path = "";
 
 			// A fix to prevent opening file "Open" if it exists in the same directory where the binary is located
-			if (sender.GetType() == typeof(String)) { 
+			if (sender.GetType() == typeof(String)) {
 				path = sender.ToString();
 			}
 
@@ -458,7 +465,7 @@ namespace SpdReaderWriterGUI {
 					return;
 				}
 			}
-			
+
 			byte[] _SpdContents = File.ReadAllBytes(path);
 			if (_SpdContents.Length > 1024) {
 				string _errorMessage = "File \"{0}\" not opened, too big";
@@ -504,10 +511,10 @@ namespace SpdReaderWriterGUI {
 			// Highlight tabPageMain if the tab is not active
 			if (tabControlMain.SelectedTab != tabPageMain) {
 				tabPageMain.ForeColor = Color.Blue; // Doesn't work, when DrawMode is set to Normal
-				//tabPageMain.Text = $"*{tabPageMain.Text}*";
+													//tabPageMain.Text = $"*{tabPageMain.Text}*";
 			}
 		}
-		
+
 
 		private void aboutToolStripMenuItem_Click(object sender, EventArgs e) {
 			formAbout about = new formAbout();
@@ -521,7 +528,7 @@ namespace SpdReaderWriterGUI {
 				Logger($"File '{currentFileName}' saved");
 			}
 			else {
-				saveToFile(null,null);
+				saveToFile(this, null);
 			}
 		}
 
@@ -531,8 +538,8 @@ namespace SpdReaderWriterGUI {
 			bool _deviceConnectionEstablished = MySpdReader != null && MySpdReader.IsConnected;
 			bool _eepromWriteable = _deviceConnectionEstablished && SpdContents.Length != 0;
 			bool _progressBarActive = statusProgressBar.Value == statusProgressBar.Minimum ||
-			                          statusProgressBar.Value == statusProgressBar.Maximum;
-			readEeprom_button.Enabled =  _deviceConnectionEstablished && _progressBarActive;
+									  statusProgressBar.Value == statusProgressBar.Maximum;
+			readEeprom_button.Enabled = _deviceConnectionEstablished && _progressBarActive;
 			readToolStripMenuItem.Enabled = _deviceConnectionEstablished && _progressBarActive;
 			disconnectToolStripMenuItem.Enabled = _deviceConnectionEstablished;
 			testToolStripMenuItem.Enabled = _deviceConnectionEstablished;
@@ -554,9 +561,9 @@ namespace SpdReaderWriterGUI {
 
 			// CRC status
 			statusBarCrcStatus.Visible = SpdContents.Length == 512 && statusProgressBar.Value == statusProgressBar.Maximum;
-			statusBarCrcStatus.Text = (SpdContents.Length == 512 && crcValidChecksum) ? "CRC OK" : "CRC Error"; 
-			statusBarCrcStatus.ForeColor = (SpdContents.Length == 512 && crcValidChecksum ) ? Color.FromArgb(128, 255, 128) : Color.White;
-			statusBarCrcStatus.BackColor = (SpdContents.Length == 512 && crcValidChecksum ) ? Color.FromArgb(255, 0, 64, 0) : Color.FromArgb(192, 255, 0, 0);
+			statusBarCrcStatus.Text = (SpdContents.Length == 512 && crcValidChecksum) ? "CRC OK" : "CRC Error";
+			statusBarCrcStatus.ForeColor = (SpdContents.Length == 512 && crcValidChecksum) ? Color.FromArgb(128, 255, 128) : Color.White;
+			statusBarCrcStatus.BackColor = (SpdContents.Length == 512 && crcValidChecksum) ? Color.FromArgb(255, 0, 64, 0) : Color.FromArgb(192, 255, 0, 0);
 			fixCrcToolStripMenuItem.Enabled = !crcValidChecksum && _spdLoaded;
 
 			// Status progress bar (hide when value is 0 or maximum)
@@ -605,9 +612,9 @@ namespace SpdReaderWriterGUI {
 
 			DialogResult _protectConfirmation = MessageBox.Show(
 				"You won't be able to write to EEPROM again until the protection is cleared.\n\nAre you sure you want to enable write protection?\n\n",
-				"Write protection", 
-				MessageBoxButtons.YesNo, 
-				MessageBoxIcon.Exclamation, 
+				"Write protection",
+				MessageBoxButtons.YesNo,
+				MessageBoxIcon.Exclamation,
 				MessageBoxDefaultButton.Button2);
 
 			if (_protectConfirmation == DialogResult.No) {
@@ -658,21 +665,11 @@ namespace SpdReaderWriterGUI {
 		}
 
 		private void copyHexMenuItem_Click(object sender, EventArgs e) {
-			
+
 			// Remove blank spaces and new lines
-			Clipboard.SetText(textBoxHex.Text.Replace(" ", String.Empty).Replace(Environment.NewLine,  String.Empty));
+			Clipboard.SetText(textBoxHex.Text.Replace(" ", String.Empty).Replace(Environment.NewLine, String.Empty));
 		}
-
-		private void formMain_DragDrop(object sender, DragEventArgs e) {
-			if (e.Data.GetDataPresent(DataFormats.FileDrop)) {
-				string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
-				foreach (string filePath in files) {
-					Console.WriteLine(filePath);
-				}
-			}
-
-			MessageBox.Show("DragDrop event");
-		}
+		
 
 		private void buttonClearLog_Click(object sender, EventArgs e) {
 			while (loggerBox.Items.Count > 0) {
@@ -689,13 +686,13 @@ namespace SpdReaderWriterGUI {
 
 				if (saveFileDialog.ShowDialog() == DialogResult.OK && saveFileDialog.FileName != "") {
 					string[] log = new string[loggerBox.Items.Count];
-					
+
 					for (int i = 0; i < log.Length; i++) {
 						log[i] = loggerBox.Items[i].ToString();
 					}
 
 					File.WriteAllLines(saveFileDialog.FileName, log);
-					Logger($"Log saved to {saveFileDialog.FileName}");
+					Logger($"Log saved to file '{saveFileDialog.FileName}'");
 				}
 			}
 		}
@@ -708,27 +705,28 @@ namespace SpdReaderWriterGUI {
 
 			SaveFileDialog _saveScreenshot = new SaveFileDialog();
 
-			_saveScreenshot.Filter = "Bitmap files (*.bmp)|*.bmp|All files (*.*)|*.*";
+			_saveScreenshot.Filter = "PNG files (*.png)|*.png|All files (*.*)|*.*";
 			_saveScreenshot.FilterIndex = 0;
 			_saveScreenshot.RestoreDirectory = true;
+			_saveScreenshot.FileName = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}_{(DateTime.Now).Hour}{(DateTime.Now).Minute}{(DateTime.Now).Second}{(DateTime.Now).Millisecond}";
 
 			if (_saveScreenshot.ShowDialog() == DialogResult.OK && _saveScreenshot.FileName != "") {
-				bmp.Save(_saveScreenshot.FileName);
+				png.Save(_saveScreenshot.FileName, ImageFormat.Png);
 			}
-			Logger($"Screenshot saved to '{_saveScreenshot.FileName}'");
+			Logger($"Screenshot saved to file '{_saveScreenshot.FileName}'");
 		}
 
 
 		// This function creates a screenshot the moment the mouse enters the 'screenshot' button, to prevent from screenshotting tooltip
 		private void prepareScreenShot(object sender, EventArgs e) {
 			//((ToolStripButton) sender).ToolTipText = "";
-			Graphics.FromImage(bmp).CopyFromScreen(Location.X, Location.Y, 0, 0, Size);
+			Graphics.FromImage(png).CopyFromScreen(Location.X, Location.Y, 0, 0, Size);
 		}
 
 		private void formResized(object sender, EventArgs e) {
 			// If the form got resized, change the size of screenshot bitmap
-			bmp = new Bitmap(Size.Width, Size.Height, CreateGraphics());
-			
+			png = new Bitmap(Size.Width, Size.Height, CreateGraphics());
+
 		}
 
 		private void donateViaPaypalToolStripMenuItem_Click(object sender, EventArgs e) {
@@ -740,7 +738,7 @@ namespace SpdReaderWriterGUI {
 				DialogResult _dr = MessageBox.Show("The CRC is not valid.\n\nDo you want to correct it?", "CRC status",
 					MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 				if (_dr == DialogResult.Yes) {
-					fixCrcMenuItem_Click(new object(), new EventArgs());
+					fixCrcMenuItem_Click(this, new EventArgs());
 				}
 			}
 		}
