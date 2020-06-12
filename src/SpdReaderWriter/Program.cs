@@ -219,7 +219,7 @@ namespace SpdReaderWriter {
 
 						for (int i = 0; i < spdDump.Length; i++) {
 							if (!silent) {
-								Eeprom.ConsoleDisplayByte(i, spdDump[i]);
+								ConsoleDisplayByte(i, spdDump[i]);
 							}
 						}
 
@@ -292,7 +292,7 @@ namespace SpdReaderWriter {
 							bytesWritten++;
 
 							if (!silent) {
-								Eeprom.ConsoleDisplayByte(i, b);
+								ConsoleDisplayByte(i, b);
 							}
 						}
 						reader.Disconnect();
@@ -322,6 +322,77 @@ namespace SpdReaderWriter {
 
 			Console.WriteLine("Unknown command line parameters.\n");
 			ShowHelp();
+		}
+
+		/// <summary>
+		/// Prints bytes in a grid pattern
+		/// </summary>
+		/// <param name="pos">Byte offset</param>
+		/// <param name="b">Byte value</param>
+		/// <param name="bpr">Bytes per row</param>
+		/// <param name="showOffset">Show or hide offsets on top and at the beginning of each line</param>
+		/// <param name="color">Set to true to display colored output, or false to disable colors</param>
+		static void ConsoleDisplayByte(int pos, byte b, int bpr = 16, bool showOffset = true, bool color = true) {
+
+			ConsoleColor _defaultForeColor = Console.ForegroundColor;   // Text Color
+			ConsoleColor _defaultBackColor = Console.BackgroundColor;   // Background Color
+
+			// Colors sorted in rainbow order
+			ConsoleColor[] colors = {
+				ConsoleColor.DarkGray,
+				ConsoleColor.Gray,
+				ConsoleColor.Red,
+				ConsoleColor.DarkRed,
+				ConsoleColor.DarkYellow,
+				ConsoleColor.Yellow,
+				ConsoleColor.Green,
+				ConsoleColor.DarkGreen,
+				ConsoleColor.DarkCyan,
+				ConsoleColor.Cyan,
+				ConsoleColor.Blue,
+				ConsoleColor.DarkBlue,
+				ConsoleColor.DarkMagenta,
+				ConsoleColor.Magenta,
+				ConsoleColor.White,
+				ConsoleColor.Gray,
+			};
+
+			// Print top row (offsets)
+			if (pos == 0 && showOffset) {
+				Console.Write("     "); // Indentation
+				for (int i = 0; i < bpr; i++) {
+					Console.Write($"{i:x2} ");
+				}
+			}
+
+			// Print contents
+			if (pos % bpr == 0) {
+				Console.Write(Environment.NewLine);
+				if (showOffset) {
+					// Print row offsets
+					Console.Write("{0:x3}: ", pos);
+				}
+			}
+
+			// Set colors
+			if (color) {
+				// Print byte values on black background, so the output looks good in cmd and in powershell
+				Console.BackgroundColor = ConsoleColor.Black;
+				// Set color 
+				Console.ForegroundColor = colors[b >> 4];
+			}
+			// Print byte value
+			Console.Write($"{b:X2}");
+
+			// Print blank space between each byte, but not at the end of the line
+			if (pos % bpr != bpr - 1) {
+				Console.Write(" ");
+			}
+
+			// Reset foreground (text) color
+			Console.ForegroundColor = _defaultForeColor;
+			// Reset background color
+			Console.BackgroundColor = _defaultBackColor;
 		}
 	}
 }
