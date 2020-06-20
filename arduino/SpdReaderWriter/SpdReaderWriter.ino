@@ -122,9 +122,10 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
 void setPageAddress(uint8_t pageAddress) {
   // command doesn't use the select address, all devices on the I2C bus will act simultaneously
-  Wire.beginTransmission((pageAddress == 0) ? SPA0 : SPA1);
-  delay(5);
+  Wire.beginTransmission((pageAddress == 0) ? SPA0 : SPA1);  
   Wire.endTransmission();
+
+  delay(5);
 
   eeAddress = pageAddress;
 }
