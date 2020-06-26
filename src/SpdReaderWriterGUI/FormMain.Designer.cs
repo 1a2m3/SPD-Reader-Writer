@@ -193,7 +193,7 @@
             this.saveasToolStripMenuItem});
 			this.fIleToolStripMenuItem.Name = "fIleToolStripMenuItem";
 			this.fIleToolStripMenuItem.Size = new System.Drawing.Size(37, 20);
-			this.fIleToolStripMenuItem.Text = "File";
+			this.fIleToolStripMenuItem.Text = "&File";
 			// 
 			// openToolStripMenuItem
 			// 
