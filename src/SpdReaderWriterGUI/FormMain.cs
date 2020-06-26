@@ -4,12 +4,22 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using SpdReaderWriterDll;
 
 namespace SpdReaderWriterGUI {
+
 	public partial class formMain : Form {
+
+		const int PROCESS_WM_READ = 0x0010;
+
+		[DllImport("kernel32.dll")]
+		public static extern IntPtr OpenProcess(int dwDesiredAccess, bool bInheritHandle, int dwProcessId);
+
+		[DllImport("kernel32.dll")]
+		public static extern bool ReadProcessMemory(int hProcess, int lpBaseAddress, byte[] lpBuffer, int dwSize, ref int lpNumberOfBytesRead);
 		public formMain() {
 			InitializeComponent();
 		}
@@ -683,6 +693,7 @@ namespace SpdReaderWriterGUI {
 				saveFileDialog.Filter = "Text files (*.txt)|*.txt|Log files (*.log)|*.log|All files (*.*)|*.*";
 				saveFileDialog.FilterIndex = 0;
 				saveFileDialog.RestoreDirectory = true;
+				saveFileDialog.FileName = $"{System.Reflection.Assembly.GetExecutingAssembly().GetName().Name}_{(DateTime.Now).Hour}{(DateTime.Now).Minute}{(DateTime.Now).Second}{(DateTime.Now).Millisecond}";
 
 				if (saveFileDialog.ShowDialog() == DialogResult.OK && saveFileDialog.FileName != "") {
 					string[] log = new string[loggerBox.Items.Count];
@@ -712,8 +723,8 @@ namespace SpdReaderWriterGUI {
 
 			if (_saveScreenshot.ShowDialog() == DialogResult.OK && _saveScreenshot.FileName != "") {
 				png.Save(_saveScreenshot.FileName, ImageFormat.Png);
+				Logger($"Screenshot saved to file '{_saveScreenshot.FileName}'");
 			}
-			Logger($"Screenshot saved to file '{_saveScreenshot.FileName}'");
 		}
 
 
@@ -741,6 +752,10 @@ namespace SpdReaderWriterGUI {
 					fixCrcMenuItem_Click(this, new EventArgs());
 				}
 			}
+		}
+
+		private void importThaiphoonBurnerDumpToolStripMenuItem_Click(object sender, EventArgs e) {
+			
 		}
 	}
 }
