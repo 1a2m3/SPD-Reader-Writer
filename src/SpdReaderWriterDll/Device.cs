@@ -238,7 +238,7 @@ namespace SpdReaderWriterDll {
 
 					char welcomeString = '!';
 					int retryCount = 0;
-					int retryLimit = 1000; // If the device didn't respond after this many tries, it's probably dead
+					int retryLimit = 100; // If the device didn't respond after this many tries, it's probably dead
 
 					while (device.BytesToRead < 1) {
 
