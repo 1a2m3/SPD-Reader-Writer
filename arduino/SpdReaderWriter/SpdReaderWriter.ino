@@ -7,8 +7,8 @@
 #define SERIAL_BAUD_RATE 115200
 
 // EEPROM commands
-#define SPA0 0x36 // Set EE Page Address to 0
-#define SPA1 0x37 // Set EE Page Address to 1
+#define SPA0 0x36  // Set EE Page Address to 0
+#define SPA1 0x37  // Set EE Page Address to 1
 
 // RSWP commands
 #define SWP0 0x31  // Set Write Protection for block 0 (addresses  00h to  7Fh) (  0-127)
@@ -17,7 +17,7 @@
 #define SWP3 0x30  // Set Write Protection for block 3 (addresses 180h to 1FFh) (384-511)
 #define CWP  0x33  // Clear Write Protection for all 4 blocks
 
-#define HVSW 13    // High Voltage (Optocoupler) switch pin
+#define HVSW 6     // High Voltage (Optocoupler) switch pin
 
 int eeAddress = 0; // EE Page address
 
