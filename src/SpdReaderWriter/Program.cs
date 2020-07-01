@@ -192,7 +192,7 @@ namespace SpdReaderWriter {
 					}
 
 					reader.EepromAddress = address;
-					reader.SpdSize = SpdSize.DDR4_SPD_SIZE;
+					reader.SpdSize = Eeprom.GetSpdSize(reader);
 
 					if (!reader.Probe()) {
 						throw new Exception($"EEPROM is not present at address {reader.EepromAddress}.");
