@@ -102,14 +102,13 @@ namespace SpdReaderWriterGUI {
 
 			int[] headerStart = new int[0];
 			int headerLength = 0;
-			int crcPosition = 0;
+			int crcPosition = 126;
 
 			// Get DDR4 CRC data
 			if (Eeprom.GetRamType(input) == RamType.DDR4) {
 				// Read 126 bytes from headersStart positions
 				headerStart = new [] { 0, 128 };
-				headerLength = 126;
-				crcPosition = 126;
+				headerLength = 126;			
 			}
 
 			// Get DDR3 CRC data
