@@ -6,11 +6,12 @@ namespace SpdReaderWriterDll {
 	/// Defines RAM Type 
 	/// </summary>
 	public enum RamType {
-		SDR  = 4,
-		DDR  = 7,
-		DDR2 = 8,
-		DDR3 = 11,
-		DDR4 = 12,
+		UNKNOWN = 0,
+		SDR     = 4,
+		DDR     = 7,
+		DDR2    = 8,
+		DDR3    = 11,
+		DDR4    = 12,
 	}
 
 	/// <summary>
@@ -18,21 +19,36 @@ namespace SpdReaderWriterDll {
 	/// </summary>
 	public enum SpdSize {
 		/// <summary>
+		/// SD RAM SPD Total Size
+		/// </summary>
+		SDR_SPD_SIZE  = 128,
+		/// <summary>
 		/// DDR RAM SPD Total Size
 		/// </summary>
-		DDR_SPD_SIZE = 0x80, // 128 bytes
+		DDR_SPD_SIZE  = 256,
 		/// <summary>
 		/// DDR2 RAM SPD Total Size
 		/// </summary>
-		DDR2_SPD_SIZE = 0x100, // 256 bytes
+		DDR2_SPD_SIZE = 256,
 		/// <summary>
 		/// DDR3 RAM SPD Total Size
 		/// </summary>
-		DDR3_SPD_SIZE = 0x100, // 256 bytes
+		DDR3_SPD_SIZE = 256,
 		/// <summary>
 		/// DDR4 RAM SPD Total Size
 		/// </summary>
-		DDR4_SPD_SIZE = 0x200, // 512 bytes
+		DDR4_SPD_SIZE = 512,
+	}
+
+	public enum DramManufacturer {
+	    //0x2C00—Micron Technology, Inc.
+	    //0x5105—Qimonda AG i. In.
+	    //0x802C—Micron Technology, Inc.
+	    //0x80AD—Hynix Semiconductor Inc.
+	    //0x80CE—Samsung Electronics, Inc.
+	    //0x8551—Qimonda AG i. In.
+	    //0xAD00—Hynix Semiconductor Inc.
+	    //0xCE00—Samsung Electronics, Inc.
 	}
 
 	/// <summary>
@@ -84,12 +100,8 @@ namespace SpdReaderWriterDll {
 			lock (device.PortLock) {
 				device.ExecuteCommand($"w {device.EepromAddress} {offset} {value}");
 
-				if (device.GetResponse(0) == 0) { // The device responds with 0 upon successful write
-					return true;
-				}
+				return device.GetResponse(0) == 0; // The device responds with 0 upon successful write
 			}
-
-			return false;
 		}
 
 		/// <summary>
@@ -126,12 +138,9 @@ namespace SpdReaderWriterDll {
 
 			lock (device.PortLock) {
 				device.ExecuteCommand($"e {block}"); // WP commands don't use address, all devices on the bus will respond simultaneously
-				if (device.GetResponse(0) == 0) {
-					return true;
-				}
-			}
 
-			return false;
+				return device.GetResponse(0) == 0;
+			}
 		}
 
 		/// <summary>
@@ -143,6 +152,7 @@ namespace SpdReaderWriterDll {
 
 			for (int i = 0; i <= 3; i++) {
 				if (!SetWriteProtection(device, i)) {
+
 					return false;
 				}
 			}
@@ -159,13 +169,9 @@ namespace SpdReaderWriterDll {
 
 			lock (device.PortLock) {
 				device.ExecuteCommand("c"); // WP commands don't use address, all devices on the bus will respond simultaneously
-				if (device.GetResponse(0) == 0) {
 
-					return true;
-				}
+				return device.GetResponse(0) == 0;
 			}
-
-			return false;
 		}
 
 		/// <summary>
@@ -175,18 +181,75 @@ namespace SpdReaderWriterDll {
 		/// <returns>RAM Type</returns>
 		public static RamType GetRamType(Device device) {
 			// Byte at offset 0x02 in SPD indicates RAM type
-			return (RamType) Eeprom.ReadByte(device, 0x02, 1)[0];
+			byte rt = Eeprom.ReadByte(device, 0x02);
+			if (Enum.IsDefined(typeof(RamType), (RamType)rt)) {
+				return (RamType)rt;
+			}
+			return RamType.UNKNOWN;
 		}
 
-		// TODO: Get EEPROM size from SPD data (byte 1)
-		public static SpdSize GetEepromSize(Device device) {
-			if (GetRamType(device) == RamType.DDR3) {
-				//
+		/// <summary>
+		/// Gets RAM type from SPD data
+		/// </summary>
+		/// <param name="spd">SPD dump</param>
+		/// <returns>RAM Type</returns>
+		public static RamType GetRamType(byte[] spd) {
+			// Byte at offset 0x02 in SPD indicates RAM type
+			byte _ramType = spd[0x02];
+			if (Enum.IsDefined(typeof(RamType), (RamType)_ramType)) {
+				return (RamType)_ramType;
 			}
-			else {
+			return RamType.UNKNOWN;
+		}
 
+		/// <summary>
+		/// Gets total EEPROM size
+		/// </summary>
+		/// <param name="device">Device instance</param>
+		/// <returns>SPD size</returns>
+		public static SpdSize GetSpdSize(Device device) {
+
+			switch (GetRamType(device)) {
+				case RamType.SDR:  return SpdSize.SDR_SPD_SIZE;
+				case RamType.DDR:  return SpdSize.DDR_SPD_SIZE;
+				case RamType.DDR2: return SpdSize.DDR2_SPD_SIZE;
+				case RamType.DDR3: return SpdSize.DDR3_SPD_SIZE;
+				case RamType.DDR4: return SpdSize.DDR4_SPD_SIZE;
+				default:           return (SpdSize) 512;
 			}
-			return SpdSize.DDR4_SPD_SIZE;
+		}
+
+		/// <summary>
+		/// Gets model name from SPD contents
+		/// </summary>
+		/// <param name="spd">SPD contents</param>
+		/// <returns>Model name</returns>
+		public static string GetModuleModelName(byte[] spd) {
+
+			// Part number location for SDR-DDR2 SPDs
+			int modelNameStart;
+			int modelNameEnd;
+
+			switch (GetRamType(spd)) {
+				case RamType.DDR4:  // Part number location for DDR4 SPDs
+					modelNameStart = 0x149;
+					modelNameEnd = 0x15C;
+					break;
+				case RamType.DDR3:  // Part number location for DDR3 SPDs
+					modelNameStart = 0x80;
+					modelNameEnd = 0x91;
+					break;
+				default:
+					modelNameStart = 0x49;
+					modelNameEnd = 0x5A;
+					break;
+			}
+
+			char[] _chars = new char[modelNameEnd - modelNameStart + 1];
+			for (int i = 0; i < _chars.Length; i++) {
+				_chars[i] = (char)spd[modelNameStart + i];
+			}
+			return new string(_chars).Trim();
 		}
 
 		/// <summary>
@@ -214,6 +277,21 @@ namespace SpdReaderWriterDll {
 
 			for (int i = 0; i < input.Length; ++i) {
 				crc = (ushort)((crc << 8) ^ table[((crc >> 8) ^ (0xff & input[i]))]);
+			}
+
+			return crc;
+		}
+
+		/// <summary>
+		/// Calculates CRC8 checksum
+		/// </summary>
+		/// <param name="input">A byte array to be checked</param>
+		/// <returns>A calculated checksum</returns>
+		public static ushort Crc(byte[] input) {
+			ushort crc = 0;
+
+			for (int i = 0; i < input.Length; i++ ) {
+				crc += input[i];
 			}
 
 			return crc;
