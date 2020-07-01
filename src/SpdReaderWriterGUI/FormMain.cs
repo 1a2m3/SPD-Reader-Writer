@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
@@ -20,6 +20,7 @@ namespace SpdReaderWriterGUI {
 
 		[DllImport("kernel32.dll")]
 		public static extern bool ReadProcessMemory(int hProcess, int lpBaseAddress, byte[] lpBuffer, int dwSize, ref int lpNumberOfBytesRead);
+
 		public formMain() {
 			InitializeComponent();
 		}
@@ -43,6 +44,9 @@ namespace SpdReaderWriterGUI {
 
 		// Screenshot template
 		Bitmap png;
+
+		// RAM type
+		private RamType rt;
 
 		// Command line arguments
 		string[] args = Environment.GetCommandLineArgs();
@@ -73,7 +77,7 @@ namespace SpdReaderWriterGUI {
 
 		private bool validateCrc(byte[] input) {
 
-			if (input.Length < 256) {
+			if (input.Length < (int) SpdSize.DDR_SPD_SIZE) {
 				return false;
 			}
 
@@ -96,28 +100,65 @@ namespace SpdReaderWriterGUI {
 				_spd[i] = input[i];
 			}
 
-			// Read 126 bytes from headersStart positions
-			int[] headerStart = { 0, 128 };
-			int headerLength = 126;
+			int[] headerStart = new int[0];
+			int headerLength = 0;
+			int crcPosition = 0;
 
-			foreach (int _headerStart in headerStart) {
-				byte[] header = new byte[headerLength];
-				for (int i = 0; i < headerLength; i++) {
-					header[i] = _spd[i + _headerStart];
-				}
+			// Get DDR4 CRC data
+			if (Eeprom.GetRamType(input) == RamType.DDR4) {
+				// Read 126 bytes from headersStart positions
+				headerStart = new [] { 0, 128 };
+				headerLength = 126;
+				crcPosition = 126;
+			}
 
-				ushort crc = Eeprom.Crc16(header);
+			// Get DDR3 CRC data
+			if (Eeprom.GetRamType(input) == RamType.DDR3) {
+				headerStart = new [] { 0 };
+				// Exclude SN from CRC?
+				headerLength = ((input[0] >> 7) == 1) ? 117 : 126;
+			}
 
-				byte CrcLsb = (byte)(crc & 0xff);
-				byte CrcMsb = (byte)(crc >> 8);
+			// Calculate DDR3 and DDR4 CRC
+			if (Eeprom.GetRamType(input) == RamType.DDR4 || Eeprom.GetRamType(input) == RamType.DDR3) {
+				foreach (int _headerStart in headerStart) {
+					byte[] header = new byte[headerLength];
+					for (int i = 0; i < headerLength; i++) {
+						header[i] = _spd[i + _headerStart];
+					}
 
-				if (_spd[_headerStart + headerLength + 0] != CrcLsb || // MSB
-					_spd[_headerStart + headerLength + 1] != CrcMsb) { //LSB
+					ushort crc = Eeprom.Crc16(header);
 
-					_spd[_headerStart + headerLength + 0] = CrcLsb;
-					_spd[_headerStart + headerLength + 1] = CrcMsb;
+					byte CrcLsb = (byte)(crc & 0xff);
+					byte CrcMsb = (byte)(crc >> 8);
+
+					if (_spd[_headerStart + crcPosition + 0] != CrcLsb || // MSB
+						_spd[_headerStart + crcPosition + 1] != CrcMsb) { //LSB
+
+						_spd[_headerStart + crcPosition + 0] = CrcLsb;
+						_spd[_headerStart + crcPosition + 1] = CrcMsb;
+					}
 				}
 			}
+
+			// Calculate SDR - DDR2 CRC
+			else if (Eeprom.GetRamType(input) != RamType.UNKNOWN) {
+				//headerStart = new [] { 0 };
+				headerLength = 63;
+				crcPosition = 64;
+				byte[] header = new byte[headerLength];
+
+				for (int i = 0; i < headerLength; i++) {
+					header[i] += _spd[i];
+				}
+
+				byte crc = (byte)Eeprom.Crc(header);
+
+				if (_spd[crcPosition - 1] != crc) {
+					_spd[crcPosition - 1] = crc;
+				}
+			}
+
 			return _spd;
 		}
 
@@ -252,10 +293,12 @@ namespace SpdReaderWriterGUI {
 
 			// Connect
 			if (MySpdReader == null || !MySpdReader.IsConnected) {
-				MySpdReader = new Device(_port, _address, SpdSize.DDR4_SPD_SIZE);
+				MySpdReader = new Device(_port, _address);
+				MySpdReader.SpdSize = Eeprom.GetSpdSize(MySpdReader);
 				if (MySpdReader.Connect()) {
 					_sender.Checked = true;
-					Logger($"{_port}:{_address} connected");
+					rt = Eeprom.GetRamType(MySpdReader);
+					Logger($"{_port}:{_address} connected ({rt})");
 				}
 			}
 		}
@@ -287,6 +330,9 @@ namespace SpdReaderWriterGUI {
 				displayContents(SpdContents);
 				crcValidChecksum = validateCrc(SpdContents);
 				tabPageMain.Text = $"{MySpdReader.PortName}:{MySpdReader.EepromAddress}";
+				if (tabControlMain.SelectedTab != tabPageMain) {
+					tabPageMain.Text = $"* {tabPageMain.Text}";
+				}
 			}
 
 			Logger($"Read SPD ({SpdContents.Length} bytes) from {MySpdReader.PortName}:{MySpdReader.EepromAddress} in {stop - start} ms");
@@ -361,10 +407,11 @@ namespace SpdReaderWriterGUI {
 				return;
 			}
 
-			SaveFileDialog saveFileDialog = new SaveFileDialog();
-			saveFileDialog.Filter = "Binary files (*.bin)|*.bin|SPD Dumps (*.spd)|*.spd|All files (*.*)|*.*";
-			saveFileDialog.FilterIndex = 0;
+			SaveFileDialog saveFileDialog   = new SaveFileDialog();
+			saveFileDialog.Filter           = "Binary files (*.bin)|*.bin|SPD Dumps (*.spd)|*.spd|All files (*.*)|*.*";
+			saveFileDialog.FilterIndex      = 0;
 			saveFileDialog.RestoreDirectory = true;
+			saveFileDialog.FileName         = Eeprom.GetModuleModelName(SpdContents);
 
 			if (saveFileDialog.ShowDialog() == DialogResult.OK && saveFileDialog.FileName != "") {
 				currentFileName = saveFileDialog.FileName;
@@ -487,6 +534,10 @@ namespace SpdReaderWriterGUI {
 			}
 			currentFileName = path;
 
+			if (currentFileName != "" && tabPageMain.Text != Path.GetFileName(currentFileName)) {
+				tabPageMain.Text = Path.GetFileName(currentFileName);
+			}
+
 			SpdContents = _SpdContents;
 			displayContents(SpdContents);
 			statusProgressBar.Value = statusProgressBar.Maximum;
@@ -521,7 +572,7 @@ namespace SpdReaderWriterGUI {
 			// Highlight tabPageMain if the tab is not active
 			if (tabControlMain.SelectedTab != tabPageMain) {
 				tabPageMain.ForeColor = Color.Blue; // Doesn't work, when DrawMode is set to Normal
-													//tabPageMain.Text = $"*{tabPageMain.Text}*";
+				tabPageMain.Text = $"* {tabPageMain.Text}";
 			}
 		}
 
@@ -545,49 +596,60 @@ namespace SpdReaderWriterGUI {
 		private void timerInterfaceUpdater_Tick(object sender, EventArgs e) {
 
 			// Enable or disable EEPROM toolbar buttons and menus depending on device state
-			bool _deviceConnectionEstablished = MySpdReader != null && MySpdReader.IsConnected;
-			bool _eepromWriteable = _deviceConnectionEstablished && SpdContents.Length != 0;
-			bool _progressBarActive = statusProgressBar.Value == statusProgressBar.Minimum ||
-									  statusProgressBar.Value == statusProgressBar.Maximum;
-			readEeprom_button.Enabled = _deviceConnectionEstablished && _progressBarActive;
-			readToolStripMenuItem.Enabled = _deviceConnectionEstablished && _progressBarActive;
+			bool _deviceConnectionEstablished   = MySpdReader != null && MySpdReader.IsConnected;
+			bool _eepromWriteable               = _deviceConnectionEstablished && SpdContents.Length != 0;
+			bool _progressBarActive             = statusProgressBar.Value == statusProgressBar.Minimum || statusProgressBar.Value == statusProgressBar.Maximum;
+			readEeprom_button.Enabled           = _deviceConnectionEstablished && _progressBarActive;
+			readToolStripMenuItem.Enabled       = _deviceConnectionEstablished && _progressBarActive;
 			disconnectToolStripMenuItem.Enabled = _deviceConnectionEstablished;
-			testToolStripMenuItem.Enabled = _deviceConnectionEstablished;
-			clearToolStripMenuItem.Enabled = _deviceConnectionEstablished && _progressBarActive;
-			enableToolStripMenuItem.Enabled = _deviceConnectionEstablished && _progressBarActive;
-			enableRswpButton.Enabled = _deviceConnectionEstablished && _progressBarActive;
-			clearRswpButton.Enabled = _deviceConnectionEstablished && _progressBarActive;
-			writeEeprom_button.Enabled = _eepromWriteable && _progressBarActive;
-			writeToolStripMenuItem.Enabled = _eepromWriteable && _progressBarActive;
-			refreshToolStripMenuItem.Enabled = !_deviceConnectionEstablished;
+			testToolStripMenuItem.Enabled       = _deviceConnectionEstablished;
+			clearToolStripMenuItem.Enabled      = _deviceConnectionEstablished && _progressBarActive && rt == RamType.DDR4;
+			enableToolStripMenuItem.Enabled     = _deviceConnectionEstablished && _progressBarActive && rt == RamType.DDR4;
+			enableRswpButton.Enabled            = _deviceConnectionEstablished && _progressBarActive && rt == RamType.DDR4;
+			clearRswpButton.Enabled             = _deviceConnectionEstablished && _progressBarActive && rt == RamType.DDR4;
+			writeEeprom_button.Enabled          = _eepromWriteable && _progressBarActive;
+			writeToolStripMenuItem.Enabled      = _eepromWriteable && _progressBarActive;
+			refreshToolStripMenuItem.Enabled    = !_deviceConnectionEstablished;
 
 			// Enable or disable file operations
-			bool _spdLoaded = SpdContents.Length != 0;
-			toolSaveFile_button.Enabled = _spdLoaded;
-			//crcDropdownMenu.Enabled = toolSaveFile_button.Enabled;
-			saveToolStripMenuItem.Enabled = _spdLoaded;
-			saveasToolStripMenuItem.Enabled = _spdLoaded;
+			bool _spdLoaded                  = SpdContents.Length != 0;
+			toolSaveFile_button.Enabled      = _spdLoaded;
+			//crcDropdownMenu.Enabled        = toolSaveFile_button.Enabled;
+			saveToolStripMenuItem.Enabled    = _spdLoaded;
+			saveasToolStripMenuItem.Enabled  = _spdLoaded;
 			copyHexToolStripMenuItem.Enabled = _spdLoaded;
 
 			// CRC status
-			statusBarCrcStatus.Visible = SpdContents.Length == 512 && statusProgressBar.Value == statusProgressBar.Maximum;
-			statusBarCrcStatus.Text = (SpdContents.Length == 512 && crcValidChecksum) ? "CRC OK" : "CRC Error";
-			statusBarCrcStatus.ForeColor = (SpdContents.Length == 512 && crcValidChecksum) ? Color.FromArgb(128, 255, 128) : Color.White;
-			statusBarCrcStatus.BackColor = (SpdContents.Length == 512 && crcValidChecksum) ? Color.FromArgb(255, 0, 64, 0) : Color.FromArgb(192, 255, 0, 0);
-			fixCrcToolStripMenuItem.Enabled = !crcValidChecksum && _spdLoaded;
+			if (_spdLoaded && (Eeprom.GetRamType(SpdContents) != RamType.UNKNOWN)) {
+				statusBarCrcStatus.Visible = statusProgressBar.Value == statusProgressBar.Maximum;
+				statusBarCrcStatus.Text         = (crcValidChecksum) ? "CRC OK" : "CRC Error";
+				statusBarCrcStatus.ForeColor    = (crcValidChecksum) ? Color.FromArgb(128, 255, 128) : Color.White;
+				statusBarCrcStatus.BackColor    = (crcValidChecksum) ? Color.FromArgb(255, 0, 64, 0) : Color.FromArgb(192, 255, 0, 0);
+				fixCrcToolStripMenuItem.Enabled = !crcValidChecksum && _spdLoaded;
+			}
+			else {
+				// Hide CRC status for non DDR4 RAM
+				statusBarCrcStatus.Visible = false;
+			}
+
+			// RAM type
+			if (_spdLoaded) {
+				toolStripStatusRamType.Text = $"{Eeprom.GetRamType(SpdContents)}"; //, {Eeprom.GetModuleModelName(SpdContents)}
+				toolStripStatusRamType.Visible = true;
+			}
 
 			// Status progress bar (hide when value is 0 or maximum)
 			//statusProgressBar.Visible = (statusProgressBar.Value > 0 && statusProgressBar.Value < statusProgressBar.Maximum);
 			statusProgressBar.Visible = !_progressBarActive;
 
 			// Connection Status
-			statusBarConnectionStatus.Enabled = _deviceConnectionEstablished;
+			statusBarConnectionStatus.Enabled   = _deviceConnectionEstablished;
 			statusBarConnectionStatus.ForeColor = (_deviceConnectionEstablished) ? Color.Navy : SystemColors.Control;
-			statusBarConnectionStatus.Text = (_deviceConnectionEstablished) ? $"Connected to {MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Not connected";
-			toolStripDeviceButton.Text = (_deviceConnectionEstablished) ? $"{MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Device";
+			statusBarConnectionStatus.Text      = (_deviceConnectionEstablished) ? $"Connected to {MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Not connected";
+			toolStripDeviceButton.Text          = (_deviceConnectionEstablished) ? $"{MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Device";
 
 			// Toolbar device button
-			toolStripDeviceButton.Text = (_deviceConnectionEstablished) ? $"{MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Device";
+			toolStripDeviceButton.Text        = (_deviceConnectionEstablished) ? $"{MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Device";
 			toolStripDeviceButton.ToolTipText = (_deviceConnectionEstablished) ? $"Connected to {MySpdReader.PortName}:{MySpdReader.EepromAddress}" : "Select device port and address";
 
 			// Split container looks
@@ -602,7 +664,7 @@ namespace SpdReaderWriterGUI {
 
 			// Main tab label
 			if (currentFileName != "" && tabPageMain.Text != Path.GetFileName(currentFileName)) {
-				tabPageMain.Text = Path.GetFileName(currentFileName);
+				//tabPageMain.Text = Path.GetFileName(currentFileName);
 			}
 
 			// Main tab color
@@ -737,7 +799,6 @@ namespace SpdReaderWriterGUI {
 		private void formResized(object sender, EventArgs e) {
 			// If the form got resized, change the size of screenshot bitmap
 			png = new Bitmap(Size.Width, Size.Height, CreateGraphics());
-
 		}
 
 		private void donateViaPaypalToolStripMenuItem_Click(object sender, EventArgs e) {
@@ -754,8 +815,19 @@ namespace SpdReaderWriterGUI {
 			}
 		}
 
-		private void importThaiphoonBurnerDumpToolStripMenuItem_Click(object sender, EventArgs e) {
-			
+		private void tabControlMain_SelectedIndexChanged(object sender, EventArgs e) {
+			if (tabControlMain.SelectedTab == tabPageMain && tabPageMain.Text.StartsWith("* ")) {
+				tabPageMain.Text = tabPageMain.Text.Replace("* ", "");
+			}
 		}
+
+		private void importThaiphoonBurnerDumpToolStripMenuItem_Click(object sender, EventArgs e) {
+
+		
+
+			MessageBox.Show("Thaiphoon Burner not running.", sender.ToString(), MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+		}
+
+		
 	}
 }
