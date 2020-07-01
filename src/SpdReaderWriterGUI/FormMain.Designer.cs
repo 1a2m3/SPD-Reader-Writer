@@ -33,6 +33,7 @@
 			this.menuStripMain = new System.Windows.Forms.MenuStrip();
 			this.fIleToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.openToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+			this.importThaiphoonBurnerDumpToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.saveToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.saveasToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
 			this.editToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
@@ -55,6 +56,7 @@
 			this.statusBarConnectionStatus = new System.Windows.Forms.ToolStripStatusLabel();
 			this.statusBarCrcStatus = new System.Windows.Forms.ToolStripStatusLabel();
 			this.statusProgressBar = new System.Windows.Forms.ToolStripProgressBar();
+			this.toolStripStatusRamType = new System.Windows.Forms.ToolStripStatusLabel();
 			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
 			this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
 			this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
@@ -117,12 +119,15 @@
 			// 
 			// textBoxHex
 			// 
+			this.textBoxHex.BackColor = System.Drawing.SystemColors.Window;
 			this.textBoxHex.BorderStyle = System.Windows.Forms.BorderStyle.None;
 			this.textBoxHex.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.textBoxHex.Font = new System.Drawing.Font("Consolas", 10.25F);
+			this.textBoxHex.ForeColor = System.Drawing.SystemColors.WindowText;
 			this.textBoxHex.Location = new System.Drawing.Point(0, 17);
 			this.textBoxHex.Multiline = true;
 			this.textBoxHex.Name = "textBoxHex";
+			this.textBoxHex.ReadOnly = true;
 			this.textBoxHex.Size = new System.Drawing.Size(395, 572);
 			this.textBoxHex.TabIndex = 9;
 			this.textBoxHex.TabStop = false;
@@ -147,14 +152,18 @@
 			// 
 			// textBoxAscii
 			// 
+			this.textBoxAscii.BackColor = System.Drawing.SystemColors.Window;
 			this.textBoxAscii.BorderStyle = System.Windows.Forms.BorderStyle.None;
 			this.textBoxAscii.Dock = System.Windows.Forms.DockStyle.Fill;
 			this.textBoxAscii.Font = new System.Drawing.Font("Consolas", 10.25F);
+			this.textBoxAscii.ForeColor = System.Drawing.SystemColors.WindowText;
 			this.textBoxAscii.Location = new System.Drawing.Point(0, 17);
 			this.textBoxAscii.Multiline = true;
 			this.textBoxAscii.Name = "textBoxAscii";
+			this.textBoxAscii.ReadOnly = true;
 			this.textBoxAscii.Size = new System.Drawing.Size(176, 572);
 			this.textBoxAscii.TabIndex = 16;
+			this.textBoxAscii.TabStop = false;
 			// 
 			// labelTopOffsetAscii
 			// 
@@ -189,6 +198,7 @@
 			// 
 			this.fIleToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.openToolStripMenuItem,
+            this.importThaiphoonBurnerDumpToolStripMenuItem,
             this.saveToolStripMenuItem,
             this.saveasToolStripMenuItem});
 			this.fIleToolStripMenuItem.Name = "fIleToolStripMenuItem";
@@ -199,15 +209,23 @@
 			// 
 			this.openToolStripMenuItem.Name = "openToolStripMenuItem";
 			this.openToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.O)));
-			this.openToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+			this.openToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
 			this.openToolStripMenuItem.Text = "&Open...";
 			this.openToolStripMenuItem.Click += new System.EventHandler(this.openFile);
+			// 
+			// importThaiphoonBurnerDumpToolStripMenuItem
+			// 
+			this.importThaiphoonBurnerDumpToolStripMenuItem.Name = "importThaiphoonBurnerDumpToolStripMenuItem";
+			this.importThaiphoonBurnerDumpToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
+			this.importThaiphoonBurnerDumpToolStripMenuItem.Text = "Import Thaiphoon Burner Dump";
+			this.importThaiphoonBurnerDumpToolStripMenuItem.Visible = false;
+			this.importThaiphoonBurnerDumpToolStripMenuItem.Click += new System.EventHandler(this.importThaiphoonBurnerDumpToolStripMenuItem_Click);
 			// 
 			// saveToolStripMenuItem
 			// 
 			this.saveToolStripMenuItem.Name = "saveToolStripMenuItem";
 			this.saveToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.S)));
-			this.saveToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+			this.saveToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
 			this.saveToolStripMenuItem.Text = "&Save";
 			this.saveToolStripMenuItem.Click += new System.EventHandler(this.saveToolStripMenuItem_Click);
 			// 
@@ -216,7 +234,7 @@
 			this.saveasToolStripMenuItem.Name = "saveasToolStripMenuItem";
 			this.saveasToolStripMenuItem.ShortcutKeys = ((System.Windows.Forms.Keys)(((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.Alt) 
             | System.Windows.Forms.Keys.S)));
-			this.saveasToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+			this.saveasToolStripMenuItem.Size = new System.Drawing.Size(244, 22);
 			this.saveasToolStripMenuItem.Text = "Save &as...";
 			this.saveasToolStripMenuItem.Click += new System.EventHandler(this.saveToFile);
 			// 
@@ -359,7 +377,8 @@
 			this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.statusBarConnectionStatus,
             this.statusBarCrcStatus,
-            this.statusProgressBar});
+            this.statusProgressBar,
+            this.toolStripStatusRamType});
 			this.statusStrip.Location = new System.Drawing.Point(0, 689);
 			this.statusStrip.Name = "statusStrip";
 			this.statusStrip.Size = new System.Drawing.Size(634, 22);
@@ -388,6 +407,16 @@
 			this.statusProgressBar.Name = "statusProgressBar";
 			this.statusProgressBar.Size = new System.Drawing.Size(75, 16);
 			this.statusProgressBar.Style = System.Windows.Forms.ProgressBarStyle.Continuous;
+			// 
+			// toolStripStatusRamType
+			// 
+			this.toolStripStatusRamType.Margin = new System.Windows.Forms.Padding(0, 3, 3, 2);
+			this.toolStripStatusRamType.Name = "toolStripStatusRamType";
+			this.toolStripStatusRamType.Size = new System.Drawing.Size(273, 17);
+			this.toolStripStatusRamType.Spring = true;
+			this.toolStripStatusRamType.Text = "toolStripStatusRamType";
+			this.toolStripStatusRamType.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+			this.toolStripStatusRamType.Visible = false;
 			// 
 			// toolStripSeparator1
 			// 
@@ -424,7 +453,7 @@
 			this.toolStripMain.Location = new System.Drawing.Point(0, 24);
 			this.toolStripMain.Name = "toolStripMain";
 			this.toolStripMain.Padding = new System.Windows.Forms.Padding(4, 0, 4, 2);
-			this.toolStripMain.RenderMode = System.Windows.Forms.ToolStripRenderMode.Professional;
+			this.toolStripMain.RenderMode = System.Windows.Forms.ToolStripRenderMode.System;
 			this.toolStripMain.Size = new System.Drawing.Size(634, 40);
 			this.toolStripMain.TabIndex = 12;
 			this.toolStripMain.Text = "toolStrip1";
@@ -603,6 +632,7 @@
 			this.tabControlMain.Size = new System.Drawing.Size(634, 625);
 			this.tabControlMain.SizeMode = System.Windows.Forms.TabSizeMode.FillToRight;
 			this.tabControlMain.TabIndex = 17;
+			this.tabControlMain.SelectedIndexChanged += new System.EventHandler(this.tabControlMain_SelectedIndexChanged);
 			// 
 			// tabPageMain
 			// 
@@ -672,12 +702,11 @@
 			this.MainMenuStrip = this.menuStripMain;
 			this.Name = "formMain";
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-			this.Text = "DDR4 SPD Reader/Writer";
+			this.Text = "SPD Reader/Writer";
 			this.MaximumSizeChanged += new System.EventHandler(this.formResized);
 			this.Load += new System.EventHandler(this.FormMain_Load);
 			this.ResizeEnd += new System.EventHandler(this.formResized);
 			this.SizeChanged += new System.EventHandler(this.formResized);
-			this.DragDrop += new System.Windows.Forms.DragEventHandler(this.formMain_DragDrop);
 			this.splitContainerViewer.Panel1.ResumeLayout(false);
 			this.splitContainerViewer.Panel1.PerformLayout();
 			this.splitContainerViewer.Panel2.ResumeLayout(false);
@@ -755,6 +784,8 @@
 		private System.Windows.Forms.TextBox textBoxAscii;
 		private System.Windows.Forms.TextBox textBoxHex;
 		private System.Windows.Forms.Label labelTopOffsetHex;
+		private System.Windows.Forms.ToolStripMenuItem importThaiphoonBurnerDumpToolStripMenuItem;
+		private System.Windows.Forms.ToolStripStatusLabel toolStripStatusRamType;
 	}
 }
 
