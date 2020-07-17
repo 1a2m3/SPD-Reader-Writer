@@ -54,26 +54,8 @@ bool clearWriteProtection() {
 // Enables write protection on specified block
 bool setWriteProtection(uint8_t block) {
 
-  int cmd;
-
-  switch (block) {
-    case 0:
-      cmd = SWP0;
-      break;
-    case 1:
-      cmd = SWP1;
-      break;
-    case 2:
-      cmd = SWP2;
-      break;
-    case 3:
-      cmd = SWP3;
-      break;
-    default:
-      cmd = SWP0;
-      block = 0;
-      break;
-  }
+  int commands[] = {SWP0, SWP1, SWP2, SWP3};
+  int cmd = (block >= 0 || block <= 3) ? commands[block] : SWP0;
 
   digitalWrite(HVSW, HIGH); // Turn on the optocoupler
   delay(10);
@@ -115,16 +97,15 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
   int status = Wire.endTransmission();
 
   delay(10); // This has to go after endTransmission, not before!
-  
+
   return status == 0;
 }
 
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
 void setPageAddress(uint8_t pageAddress) {
   // command doesn't use the select address, all devices on the I2C bus will act simultaneously
-  Wire.beginTransmission((pageAddress == 0) ? SPA0 : SPA1);  
+  Wire.beginTransmission((pageAddress == 0) ? SPA0 : SPA1);
   Wire.endTransmission();
-
   delay(5);
 
   eeAddress = pageAddress;
@@ -159,7 +140,7 @@ void cmdScan() {
   int endAddress   = Serial.parseInt(); //Last address
 
   if (startAddress > endAddress) {
-    Serial.write(0);
+    Serial.write((byte)0);
     return;
   }
 
@@ -177,7 +158,7 @@ void cmdScan() {
       Serial.write((byte)i & 0xFF);
     }
   }
-  Serial.write(0); // Send 0 to prevent application from waiting in case no devices are present
+  Serial.write((byte)0); // Send 0 to prevent application from waiting in case no devices are present
   //return;
 }
 
@@ -185,7 +166,7 @@ void cmdRead() {
   int address = Serial.parseInt(); // Device address
   int offset  = Serial.parseInt(); // Offset address
 
-  Serial.write(readByte(address, offset));
+  Serial.write((byte)readByte(address, offset));
   //return;
 }
 
@@ -195,16 +176,16 @@ void cmdWrite() {
   byte data   = Serial.parseInt(); // Byte value
 
   if (writeByte(address, offset, data)) {
-    Serial.write(0); // Success
+    Serial.write((byte)0); // Success
     return;
   }
 
-  Serial.write(1); // Error
+  Serial.write((byte)1); // Error
   //return;
 }
 
 void cmdTest() {
-  Serial.write('!');
+  Serial.write((byte)'!');
   return;
 }
 
@@ -212,21 +193,21 @@ void cmdProbe() {
   int address = Serial.parseInt(); // Device address
 
   if (probe(address)) {
-    Serial.write(address); // Success
+    Serial.write((byte)address); // Success
     return;
   }
-  Serial.write(0); // Error
+  Serial.write((byte)0); // Error
   //return;
 }
 
 void cmdClearWP() {
 
   if (clearWriteProtection()) {
-    Serial.write(0); // Success
+    Serial.write((byte)0); // Success
     //Serial.println("WP cleared");
     return;
   }
-  Serial.write(1); // Error
+  Serial.write((byte)1); // Error
   //Serial.println("WP NOT cleared");
   //return;
 }
@@ -239,13 +220,13 @@ void cmdEnableWP() {
   if (setWriteProtection(block)) {
     //Serial.print("Protection enabled on block ");
     //Serial.println(block, HEX);
-    Serial.write(0); // Success
+    Serial.write((byte)0); // Success
     return;
   }
 
   //Serial.print("Nothing changed with block ");
   //Serial.println(block, HEX);
-  Serial.write(1); // Error
+  Serial.write((byte)1); // Error
   //return;
 }
 
