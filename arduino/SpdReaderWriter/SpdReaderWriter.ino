@@ -11,27 +11,28 @@
 #define SPA1 0x37  // Set EE Page Address to 1
 
 // RSWP commands
-#define SWP0 0x31  // Set Write Protection for block 0 (addresses  00h to  7Fh) (  0-127)
-#define SWP1 0x34  // Set Write Protection for block 1 (addresses  80h to  FFh) (128-255)
-#define SWP2 0x35  // Set Write Protection for block 2 (addresses 100h to 17Fh) (256-383)  
-#define SWP3 0x30  // Set Write Protection for block 3 (addresses 180h to 1FFh) (384-511)
-#define CWP  0x33  // Clear Write Protection for all 4 blocks
+#define SWP0 0x31   // Set Write Protection for block 0 (addresses  00h to  7Fh) (  0-127)
+#define SWP1 0x34   // Set Write Protection for block 1 (addresses  80h to  FFh) (128-255)
+#define SWP2 0x35   // Set Write Protection for block 2 (addresses 100h to 17Fh) (256-383)  
+#define SWP3 0x30   // Set Write Protection for block 3 (addresses 180h to 1FFh) (384-511)
+#define CWP  0x33   // Clear Write Protection for all 4 blocks
 
-#define HVSW 6     // High Voltage (Optocoupler) switch pin
+#define HVSW 6      // High Voltage (Optocoupler) switch pin
+#define PORT Serial // Communications Port, change to "SerialUSB" for native USB Arduinos (Leonardo, Micro, Due, Yun, etc)
 
-int eeAddress = 0; // EE Page address
+int eeAddress = 0;  // EE Page address
 
 void setup() {
 
   pinMode(HVSW, OUTPUT);
 
   Wire.begin();
-  Serial.begin(SERIAL_BAUD_RATE);
-  Serial.setTimeout(10000); // 10 sec. timeout
-
   setPageAddress(eeAddress); // Reset eeprom page address
 
-  while (!Serial) {} // Wait for serial monitor
+  PORT.begin(SERIAL_BAUD_RATE);
+  PORT.setTimeout(10000); // 10 sec. timeout
+
+  while (!PORT) {} // Wait for serial monitor
 }
 
 // Reverses software write protection
@@ -136,11 +137,11 @@ bool probe(uint8_t address) {
 //Command handlers
 
 void cmdScan() {
-  int startAddress = Serial.parseInt(); //First address
-  int endAddress   = Serial.parseInt(); //Last address
+  int startAddress = PORT.parseInt(); //First address
+  int endAddress   = PORT.parseInt(); //Last address
 
   if (startAddress > endAddress) {
-    Serial.write((byte)0);
+    PORT.write((byte)0);
     return;
   }
 
@@ -155,87 +156,79 @@ void cmdScan() {
 
   for (int i = startAddress; i <= endAddress; i++) {
     if (probe(i)) {
-      Serial.write((byte)i & 0xFF);
+      PORT.write((byte)i);
     }
   }
-  Serial.write((byte)0); // Send 0 to prevent application from waiting in case no devices are present
-  //return;
+  PORT.write((byte)0); // Send 0 to prevent application from waiting in case no devices are present
 }
 
 void cmdRead() {
-  int address = Serial.parseInt(); // Device address
-  int offset  = Serial.parseInt(); // Offset address
+  int address = PORT.parseInt(); // Device address
+  int offset  = PORT.parseInt(); // Offset address
 
-  Serial.write((byte)readByte(address, offset));
-  //return;
+  PORT.write((byte)readByte(address, offset));
 }
 
 void cmdWrite() {
-  int address = Serial.parseInt(); // Device address
-  int offset  = Serial.parseInt(); // Offset address
-  byte data   = Serial.parseInt(); // Byte value
+  int address = PORT.parseInt(); // Device address
+  int offset  = PORT.parseInt(); // Offset address
+  byte data   = PORT.parseInt(); // Byte value
 
   if (writeByte(address, offset, data)) {
-    Serial.write((byte)0); // Success
-    return;
+    PORT.write((byte)0); // Success
   }
 
-  Serial.write((byte)1); // Error
-  //return;
+  PORT.write((byte)1); // Error
 }
 
 void cmdTest() {
-  Serial.write((byte)'!');
-  return;
+  PORT.write((byte)'!');
 }
 
 void cmdProbe() {
-  int address = Serial.parseInt(); // Device address
+  int address = PORT.parseInt(); // Device address
 
   if (probe(address)) {
-    Serial.write((byte)address); // Success
+    PORT.write((byte)address); // Success
     return;
   }
-  Serial.write((byte)0); // Error
-  //return;
+  PORT.write((byte)0); // Error
 }
 
 void cmdClearWP() {
 
   if (clearWriteProtection()) {
-    Serial.write((byte)0); // Success
-    //Serial.println("WP cleared");
+    PORT.write((byte)0); // Success
+    //PORT.println("WP cleared");
     return;
   }
-  Serial.write((byte)1); // Error
-  //Serial.println("WP NOT cleared");
-  //return;
+  PORT.write((byte)1); // Error
+  //PORT.println("WP NOT cleared");
 }
 
 void cmdEnableWP() {
 
-  int block = Serial.parseInt(); // Block number
+  int block = PORT.parseInt(); // Block number
   block = (block >= 0 && block <= 3) ? block : 0; // Block number can't be outside of 0-3 range
 
   if (setWriteProtection(block)) {
-    //Serial.print("Protection enabled on block ");
-    //Serial.println(block, HEX);
-    Serial.write((byte)0); // Success
+    //PORT.print("Protection enabled on block ");
+    //PORT.println(block, HEX);
+    PORT.write((byte)0); // Success
     return;
   }
 
-  //Serial.print("Nothing changed with block ");
-  //Serial.println(block, HEX);
-  Serial.write((byte)1); // Error
-  //return;
+  //PORT.print("Nothing changed with block ");
+  //PORT.println(block, HEX);
+  PORT.write((byte)1); // Error
 }
 
 void parseCommand() {
-  if (!Serial.available()) {
+  if (!PORT.available()) {
     return;
   }
 
-  char cmd = Serial.read();
+  char cmd = PORT.read();
 
   switch (cmd) {
     case 't': cmdTest();      // Device Communication Test
