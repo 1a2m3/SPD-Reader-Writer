@@ -6,7 +6,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-// EEPROM commands
+// EEPROM commands (DDR4 only)
 #define SPA0 0x36   // Set EE Page Address to 0 (DDR4 only)
 #define SPA1 0x37   // Set EE Page Address to 1 (DDR4 only)
 
@@ -15,9 +15,14 @@
 #define SWP1 0x34   // Set Write Protection for block 1 (addresses  80h to  FFh) (128-255) (DDR4 only)
 #define SWP2 0x35   // Set Write Protection for block 2 (addresses 100h to 17Fh) (256-383) (DDR4 only)
 #define SWP3 0x30   // Set Write Protection for block 3 (addresses 180h to 1FFh) (384-511) (DDR4 only)
-#define CWP  0x33   // Clear Write Protection for all 4 blocks
-#define DNC  0x00   // "Do not care" byte
+#define CWP  0x33   // Clear Write Protection for all 4 blocks                             (DDR4 only)
 #define PWPB 0b0110 // PSWP command bits (7-4)
+#define DNC  0x00   // "Do not care" byte
+
+// Responses
+#define SUCCESS (byte)0
+#define FAILURE (byte)1
+#define NOTHING (byte)0
 
 int eeAddress = 0;  // Initial EEPROM page address
 
@@ -37,7 +42,7 @@ void setup() {
   while (!PORT) {} // Wait for serial monitor
 }
 
-// Turns on or off address select pins
+// Turns on or off select address pins
 void setAddressPin(int pin, bool state) {
   digitalWrite(pin, state);
 }
@@ -82,8 +87,8 @@ bool setWriteProtection(uint8_t block) {
 // Sets permanent write protection on supported EEPROMs
 bool setPermanentWriteProtection(uint8_t deviceAddress) {
 
-  uint8_t cmd = (byte)(deviceAddress & 0b111) + (PWPB << 4); // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
-  Wire.beginTransmission(cmd); 
+  uint8_t cmd = (deviceAddress & 0b111) + (PWPB << 4); // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
+  Wire.beginTransmission(cmd);
   Wire.write(DNC);
   Wire.write(DNC);
   int status = Wire.endTransmission();
@@ -117,7 +122,7 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
   Wire.write(data);
   int status = Wire.endTransmission();
 
-  delay(10); // This has to go after endTransmission, not before!
+  delay(10);
 
   return status == 0;
 }
@@ -142,7 +147,7 @@ void adjustPageAddress(uint16_t offset) {
   if (offset <= 0xFF && getPageAddress() != 0) {
     setPageAddress(0);
   }
-  if (offset > 0xFF && getPageAddress() != 1) {
+  if (offset > 0xFF  && getPageAddress() != 1) {
     setPageAddress(1);
   }
 }
@@ -161,32 +166,27 @@ void cmdScan() {
   int endAddress   = PORT.parseInt(); //Last address
 
   if (startAddress > endAddress) {
-    PORT.write((byte)0);
+    PORT.write(NOTHING); // Send 0 when start and end addresses are incorrectly specified
     return;
   }
 
-  /*
-    Limit scanning range from 0x50 (0b1010000) to 0x57 (0b1010111)
-    because it causes the SPD EEPROM to switch pages once we  try to access devices 0x36 (SPA0) or 0x37 (SPA1)
-    Also it can trigger write protection when devices 0x30 (SWP3), 0x31 (SWP0), 0x34 (SWP1), or 0x35 (SWP2) are accessed and SA0 is connected to HV source
-  */
-
+  // Limit scanning range from 0x50 (0b1010000) to 0x57 (0b1010111) to eliminate triggering WP-related commands
   startAddress = (startAddress < 0x50) ? 0x50 : startAddress;
-  endAddress = (endAddress > 0x57) ? 0x57 : endAddress;
+  endAddress   = (endAddress   > 0x57) ? 0x57 : endAddress;
 
   for (int i = startAddress; i <= endAddress; i++) {
     if (probe(i)) {
-      PORT.write((byte)i);
+      PORT.write(i);
     }
   }
-  PORT.write((byte)0); // Send 0 to prevent application from waiting in case no devices are present
+  PORT.write(NOTHING); // Send 0 to prevent application from waiting in case no devices are present
 }
 
 void cmdRead() {
   int address = PORT.parseInt(); // Device address
   int offset  = PORT.parseInt(); // Offset address
 
-  PORT.write((byte)readByte(address, offset));
+  PORT.write(readByte(address, offset));
 }
 
 void cmdWrite() {
@@ -195,35 +195,36 @@ void cmdWrite() {
   byte data   = PORT.parseInt(); // Byte value
 
   if (writeByte(address, offset, data)) {
-    PORT.write((byte)0); // Success
+    PORT.write(SUCCESS);
+    return;
   }
 
-  PORT.write((byte)1); // Error
+  PORT.write(FAILURE);
 }
 
 void cmdTest() {
-  PORT.write((byte)'!');
+  PORT.write('!');
 }
 
 void cmdProbe() {
   int address = PORT.parseInt(); // Device address
 
   if (probe(address)) {
-    PORT.write((byte)address); // Success
+    PORT.write(address);
     return;
   }
-  PORT.write((byte)0); // Error
+  PORT.write(NOTHING);
 }
 
 void cmdClearWP() {
 
   if (clearWriteProtection()) {
-    PORT.write((byte)0); // Success
-    //PORT.println("WP cleared");
+    PORT.write(SUCCESS);
+    //PORT.println("RSWP cleared");
     return;
   }
-  PORT.write((byte)1); // Error
-  //PORT.println("WP NOT cleared");
+  PORT.write(FAILURE);
+  //PORT.println("RSWP NOT cleared");
 }
 
 void cmdEnableWP() {
@@ -232,25 +233,26 @@ void cmdEnableWP() {
   block = (block >= 0 && block <= 3) ? block : 0; // Block number can't be outside of 0-3 range
 
   if (setWriteProtection(block)) {
-    //PORT.print("Protection enabled on block ");
-    //PORT.println(block, HEX);
-    PORT.write((byte)0); // Success
+    //Serial.print("Protection enabled on block ");
+    //Serial.println(block, HEX);
+    PORT.write(SUCCESS);    
     return;
   }
 
   //PORT.print("Nothing changed with block ");
   //PORT.println(block, HEX);
-  PORT.write((byte)1); // Error
+  PORT.write(FAILURE);
 }
 
 void cmdEnablePSWP() {
   int address = PORT.parseInt(); // Device address
 
   if (setPermanentWriteProtection(address)) {
-    PORT.write((byte)0); // Success
+    PORT.write(SUCCESS);
+    //PORT.println("PSWP is set");
     return;
   }
-  PORT.write((byte)1); // Error
+  PORT.write(FAILURE);
 }
 
 void cmdSetAddress() {
@@ -260,6 +262,11 @@ void cmdSetAddress() {
   setAddressPin(SA1SW, (address >> 1) & 0b1);
   setAddressPin(SA2SW, (address >> 2) & 0b1);
 
+  if (probe(address)) {
+    PORT.write(SUCCESS);
+    return;
+  }
+  PORT.write(FAILURE);
 }
 
 void parseCommand() {
