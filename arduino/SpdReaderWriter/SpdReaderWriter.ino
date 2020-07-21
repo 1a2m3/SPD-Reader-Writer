@@ -127,7 +127,7 @@ byte readByte(uint8_t deviceAddress, uint16_t offset) {
 }
 
 // Writes a byte
-bool writeByte(uint8_t deviceAddress, uint16_t offset, uint16_t data) {
+bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
 
   adjustPageAddress(offset);
 
