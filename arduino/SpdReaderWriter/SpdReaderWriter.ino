@@ -6,7 +6,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-// EEPROM commands (DDR4 only)
+// EEPROM page commands
 #define SPA0 0x36   // Set EE Page Address to 0 (DDR4 only)
 #define SPA1 0x37   // Set EE Page Address to 1 (DDR4 only)
 
@@ -21,8 +21,8 @@
 
 // Responses
 #define SUCCESS (byte)0
-#define FAILURE (byte)1
-#define NOTHING (byte)0
+#define ERROR   (byte)1
+#define NULL    (byte)0
 
 int eeAddress = 0;  // Initial EEPROM page address
 
@@ -105,7 +105,7 @@ byte readByte(uint8_t deviceAddress, uint16_t offset) {
   Wire.beginTransmission(deviceAddress);
   Wire.write(offset);
   Wire.endTransmission();
-  Wire.requestFrom(deviceAddress, 1);
+  Wire.requestFrom(deviceAddress, (uint8_t)1);
 
   if (Wire.available()) {
     return Wire.read();
@@ -166,7 +166,7 @@ void cmdScan() {
   int endAddress   = PORT.parseInt(); //Last address
 
   if (startAddress > endAddress) {
-    PORT.write(NOTHING); // Send 0 when start and end addresses are incorrectly specified
+    PORT.write(NULL); // Send 0 when start and end addresses are incorrectly specified
     return;
   }
 
@@ -179,7 +179,7 @@ void cmdScan() {
       PORT.write(i);
     }
   }
-  PORT.write(NOTHING); // Send 0 to prevent application from waiting in case no devices are present
+  PORT.write(NULL); // Send 0 to prevent application from waiting in case no devices are present
 }
 
 void cmdRead() {
@@ -199,7 +199,7 @@ void cmdWrite() {
     return;
   }
 
-  PORT.write(FAILURE);
+  PORT.write(ERROR);
 }
 
 void cmdTest() {
@@ -213,7 +213,7 @@ void cmdProbe() {
     PORT.write(address);
     return;
   }
-  PORT.write(NOTHING);
+  PORT.write(NULL);
 }
 
 void cmdClearWP() {
@@ -223,7 +223,7 @@ void cmdClearWP() {
     //PORT.println("RSWP cleared");
     return;
   }
-  PORT.write(FAILURE);
+  PORT.write(ERROR);
   //PORT.println("RSWP NOT cleared");
 }
 
@@ -241,7 +241,7 @@ void cmdEnableWP() {
 
   //PORT.print("Nothing changed with block ");
   //PORT.println(block, HEX);
-  PORT.write(FAILURE);
+  PORT.write(ERROR);
 }
 
 void cmdEnablePSWP() {
@@ -252,7 +252,7 @@ void cmdEnablePSWP() {
     //PORT.println("PSWP is set");
     return;
   }
-  PORT.write(FAILURE);
+  PORT.write(ERROR);
 }
 
 void cmdSetAddress() {
@@ -266,7 +266,7 @@ void cmdSetAddress() {
     PORT.write(SUCCESS);
     return;
   }
-  PORT.write(FAILURE);
+  PORT.write(ERROR);
 }
 
 void parseCommand() {
