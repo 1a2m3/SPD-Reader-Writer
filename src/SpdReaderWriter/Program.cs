@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using SpdReaderWriterDll;
@@ -26,20 +25,19 @@ namespace SpdReaderWriter {
 				ShowHelp();
 			}
 
-#if DEBUG
-			// Wait for input to prevent application from closing automatically when debugging
-			if (Debugger.IsAttached) {
+			// Wait for input to prevent application from closing automatically
+			if (Debugger.IsAttached || args.Length == 0) {
 				Console.WriteLine("\nPress [enter] to quit.\n");
 				Console.ReadLine();
 			}
-#endif
 		}
 
 		static void Welcome() {
 			string[] header = {
-				"Welcome to DDR4 SPD reader/writer",
-				"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-				"For PC enthusiasts & overclockers"
+				" Arduino based EEPROM SPD reader and writer",
+				"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+				"For overclockers and PC hardware enthusiasts",
+				""
 			};
 			foreach (string line in header) {
 				Console.WriteLine(line);
@@ -47,6 +45,7 @@ namespace SpdReaderWriter {
 		}
 		static void ShowHelp() {
 			string[] help = {
+				"",
 				"Command line parameters:",
 				"",
 				"{0} /help",
@@ -58,15 +57,19 @@ namespace SpdReaderWriter {
 				"{0} /enablewriteprotection <PORT>",
 				"{0} /enablewriteprotection <PORT> <block#>",
 				"{0} /disablewriteprotection <PORT>",
+				"{0} /enablepermanentwriteprotection <PORT> <ADDRESS#>",
 				"",
 				"Parameters in CAPS are mandatory!",
 				"Parameter <filepath> is optional when /read switch is used, output will be printed to console only.",
 				"Switch /silent is optional, progress won't be shown with this switch.",
 				"",
-				"For additional help, visit: https://github.com/1a2m3/ or https://forums.evga.com/FindPost/3053544",
+				"For additional help, visit: https://github.com/1a2m3/SPD-Reader-Writer",
+				"                         or https://forums.evga.com/FindPost/3053544",
 				"",
-				"This program is free to use, but if you like it and wish to support me, I am accepting donations via systems listed below:",
-				"Paypal:  http://paypal.me/mik4rt3m",
+				"This program is free to use, but if you like it and wish to support me,",
+				"I am accepting donations via systems listed below:",
+				"",
+				"Paypal:  https://paypal.me/mik4rt3m",
 				"Bitcoin: 3Pe9VhVaUygyMFGT3pFuQ3dAghS36NPJTz",
 				""
 			};
@@ -117,13 +120,17 @@ namespace SpdReaderWriter {
 						throw new Exception($"Could not connect to the device on port {portName}.");
 					}
 
+					if (reader.GetFirmwareVersion() < Settings.MinimumVersionRequired) {
+						throw new Exception($"The device on port {portName} requires its firmware to be updated.");
+					}
+
 					//if (!reader.Test()) {
 					//	throw new Exception($"The device on port {portName} does not respond.");
 					//}
 
 					// Scan
 					if (mode == "/scan") {
-						int[] addresses = reader.Scan();
+						byte[] addresses = reader.Scan();
 
 						if (addresses.Length == 0) {
 							throw new Exception("No EEPROM devices found.");
@@ -137,49 +144,65 @@ namespace SpdReaderWriter {
 						return;
 					}
 
-					// Turn on write protection
-					if (mode == "/enablewriteprotection") {
-
-						Stack<int> block = new Stack<int>();
-
-						if (args.Length == 3) { // Block # was specified
-							try {
-								block.Push(Int32.Parse(args[2]));
-							}
-							catch {
-								throw new Exception("Block number should be specified in decimal notation.");
-							}
-						}
-						else { // No block number specified, protect all
-							for (int i = 3; i != -1; i--) { // Push from 3 to 0, so that the stack pops in correct numeric order
-								block.Push(i);
-							}
+					// Test reversible write protection capabilities
+					if (mode == "/enablewriteprotection" || mode == "/disablewriteprotection") {
+						if (!reader.TestAdvancedFeatures()) {
+							throw new Exception("Your device does not support write protection features.");
 						}
 
-						while (block.Count > 0) {
-							int blocknumber = block.Pop();
-							if (Eeprom.SetWriteProtection(reader, blocknumber)) {
-								Console.WriteLine($"Block {blocknumber} is now read-only");
+						// Turn on write protection
+						if (mode == "/enablewriteprotection") {
+
+							int[] block;
+
+							if (args.Length == 3) { // Block # was specified
+								try {
+									block = new[] { (Int32.Parse(args[2])) };
+								}
+								catch {
+									throw new Exception("Block number should be specified in decimal notation.");
+								}
+
+							}
+							else { // No block number specified, protect all available
+								if (Spd.GetRamType(reader) == RamType.DDR4) {
+									block = new[] { 0, 1, 2, 3 };
+								}
+								else { // DDR3 + DDR2
+									block = new[] { 0 };
+								}
+							}
+
+							reader.ResetEepromAddress();
+
+							for (int i = 0; i < block.Length; i++) {
+								if (Eeprom.SetWriteProtection(reader, i)) {
+									Console.WriteLine($"Block {i} is now read-only");
+								}
+								else {
+									throw new Exception($"Unable to set write protection for block {i}. Either SA0 is not connected to HV, or the block is already read-only.");
+								}
+							}
+
+							return;
+						}
+
+						// Disable write protection
+						if (mode == "/disablewriteprotection") {
+
+							reader.SetAddressPin(Pin.SA1, PinState.HIGH);
+
+							if (Eeprom.ClearWriteProtection(reader)) {
+								Console.WriteLine("Write protection successfully disabled.");
 							}
 							else {
-								throw new Exception($"Unable to set write protection for block {blocknumber}. Either SA0 is not connected to HV, or the block is already read-only.");
+								throw new Exception("Unable to clear write protection");
 							}
+
+							reader.ResetEepromAddress();
+
+							return;
 						}
-
-						return;
-					}
-
-					// Disable write protection
-					if (mode == "/disablewriteprotection") {
-
-						if (Eeprom.ClearWriteProtection(reader)) {
-							Console.WriteLine("Write protection successfully disabled.");
-						}
-						else {
-							throw new Exception("Unable to clear write protection");
-						}
-
-						return;
 					}
 
 					int address;
@@ -192,7 +215,7 @@ namespace SpdReaderWriter {
 					}
 
 					reader.EepromAddress = address;
-					reader.SpdSize = Eeprom.GetSpdSize(reader);
+					reader.SpdSize = Spd.GetSpdSize(reader);
 
 					if (!reader.Probe()) {
 						throw new Exception($"EEPROM is not present at address {reader.EepromAddress}.");
@@ -204,9 +227,7 @@ namespace SpdReaderWriter {
 					// Read SPD contents
 					if (mode == "/read") {
 
-						Console.WriteLine(Eeprom.GetRamType(reader));
-
-						Console.Write($"Reading EEPROM at address {reader.EepromAddress}");
+						Console.Write($"Reading EEPROM at address {reader.EepromAddress} ({Spd.GetRamType(reader)})");
 
 						if (filePath != "") {
 							Console.WriteLine($" to {filePath}");
@@ -281,9 +302,9 @@ namespace SpdReaderWriter {
 
 						for (int i = 0; i != inputFile.Length; i++) {
 							b = inputFile[i];
-							bool writeResult = mode == ("/writeforce")
-								? Eeprom.WriteByte(reader, i, inputFile[i])
-								: Eeprom.UpdateByte(reader, i, inputFile[i]);
+							bool writeResult = (mode == "/writeforce")
+								? Eeprom.WriteByte(reader, (ushort)i, inputFile[i])
+								: Eeprom.UpdateByte(reader, (ushort)i, inputFile[i]);
 
 							if (!writeResult) {
 								throw new Exception($"Could not write byte {i} to EEPROM at address {reader.EepromAddress} on port {reader.PortName}.");
@@ -305,6 +326,15 @@ namespace SpdReaderWriter {
 							reader.PortName,
 							Environment.TickCount - startTick);
 						return;
+					}
+
+					if (mode == "/enablepermanentwriteprotection") {
+						if (Eeprom.SetPermanentWriteProtection(reader)) {
+							Console.WriteLine($"Permanent write protection enabled on {reader.PortName}:{reader.EepromAddress}");
+						}
+						else {
+							throw new Exception($"Unable to set permanent write protection on {reader.PortName}:{reader.EepromAddress}");
+						}
 					}
 				}
 			}
@@ -361,7 +391,7 @@ namespace SpdReaderWriter {
 			if (pos == 0 && showOffset) {
 				Console.Write("     "); // Indentation
 				for (int i = 0; i < bpr; i++) {
-					Console.Write($"{i:x2} ");
+					Console.Write($"{i:X2} ");
 				}
 			}
 
@@ -370,7 +400,7 @@ namespace SpdReaderWriter {
 				Console.Write(Environment.NewLine);
 				if (showOffset) {
 					// Print row offsets
-					Console.Write("{0:x3}: ", pos);
+					Console.Write("{0:X3}: ", pos);
 				}
 			}
 
