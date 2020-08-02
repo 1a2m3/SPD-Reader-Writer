@@ -13,31 +13,31 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Read byte
         /// </summary>
-        public const char READBYTE         = 'r';
+        public const char READBYTE = 'r';
         /// <summary>
         /// Write byte
         /// </summary>
-        public const char WRITEBYTE        = 'w';
+        public const char WRITEBYTE = 'w';
         /// <summary>
         /// Scan i2c bus
         /// </summary>
-        public const char SCANBUS          = 's';
+        public const char SCANBUS = 's';
         /// <summary>
         /// Probe i2c address
         /// </summary>
-        public const char PROBEADDRESS     = 'a';
+        public const char PROBEADDRESS = 'a';
         /// <summary>
         /// Set EEPROM SA pin state
         /// </summary>
-        public const char SETADDRESSPIN    = 'p';
+        public const char SETADDRESSPIN = 'p';
         /// <summary>
         /// Set High Voltage state on SA0
         /// </summary>
-        public const char SETHVSTATE       = '9';
+        public const char SETHVSTATE = '9';
         /// <summary>
         /// Get High Voltage status on SA0
         /// </summary>
-        public const char GETHVSTATE       = 'h';
+        public const char GETHVSTATE = 'h';
         /// <summary>
         /// Enable Reversible SWP
         /// </summary>
@@ -45,23 +45,23 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Clear Reversible SWP
         /// </summary>
-        public const char CLEARSWP         = 'c';
+        public const char CLEARSWP = 'c';
         /// <summary>
         /// Enable Permanent SWP
         /// </summary>
-        public const char SETPERMANENTSWP  = 'l';
+        public const char SETPERMANENTSWP = 'l';
         /// <summary>
         /// Read Permanent SWP status
         /// </summary>
-        public const char GETPSWP          = 'u';
+        public const char GETPSWP = 'u';
         /// <summary>
         /// Get Firmware version
         /// </summary>
-        public const char GETVERSION       = 'v';
+        public const char GETVERSION = 'v';
         /// <summary>
         /// Device Communication Test
         /// </summary>
-        public const char TESTCOMM         = 't';
+        public const char TESTCOMM = 't';
     }
 
     /// <summary>
@@ -75,29 +75,29 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Indicates the operation has failed
         /// </summary>
-        public const byte ERROR   = 1;
+        public const byte ERROR = 1;
         /// <summary>
         /// A response used to indicate an error when normally a numeric non-zero answer is expected if the operation was executed successfully
         /// </summary>
-        public const byte NULL    = 0;
+        public const byte NULL = 0;
         /// <summary>
         /// A response used to describe when SA pin is tied to VCC
         /// </summary>
-        public const byte ON      = 1;
+        public const byte ON = 1;
         /// <summary>
         /// A response used to describe when SA pin is tied to GND
         /// </summary>
-        public const byte OFF     = 0;
+        public const byte OFF = 0;
         /// <summary>
         /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
         /// </summary>
         public const char WELCOME = '!';
 
         // Aliases
-        public const byte ACK   = SUCCESS;
+        public const byte ACK = SUCCESS;
         public const byte NOACK = ERROR;
-        public const byte FAIL  = ERROR; 
-        public const byte ZERO  = NULL;
+        public const byte FAIL = ERROR;
+        public const byte ZERO = NULL;
     }
 
     /// <summary>
@@ -115,18 +115,18 @@ namespace SpdReaderWriterDll {
         public const int GND = 0;
 
         // Aliases for VCC
-        public const int VDDSPD   = VCC;
-        public const int PULLUP   = VCC;
-        public const int HIGH     = VCC;
-        public const int ON       = VCC;
+        public const int VDDSPD = VCC;
+        public const int PULLUP = VCC;
+        public const int HIGH = VCC;
+        public const int ON = VCC;
 
         // Aliases for GND
-        public const int VSSSPD   = GND;
-        public const int VSS      = GND;
-        public const int LOW      = GND;
-        public const int OFF      = GND;
+        public const int VSSSPD = GND;
+        public const int VSS = GND;
+        public const int LOW = GND;
+        public const int OFF = GND;
         public const int PUSHDOWN = GND;
-        public const int DEFAULT  = GND;
+        public const int DEFAULT = GND;
     }
 
     /// <summary>
@@ -368,11 +368,11 @@ namespace SpdReaderWriterDll {
         /// Serial port default connection settings
         /// </summary>
         private SerialPort _sp = new SerialPort {
-            BaudRate          = Settings.BAUDRATE,
-            NewLine           = "\n",
-            ReadTimeout       = 1000,
-            WriteTimeout      = 1000,
-            RtsEnable         = true, // set to true to add support for native USB Arduinos
+            BaudRate = Settings.BAUDRATE,
+            NewLine = "\n",
+            ReadTimeout = 1000,
+            WriteTimeout = 1000,
+            RtsEnable = true, // set to true to add support for native USB Arduinos
         };
 
         /// <summary>
@@ -520,23 +520,20 @@ namespace SpdReaderWriterDll {
                     device.ResetEepromAddress();
                     UInt8[] _test000 = device.Scan(); // = {80}
 
-                    // Test setting SA1 pin
+                    // Test SA1 pin
                     device.SetAddressPin(Pin.SA1, PinState.HIGH);
                     UInt8[] _test010 = device.Scan(); // = {82}
 
-                    // Test setting HV pin
+                    // Test HV pin
                     device.ResetEepromAddress();
                     device.SetHighVoltage(PinState.ON);
                     UInt8[] _test009 = device.Scan(); // = {81}
 
                     device.ResetEepromAddress();
 
-                    if (_test000.Length == 1 &&
-                        _test010.Length == 1 &&
-                        _test009.Length == 1 &&
-                        _test000[0]     == 80 &&
-                        _test010[0]     == 82 &&
-                        _test009[0]     == 81) {
+                    if (_test000.Length == 1 && _test000[0] == 80 &&
+                        _test010.Length == 1 && _test010[0] == 82 &&
+                        _test009.Length == 1 && _test009[0] == 81) {
                         device.AdvancedFeaturesSupported = true;
                     }
                 }
@@ -560,10 +557,11 @@ namespace SpdReaderWriterDll {
                 if (device.IsConnected) {
                     UInt8[] response = device.ExecuteCommand($"{Command.SCANBUS} {startAddress} {endAddress}");
 
-                    foreach (UInt8 location in response) {
-                        if (location != Response.NULL) {
-                            // An accessible EEPROM address was found
-                            addresses.Enqueue(location);
+                    if (response.Length > 1) { // An accessible EEPROM address was found
+                        foreach (UInt8 location in response) {
+                            if (location != Response.NULL) { // Ignore 0x00
+                                addresses.Enqueue(location);
+                            }
                         }
                     }
                 }
@@ -643,9 +641,7 @@ namespace SpdReaderWriterDll {
                 if (device.IsConnected) {
                     _version = Int32.Parse(
                         System.Text.Encoding.Default.GetString(
-                            device.ExecuteCommand(
-                                $"{Command.GETVERSION}"
-                                )
+                            device.ExecuteCommand($"{Command.GETVERSION}")
                             )
                         );
                 }
@@ -663,8 +659,6 @@ namespace SpdReaderWriterDll {
                 while (device.BytesToRead > 0 || device.BytesToWrite > 0) {
                     device._sp.DiscardInBuffer();
                     device._sp.DiscardOutBuffer();
-                    //device._sp.BaseStream.Flush();
-                    //device._sp.BaseStream.Close();
                     Wait(1);
                 }
             }
