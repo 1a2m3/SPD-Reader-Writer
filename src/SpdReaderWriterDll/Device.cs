@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Threading;
@@ -531,13 +531,13 @@ namespace SpdReaderWriterDll {
                     // Test HV pin
                     device.ResetAddressPins();
                     device.SetHighVoltage(PinState.ON);
-                    UInt8[] _test009 = device.Scan(); // = {81}
+                    bool _test009 = device.GetHighVoltageState();
 
                     device.ResetAddressPins();
 
                     if (_test000.Length == 1 && _test000[0] == 80 &&
                         _test010.Length == 1 && _test010[0] == 82 &&
-                        _test009.Length == 1 && _test009[0] == 81) {
+                        _test009) {
                         device.AdvancedFeaturesSupported = true;
                     }
                 }
