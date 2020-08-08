@@ -18211,18 +18211,6 @@ Donate: https://paypal.me/mik4rt3m</text>
 <label x="139.7" y="73.66" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
-<net name="SA0HV" class="0">
-<segment>
-<pinref part="ARDUINO_NANO" gate="G$1" pin="D9"/>
-<wire x1="58.42" y1="63.5" x2="60.96" y2="63.5" width="0.1524" layer="91"/>
-<label x="60.96" y="63.5" size="1.27" layer="95" xref="yes"/>
-</segment>
-<segment>
-<pinref part="OK1" gate="G$1" pin="A"/>
-<wire x1="91.44" y1="119.38" x2="86.36" y2="119.38" width="0.1524" layer="91"/>
-<label x="86.36" y="119.38" size="1.27" layer="95" rot="R180" xref="yes"/>
-</segment>
-</net>
 <net name="HVDET" class="0">
 <segment>
 <wire x1="96.52" y1="104.14" x2="91.44" y2="104.14" width="0.1524" layer="91"/>
@@ -18297,6 +18285,18 @@ Donate: https://paypal.me/mik4rt3m</text>
 <pinref part="D1" gate="G$1" pin="A"/>
 <pinref part="OK4" gate="G$1" pin="EMIT"/>
 <wire x1="165.1" y1="40.64" x2="162.56" y2="40.64" width="0.1524" layer="91"/>
+</segment>
+</net>
+<net name="HVSW" class="0">
+<segment>
+<pinref part="ARDUINO_NANO" gate="G$1" pin="D9"/>
+<wire x1="58.42" y1="63.5" x2="60.96" y2="63.5" width="0.1524" layer="91"/>
+<label x="60.96" y="63.5" size="1.27" layer="95" xref="yes"/>
+</segment>
+<segment>
+<pinref part="OK1" gate="G$1" pin="A"/>
+<wire x1="91.44" y1="119.38" x2="86.36" y2="119.38" width="0.1524" layer="91"/>
+<label x="86.36" y="119.38" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 </nets>
