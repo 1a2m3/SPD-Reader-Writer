@@ -17636,6 +17636,48 @@ Added bigger pads to the TO-92 package</description>
 </deviceset>
 </devicesets>
 </library>
+<library name="frames" urn="urn:adsk.eagle:library:229">
+<description>&lt;b&gt;Frames for Sheet and Layout&lt;/b&gt;</description>
+<packages>
+</packages>
+<symbols>
+<symbol name="A5L-LOC" urn="urn:adsk.eagle:symbol:13879/1" library_version="1">
+<wire x1="85.09" y1="3.81" x2="85.09" y2="24.13" width="0.1016" layer="94"/>
+<wire x1="85.09" y1="24.13" x2="139.065" y2="24.13" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="24.13" x2="180.34" y2="24.13" width="0.1016" layer="94"/>
+<wire x1="170.18" y1="3.81" x2="170.18" y2="8.89" width="0.1016" layer="94"/>
+<wire x1="170.18" y1="8.89" x2="180.34" y2="8.89" width="0.1016" layer="94"/>
+<wire x1="170.18" y1="8.89" x2="139.065" y2="8.89" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="8.89" x2="139.065" y2="3.81" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="8.89" x2="139.065" y2="13.97" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="13.97" x2="180.34" y2="13.97" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="13.97" x2="139.065" y2="19.05" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="19.05" x2="180.34" y2="19.05" width="0.1016" layer="94"/>
+<wire x1="139.065" y1="19.05" x2="139.065" y2="24.13" width="0.1016" layer="94"/>
+<text x="140.97" y="15.24" size="2.54" layer="94">&gt;DRAWING_NAME</text>
+<text x="140.97" y="10.16" size="2.286" layer="94">&gt;LAST_DATE_TIME</text>
+<text x="154.305" y="5.08" size="2.54" layer="94">&gt;SHEET</text>
+<text x="140.716" y="4.953" size="2.54" layer="94">Sheet:</text>
+<frame x1="0" y1="0" x2="184.15" y2="133.35" columns="4" rows="4" layer="94"/>
+</symbol>
+</symbols>
+<devicesets>
+<deviceset name="DINA5_L" urn="urn:adsk.eagle:component:13932/1" prefix="FRAME" uservalue="yes" library_version="1">
+<description>&lt;b&gt;FRAME&lt;/b&gt;&lt;p&gt;
+DIN A5, landscape with doc field</description>
+<gates>
+<gate name="G$1" symbol="A5L-LOC" x="0" y="0"/>
+</gates>
+<devices>
+<device name="">
+<technologies>
+<technology name=""/>
+</technologies>
+</device>
+</devices>
+</deviceset>
+</devicesets>
+</library>
 <library name="EEPROM">
 <packages>
 <package name="2X04" urn="urn:adsk.eagle:footprint:6240250/1" locally_modified="yes">
@@ -17692,20 +17734,20 @@ Added bigger pads to the TO-92 package</description>
 <symbols>
 <symbol name="EEPROM">
 <description>EEPROM</description>
-<pin name="SA0" x="-10.16" y="5.08" length="short" direction="in"/>
-<pin name="SA1" x="-10.16" y="2.54" length="short" direction="in"/>
-<pin name="SA2" x="-10.16" y="0" length="short" direction="in"/>
-<pin name="GND" x="-10.16" y="-2.54" length="short" direction="pwr"/>
-<pin name="SDA" x="10.16" y="-2.54" length="short" rot="R180"/>
-<pin name="SCL" x="10.16" y="0" length="short" direction="in" rot="R180"/>
-<pin name="WP" x="10.16" y="2.54" length="short" direction="out" rot="R180"/>
-<pin name="VCC" x="10.16" y="5.08" length="short" direction="pwr" rot="R180"/>
-<wire x1="-7.62" y1="-5.08" x2="7.62" y2="-5.08" width="0.1524" layer="94"/>
-<text x="-7.62" y="10.16" size="1.778" layer="95" rot="R180" align="bottom-right">&gt;NAME</text>
-<text x="-7.62" y="-7.62" size="1.778" layer="95">&gt;VALUE</text>
-<wire x1="-7.62" y1="-5.08" x2="-7.62" y2="7.62" width="0.1524" layer="94"/>
-<wire x1="7.62" y1="7.62" x2="7.62" y2="-5.08" width="0.1524" layer="94"/>
-<wire x1="-7.62" y1="7.62" x2="7.62" y2="7.62" width="0.1524" layer="94"/>
+<pin name="SA0" x="-12.7" y="5.08" length="short" direction="in"/>
+<pin name="SA1" x="-12.7" y="2.54" length="short" direction="in"/>
+<pin name="SA2" x="-12.7" y="0" length="short" direction="in"/>
+<pin name="GND" x="-12.7" y="-2.54" length="short" direction="pwr"/>
+<pin name="SDA" x="12.7" y="-2.54" length="short" rot="R180"/>
+<pin name="SCL" x="12.7" y="0" length="short" direction="in" rot="R180"/>
+<pin name="WP" x="12.7" y="2.54" length="short" direction="out" rot="R180"/>
+<pin name="VDDSPD" x="12.7" y="5.08" length="short" direction="pwr" rot="R180"/>
+<wire x1="-10.16" y1="-5.08" x2="10.16" y2="-5.08" width="0.1524" layer="94"/>
+<text x="-10.16" y="10.16" size="1.778" layer="95" rot="R180" align="bottom-right">&gt;NAME</text>
+<text x="-10.16" y="-7.62" size="1.778" layer="95">&gt;VALUE</text>
+<wire x1="-10.16" y1="-5.08" x2="-10.16" y2="7.62" width="0.1524" layer="94"/>
+<wire x1="10.16" y1="7.62" x2="10.16" y2="-5.08" width="0.1524" layer="94"/>
+<wire x1="-10.16" y1="7.62" x2="10.16" y2="7.62" width="0.1524" layer="94"/>
 </symbol>
 </symbols>
 <devicesets>
@@ -17723,51 +17765,9 @@ Added bigger pads to the TO-92 package</description>
 <connect gate="G$1" pin="SA2" pad="3"/>
 <connect gate="G$1" pin="SCL" pad="6"/>
 <connect gate="G$1" pin="SDA" pad="5"/>
-<connect gate="G$1" pin="VCC" pad="8"/>
+<connect gate="G$1" pin="VDDSPD" pad="8"/>
 <connect gate="G$1" pin="WP" pad="7"/>
 </connects>
-<technologies>
-<technology name=""/>
-</technologies>
-</device>
-</devices>
-</deviceset>
-</devicesets>
-</library>
-<library name="frames" urn="urn:adsk.eagle:library:229">
-<description>&lt;b&gt;Frames for Sheet and Layout&lt;/b&gt;</description>
-<packages>
-</packages>
-<symbols>
-<symbol name="A5L-LOC" urn="urn:adsk.eagle:symbol:13879/1" library_version="1">
-<wire x1="85.09" y1="3.81" x2="85.09" y2="24.13" width="0.1016" layer="94"/>
-<wire x1="85.09" y1="24.13" x2="139.065" y2="24.13" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="24.13" x2="180.34" y2="24.13" width="0.1016" layer="94"/>
-<wire x1="170.18" y1="3.81" x2="170.18" y2="8.89" width="0.1016" layer="94"/>
-<wire x1="170.18" y1="8.89" x2="180.34" y2="8.89" width="0.1016" layer="94"/>
-<wire x1="170.18" y1="8.89" x2="139.065" y2="8.89" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="8.89" x2="139.065" y2="3.81" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="8.89" x2="139.065" y2="13.97" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="13.97" x2="180.34" y2="13.97" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="13.97" x2="139.065" y2="19.05" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="19.05" x2="180.34" y2="19.05" width="0.1016" layer="94"/>
-<wire x1="139.065" y1="19.05" x2="139.065" y2="24.13" width="0.1016" layer="94"/>
-<text x="140.97" y="15.24" size="2.54" layer="94">&gt;DRAWING_NAME</text>
-<text x="140.97" y="10.16" size="2.286" layer="94">&gt;LAST_DATE_TIME</text>
-<text x="154.305" y="5.08" size="2.54" layer="94">&gt;SHEET</text>
-<text x="140.716" y="4.953" size="2.54" layer="94">Sheet:</text>
-<frame x1="0" y1="0" x2="184.15" y2="133.35" columns="4" rows="4" layer="94"/>
-</symbol>
-</symbols>
-<devicesets>
-<deviceset name="DINA5_L" urn="urn:adsk.eagle:component:13932/1" prefix="FRAME" uservalue="yes" library_version="1">
-<description>&lt;b&gt;FRAME&lt;/b&gt;&lt;p&gt;
-DIN A5, landscape with doc field</description>
-<gates>
-<gate name="G$1" symbol="A5L-LOC" x="0" y="0"/>
-</gates>
-<devices>
-<device name="">
 <technologies>
 <technology name=""/>
 </technologies>
@@ -17806,8 +17806,6 @@ DIN A5, landscape with doc field</description>
 <part name="C1" library="rcl" library_urn="urn:adsk.eagle:library:334" deviceset="CPOL-US" device="E5-8.5" package3d_urn="urn:adsk.eagle:package:23374/1" value="560uF, 6.3V"/>
 <part name="BAT1" library="special" library_urn="urn:adsk.eagle:library:367" deviceset="BATTERY" device="" package3d_urn="urn:adsk.eagle:package:26670/1" value="9V"/>
 <part name="P+5" library="audio amplifier example" library_urn="urn:adsk.eagle:library:970892" deviceset="VCC" device=""/>
-<part name="GND12" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
-<part name="U1" library="EEPROM" deviceset="EEPROM" device=""/>
 <part name="GND14" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="R2" library="adafruit" library_urn="urn:adsk.eagle:library:420" deviceset="R-US_" device="0204/7" package3d_urn="urn:adsk.eagle:package:6240596/1" value="10K"/>
 <part name="R3" library="adafruit" library_urn="urn:adsk.eagle:library:420" deviceset="R-US_" device="0204/7" package3d_urn="urn:adsk.eagle:package:6240596/1" value="10K"/>
@@ -17821,6 +17819,7 @@ DIN A5, landscape with doc field</description>
 <part name="P+6" library="audio amplifier example" library_urn="urn:adsk.eagle:library:970892" deviceset="VCC" device=""/>
 <part name="GND10" library="supply1" library_urn="urn:adsk.eagle:library:371" deviceset="GND" device=""/>
 <part name="D1" library="adafruit" library_urn="urn:adsk.eagle:library:420" deviceset="SCHOTTKY-DIODE" device="DO35-7" package3d_urn="urn:adsk.eagle:package:6240681/1"/>
+<part name="U1" library="EEPROM" deviceset="EEPROM" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -17851,9 +17850,9 @@ required in case future revisions will require specific SA pins configuration.</
 <wire x1="124.46" y1="129.54" x2="124.46" y2="28.0162" width="0.0762" layer="94" style="shortdash"/>
 <text x="7.62" y="83.82" size="2.1844" layer="97" font="vector">ARDUINO</text>
 <wire x1="180.34" y1="27.94" x2="3.8862" y2="27.94" width="0.0762" layer="94" style="shortdash"/>
-<text x="85.852" y="5.842" size="1.4224" layer="97" font="vector">Arduino based EEPROM SPD reader and writer
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-For overclockers and PC hardware enthusiasts
+<text x="85.852" y="5.842" size="1.4224" layer="97">Arduino based EEPROM SPD reader and writer
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ For overclockers and PC hardware enthusiasts
 
 Repos: https://github.com/1a2m3/SPD-Reader-Writer
 Support: https://forums.evga.com/FindPost/3053544
@@ -17888,8 +17887,8 @@ Donate: https://paypal.me/mik4rt3m</text>
 <instance part="GND6" gate="1" x="60.96" y="33.02" smashed="yes">
 <attribute name="VALUE" x="58.42" y="30.48" size="1.778" layer="96"/>
 </instance>
-<instance part="GND7" gate="1" x="15.24" y="93.98" smashed="yes">
-<attribute name="VALUE" x="12.7" y="91.44" size="1.778" layer="96"/>
+<instance part="GND7" gate="1" x="12.7" y="93.98" smashed="yes">
+<attribute name="VALUE" x="10.16" y="91.44" size="1.778" layer="96"/>
 </instance>
 <instance part="OK2" gate="G$1" x="101.6" y="73.66" smashed="yes">
 <attribute name="NAME" x="94.615" y="79.375" size="1.778" layer="95"/>
@@ -17928,13 +17927,6 @@ Donate: https://paypal.me/mik4rt3m</text>
 </instance>
 <instance part="P+5" gate="VCC" x="48.26" y="121.92" smashed="yes">
 <attribute name="VALUE" x="46.736" y="122.936" size="1.27" layer="96"/>
-</instance>
-<instance part="GND12" gate="1" x="48.26" y="93.98" smashed="yes">
-<attribute name="VALUE" x="45.72" y="91.44" size="1.778" layer="96"/>
-</instance>
-<instance part="U1" gate="G$1" x="27.94" y="106.68" smashed="yes">
-<attribute name="NAME" x="20.32" y="116.84" size="1.778" layer="95" rot="R180" align="bottom-right"/>
-<attribute name="VALUE" x="35.56" y="99.06" size="1.778" layer="95" rot="MR0"/>
 </instance>
 <instance part="GND14" gate="1" x="111.76" y="93.98" smashed="yes">
 <attribute name="VALUE" x="109.22" y="91.44" size="1.778" layer="96"/>
@@ -17984,6 +17976,10 @@ Donate: https://paypal.me/mik4rt3m</text>
 <attribute name="NAME" x="165.354" y="42.545" size="1.778" layer="95"/>
 <attribute name="VALUE" x="165.354" y="37.211" size="1.778" layer="96"/>
 </instance>
+<instance part="U1" gate="G$1" x="27.94" y="106.68" smashed="yes">
+<attribute name="NAME" x="17.78" y="116.84" size="1.778" layer="95" rot="R180" align="bottom-right"/>
+<attribute name="VALUE" x="17.78" y="99.06" size="1.778" layer="95"/>
+</instance>
 </instances>
 <busses>
 </busses>
@@ -18030,16 +18026,10 @@ Donate: https://paypal.me/mik4rt3m</text>
 <wire x1="160.02" y1="73.66" x2="160.02" y2="66.04" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<pinref part="U1" gate="G$1" pin="WP"/>
-<wire x1="38.1" y1="109.22" x2="48.26" y2="109.22" width="0.1524" layer="91"/>
-<pinref part="GND12" gate="1" pin="GND"/>
-<wire x1="48.26" y1="109.22" x2="48.26" y2="96.52" width="0.1524" layer="91"/>
-</segment>
-<segment>
-<pinref part="U1" gate="G$1" pin="GND"/>
-<wire x1="17.78" y1="104.14" x2="15.24" y2="104.14" width="0.1524" layer="91"/>
-<wire x1="15.24" y1="104.14" x2="15.24" y2="96.52" width="0.1524" layer="91"/>
+<wire x1="15.24" y1="104.14" x2="12.7" y2="104.14" width="0.1524" layer="91"/>
+<wire x1="12.7" y1="104.14" x2="12.7" y2="96.52" width="0.1524" layer="91"/>
 <pinref part="GND7" gate="1" pin="GND"/>
+<pinref part="U1" gate="G$1" pin="GND"/>
 </segment>
 <segment>
 <wire x1="106.68" y1="96.52" x2="111.76" y2="96.52" width="0.1524" layer="91"/>
@@ -18078,10 +18068,10 @@ Donate: https://paypal.me/mik4rt3m</text>
 <wire x1="55.88" y1="111.76" x2="55.88" y2="119.38" width="0.1524" layer="91"/>
 </segment>
 <segment>
-<pinref part="U1" gate="G$1" pin="VCC"/>
-<wire x1="38.1" y1="111.76" x2="48.26" y2="111.76" width="0.1524" layer="91"/>
+<wire x1="40.64" y1="111.76" x2="48.26" y2="111.76" width="0.1524" layer="91"/>
 <pinref part="P+5" gate="VCC" pin="VCC"/>
 <wire x1="48.26" y1="111.76" x2="48.26" y2="119.38" width="0.1524" layer="91"/>
+<pinref part="U1" gate="G$1" pin="VDDSPD"/>
 </segment>
 <segment>
 <pinref part="P+4" gate="VCC" pin="VCC"/>
@@ -18108,9 +18098,9 @@ Donate: https://paypal.me/mik4rt3m</text>
 <junction x="111.76" y="114.3"/>
 </segment>
 <segment>
+<wire x1="15.24" y1="111.76" x2="12.7" y2="111.76" width="0.1524" layer="91"/>
+<label x="12.7" y="111.76" size="1.27" layer="95" rot="R180" xref="yes"/>
 <pinref part="U1" gate="G$1" pin="SA0"/>
-<wire x1="17.78" y1="111.76" x2="15.24" y2="111.76" width="0.1524" layer="91"/>
-<label x="15.24" y="111.76" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 <segment>
 <pinref part="D1" gate="G$1" pin="C"/>
@@ -18137,9 +18127,9 @@ Donate: https://paypal.me/mik4rt3m</text>
 <label x="114.3" y="71.12" size="1.27" layer="95" xref="yes"/>
 </segment>
 <segment>
+<wire x1="15.24" y1="109.22" x2="12.7" y2="109.22" width="0.1524" layer="91"/>
+<label x="12.7" y="109.22" size="1.27" layer="95" rot="R180" xref="yes"/>
 <pinref part="U1" gate="G$1" pin="SA1"/>
-<wire x1="17.78" y1="109.22" x2="15.24" y2="109.22" width="0.1524" layer="91"/>
-<label x="15.24" y="109.22" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="SDA" class="0">
@@ -18149,9 +18139,9 @@ Donate: https://paypal.me/mik4rt3m</text>
 <label x="15.24" y="53.34" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 <segment>
+<wire x1="40.64" y1="104.14" x2="43.18" y2="104.14" width="0.1524" layer="91"/>
+<label x="43.18" y="104.14" size="1.27" layer="95" xref="yes"/>
 <pinref part="U1" gate="G$1" pin="SDA"/>
-<wire x1="38.1" y1="104.14" x2="40.64" y2="104.14" width="0.1524" layer="91"/>
-<label x="40.64" y="104.14" size="1.27" layer="95" xref="yes"/>
 </segment>
 </net>
 <net name="SCL" class="0">
@@ -18161,9 +18151,9 @@ Donate: https://paypal.me/mik4rt3m</text>
 <label x="15.24" y="50.8" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 <segment>
+<wire x1="40.64" y1="106.68" x2="43.18" y2="106.68" width="0.1524" layer="91"/>
+<label x="43.18" y="106.68" size="1.27" layer="95" xref="yes"/>
 <pinref part="U1" gate="G$1" pin="SCL"/>
-<wire x1="38.1" y1="106.68" x2="40.64" y2="106.68" width="0.1524" layer="91"/>
-<label x="40.64" y="106.68" size="1.27" layer="95" xref="yes"/>
 </segment>
 </net>
 <net name="5V" class="0">
@@ -18243,9 +18233,9 @@ Donate: https://paypal.me/mik4rt3m</text>
 <pinref part="OK3" gate="G$1" pin="EMIT"/>
 </segment>
 <segment>
+<wire x1="15.24" y1="106.68" x2="12.7" y2="106.68" width="0.1524" layer="91"/>
+<label x="12.7" y="106.68" size="1.27" layer="95" rot="R180" xref="yes"/>
 <pinref part="U1" gate="G$1" pin="SA2"/>
-<wire x1="17.78" y1="106.68" x2="15.24" y2="106.68" width="0.1524" layer="91"/>
-<label x="15.24" y="106.68" size="1.27" layer="95" rot="R180" xref="yes"/>
 </segment>
 </net>
 <net name="SA2SW" class="0">
