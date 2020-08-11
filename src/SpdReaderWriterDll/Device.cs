@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Threading;
@@ -296,7 +296,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
-            return EepromAddress != 0 && ProbeAddress(this, EepromAddress); // return (EepromAddress != 0) ? ProbeAddress(this, EepromAddress) : false;
+            return EepromAddress != 0 && ProbeAddress(this, EepromAddress);
             
         }
 
@@ -321,10 +321,9 @@ namespace SpdReaderWriterDll {
         /// Executes commands on the device.
         /// </summary>
         /// <param name="Command">Space separated commands to be executed on the device</param>
-        /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns>A byte array received from the device in response</returns>
-        public byte[] ExecuteCommand(string Command, int timeout = 10000) {
-            return ExecuteCommand(this, Command, timeout);
+        public byte[] ExecuteCommand(string Command) {
+            return ExecuteCommand(this, Command);
         }
 
         /// <summary>
@@ -364,8 +363,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         private SerialPort _sp = new SerialPort {
             BaudRate     = Settings.BAUDRATE,
-            ReadTimeout  = 1000,
-            WriteTimeout = 1000,
+            ReadTimeout  = 10000,
+            WriteTimeout = 10000,
             RtsEnable    = true,
         };
 
@@ -513,10 +512,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Tests if the device supports programmatic address pins configuration, used to determine device's RSWP and PSWP capabilities
+        /// Tests if the device supports programmatic address pins configuration and HV control, used to determine device's RSWP and PSWP capabilities
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> if the device supports programmatic address pins configuration</returns>
+        /// <returns><see langword="true" /> if the device supports programmatic address pins configuration and HV control</returns>
         private static bool TestAdvancedFeatures(Device device) {
             lock (device.PortLock) {
                 if (device.IsConnected) {
@@ -535,8 +534,8 @@ namespace SpdReaderWriterDll {
 
                     device.ResetAddressPins();
 
-                    if (_test000.Length == 1 && _test000[0] == 80 &&
-                        _test010.Length == 1 && _test010[0] == 82 &&
+                    if (_test000[0] == 80 && _test000.Length == 1 &&
+                        _test010[0] == 82 && _test010.Length == 1 &&
                         _test009) {
                         device.AdvancedFeaturesSupported = true;
                     }
@@ -550,8 +549,8 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <param name="device">Device</param>
-        /// <param name="startAddress">First address (cannot be lower than 0x50)</param>
-        /// <param name="endAddress">Last address (cannot be higher than 0x57)</param>
+        /// <param name="startAddress">First address</param>
+        /// <param name="endAddress">Last address</param>
         /// <returns>An array of EEPROM addresses present on the device's I2C bus</returns>
         private static UInt8[] Scan(Device device, int startAddress = 0x50, int endAddress = 0x52) {
 
@@ -676,13 +675,11 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <param name="Command">Space separated commands to be executed on the device</param>
-        /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns>A byte array received from the device in response</returns>
-        private static byte[] ExecuteCommand(Device device, string Command, int timeout) {
+        private static byte[] ExecuteCommand(Device device, string Command) {
 
             Queue<byte> _response = new Queue<byte>();
 
-            int _timeoutMilliseconds = timeout;
             DateTime _start = DateTime.Now;
 
             lock (device.PortLock) {
@@ -693,9 +690,8 @@ namespace SpdReaderWriterDll {
                         device._sp.WriteLine(cmd);
                     }
 
-                    // Timeout handling
                     while (device.BytesToRead == 0) {
-                        if ((DateTime.Now - _start).TotalMilliseconds > _timeoutMilliseconds) {
+                        if ((DateTime.Now - _start).TotalMilliseconds > device._sp.ReadTimeout) {
                             device.Dispose();
                             throw new TimeoutException("Response timeout");
                         }
@@ -704,8 +700,6 @@ namespace SpdReaderWriterDll {
                     while (device.BytesToRead != 0) {
                         _response.Enqueue(device.ReadByte());
                     }
-
-                    //device.ClearBuffer();
                 }
             }
 
