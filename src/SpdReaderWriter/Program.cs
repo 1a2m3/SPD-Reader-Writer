@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using SpdReaderWriterDll;
@@ -120,7 +120,7 @@ namespace SpdReaderWriter {
 						throw new Exception($"Could not connect to the device on port {portName}.");
 					}
 
-					if (reader.GetFirmwareVersion() < Settings.MinimumVersionRequired) {
+					if (reader.GetFirmwareVersion() < Settings.MINVERSION) {
 						throw new Exception($"The device on port {portName} requires its firmware to be updated.");
 					}
 
@@ -173,7 +173,7 @@ namespace SpdReaderWriter {
 								}
 							}
 
-							reader.ResetEepromAddress();
+							reader.ResetAddressPins();
 
 							for (int i = 0; i < block.Length; i++) {
 								if (Eeprom.SetWriteProtection(reader, i)) {
@@ -199,16 +199,16 @@ namespace SpdReaderWriter {
 								throw new Exception("Unable to clear write protection");
 							}
 
-							reader.ResetEepromAddress();
+							reader.ResetAddressPins();
 
 							return;
 						}
 					}
 
-					int address;
+					byte address;
 
 					try {
-						address = Int32.Parse(args[2]);
+						address = (byte)Int32.Parse(args[2]);
 					}
 					catch {
 						throw new Exception("EEPROM address should be specified in decimal notation.");
@@ -217,7 +217,7 @@ namespace SpdReaderWriter {
 					reader.EepromAddress = address;
 					reader.SpdSize = Spd.GetSpdSize(reader);
 
-					if (!reader.Probe()) {
+					if (!reader.ProbeAddress()) {
 						throw new Exception($"EEPROM is not present at address {reader.EepromAddress}.");
 					}
 
@@ -389,7 +389,7 @@ namespace SpdReaderWriter {
 
 			// Print top row (offsets)
 			if (pos == 0 && showOffset) {
-				Console.Write("     "); // Indentation
+				Console.Write("      "); // Indentation
 				for (int i = 0; i < bpr; i++) {
 					Console.Write($"{i:X2} ");
 				}
@@ -400,7 +400,7 @@ namespace SpdReaderWriter {
 				Console.Write(Environment.NewLine);
 				if (showOffset) {
 					// Print row offsets
-					Console.Write("{0:X3}: ", pos);
+					Console.Write("{0:X4}: ", pos);
 				}
 			}
 
