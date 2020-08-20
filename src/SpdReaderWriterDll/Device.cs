@@ -41,7 +41,11 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Enable Reversible SWP
         /// </summary>
-        public const char SETREVERSIBELSWP = 'b';
+        public const char SETREVERSIBLESWP = 'b';
+        /// <summary>
+        /// Read Reversible SWP status
+        /// </summary>
+        public const char GETREVERSIBLESWP = 'o';
         /// <summary>
         /// Clear Reversible SWP
         /// </summary>
@@ -96,6 +100,7 @@ namespace SpdReaderWriterDll {
         // Aliases
         public const byte ACK   = SUCCESS;
         public const byte NOACK = ERROR;
+        public const byte NACK  = ERROR;
         public const byte FAIL  = ERROR;
         public const byte ZERO  = NULL;
     }
@@ -271,7 +276,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Sets all Select Address pins to desired state
         /// </summary>
-        /// <param name="state"></param>
+        /// <param name="state">Pin state</param>
         /// <returns><see langword="true" /> if pin state has been set</returns>
         public bool SetAddressPin(int state) {
             for (int p = Pin.SA0; p <= Pin.SA2; p++) {
@@ -342,7 +347,7 @@ namespace SpdReaderWriterDll {
 
             Stack<string> _result = new Stack<string>();
 
-            lock (_FindLock) {
+            lock (_findLock) {
                 foreach (string _portName in SerialPort.GetPortNames()) {
                     Device _device = new Device(_portName);
                     lock (_device.PortLock) {
@@ -396,7 +401,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        public object PortLock = _PortLock;
+        public object PortLock = _portLock;
 
         /// <summary>
         /// Number of bytes to be read from the device
@@ -502,13 +507,9 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device</param>
         /// <returns><see langword="true" /> if the device responds to a test command</returns>
         private static bool Test(Device device) {
-
             lock (device.PortLock) {
-                if (device.IsConnected) {
-                    return device.ExecuteCommand($"{Command.TESTCOMM}")[0] == Response.WELCOME;
-                }
+                return device.ExecuteCommand($"{Command.TESTCOMM}")[0] == Response.WELCOME;
             }
-            return false;
         }
 
         /// <summary>
@@ -582,11 +583,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the address has been set</returns>
         private static bool SetAddressPin(Device device, int pin, int state) {
             lock (device.PortLock) {
-                if (device.IsConnected) {
-                    return device.ExecuteCommand($"{Command.SETADDRESSPIN} {pin} {state}")[0] == Response.SUCCESS;
-                }
+                return device.ExecuteCommand($"{Command.SETADDRESSPIN} {pin} {state}")[0] == Response.SUCCESS;
             }
-            return false;
         }
 
         /// <summary>
@@ -597,11 +595,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if operation is completed</returns>
         private static bool SetHighVoltage(Device device, int state) {
             lock (device.PortLock) {
-                if (device.IsConnected) {
-                    return device.ExecuteCommand($"{Command.SETHVSTATE} {state}")[0] == Response.SUCCESS;
-                }
+                return device.ExecuteCommand($"{Command.SETHVSTATE} {state}")[0] == Response.SUCCESS;
             }
-            return false;
         }
 
         /// <summary>
@@ -611,11 +606,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if high voltage is applied to pin SA0</returns>
         private static bool GetHighVoltageState(Device device) {
             lock (device.PortLock) {
-                if (device.IsConnected) {
-                    return device.ExecuteCommand($"{Command.GETHVSTATE}")[0] == Response.ON;
-                }
+                return device.ExecuteCommand($"{Command.GETHVSTATE}")[0] == Response.ON;
             }
-            return false;
         }
 
         /// <summary>
@@ -626,11 +618,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the address is accessible</returns>
         private static bool ProbeAddress(Device device, int address) {
             lock (device.PortLock) {
-                if (device.IsConnected) {
-                    return device.ExecuteCommand($"{Command.PROBEADDRESS} {address}")[0] == address;
-                }
+                return device.ExecuteCommand($"{Command.PROBEADDRESS} {address}")[0] == address;
             }
-            return false;
         }
 
         /// <summary>
@@ -680,10 +669,10 @@ namespace SpdReaderWriterDll {
 
             Queue<byte> _response = new Queue<byte>();
 
-            DateTime _start = DateTime.Now;
-
             lock (device.PortLock) {
                 if (device.IsConnected) {
+                    DateTime _start = DateTime.Now;
+                    
                     device.ClearBuffer();
 
                     foreach (string cmd in Command.Split(' ')) {
@@ -717,12 +706,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private static readonly object _PortLock = new object();
+        private static readonly object _portLock = new object();
 
         /// <summary>
         /// FindLock object used to prevent other threads from acquiring the lock
         /// </summary>
-        private static readonly object _FindLock = new object();
+        private static readonly object _findLock = new object();
 
         #endregion
     }
