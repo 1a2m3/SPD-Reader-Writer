@@ -1,6 +1,6 @@
 /*
     Arduino based EEPROM SPD reader and writer
-   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    For overclockers and PC hardware enthusiasts
 
    Repos:   https://github.com/1a2m3/SPD-Reader-Writer
@@ -12,24 +12,31 @@
 
 */
 
-#define VERSION 20200815 // Version number (YYYYMMDD)
-
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
+#define VERSION 20200820 // Version number (YYYYMMDD)
+
 // EEPROM page commands
-#define SPA0 0x36   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
-#define SPA1 0x37   // Set EE Page Address to 1 (addresses 100h to 1FFh) (256-511) (DDR4)
+#define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
+#define SPA1 0x6E   // Set EE Page Address to 1 (addresses 100h to 1FFh) (256-511) (DDR4)
+#define RPA  0x6D   // Read EE Page Address                                        (DDR4)
 
 // EEPROM RSWP commands
-#define SWP0 0x31   // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
-#define SWP1 0x34   // Set RSWP for block 1     (addresses  80h to  FFh) (128-255) (DDR4)
-#define SWP2 0x35   // Set RSWP for block 2     (addresses 100h to 17Fh) (256-383) (DDR4)
-#define SWP3 0x30   // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)
-#define CWP  0x33   // Clear RSWP                                                  (DDR4/DDR3/DDR2)
+#define RPS0 0x63   // Read SWP0 status         (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
+#define RPS1 0x69   // Read SWP1 status         (addresses  80h to  FFh) (128-255) (DDR4)
+#define RPS2 0x6B   // Read SWP2 status         (addresses 100h to 17Fh) (256-383) (DDR4)
+#define RPS3 0x61   // Read SWP3 status         (addresses 180h to 1FFh) (384-511) (DDR4)
+
+#define SWP0 0x62   // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
+#define SWP1 0x68   // Set RSWP for block 1     (addresses  80h to  FFh) (128-255) (DDR4)
+#define SWP2 0x6A   // Set RSWP for block 2     (addresses 100h to 17Fh) (256-383) (DDR4)
+#define SWP3 0x60   // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)
+
+#define CWP  0x66   // Clear RSWP                                                  (DDR4/DDR3/DDR2)
 
 // EEPROM PSWP commands
-#define PWPB 0b0110 // PSWP Device Type Identifier Code (bits 7-4)
+#define PWPB 0b0110 // PSWP Device Type Identifier Control Code (bits 7-4)
 
 // EEPROM data
 #define DNC  0x00   // "Do not care" byte
@@ -42,8 +49,9 @@
 #define SETADDRESSPIN     'p' // [P]in control
 #define SETHVSTATE        '9' // [9]V control
 #define GETHVSTATE        'h' // [H]igh voltage status
-#define SETREVERSIBELSWP  'b' // [B]lock
-#define CLEARSWP          'c' // [C]lear
+#define SETREVERSIBLESWP  'b' // [B]lock
+#define GETREVERSIBLESWP  'o' // [O]btain RSWP status
+#define CLEARSWP          'c' // [C]lear RSWP
 #define SETPERMANENTSWP   'l' // [L]ock
 #define GETPSWP           'u' // [U]nwritable?
 #define GETVERSION        'v' // [V]ersion
@@ -52,7 +60,7 @@
 // Device responses
 #define SUCCESS (byte)  0
 #define ERROR   (byte)  1
-#define NULL    (byte)  0   // Used to indicate an error where a numeric non-zero answer is normally expected
+#define ZERO    (byte)  0   // Used to indicate an error where a numeric non-zero answer is normally expected
 #define WELCOME (byte) '!'
 
 // Pin states
@@ -77,7 +85,7 @@ void setup() {
   Wire.begin();
 
   // Reset EEPROM page address
-  setPageAddress(eepromPageAddress);
+  setPageAddress(0);
 
   // Reset SA pins configuration
   setAddressPin(SA0SW, OFF);
@@ -92,256 +100,22 @@ void setup() {
 
   // Wait for serial monitor
   while (!PORT) {}
-  
+
   PORT.write(WELCOME);
 }
 
-// Controls HV source (set state to ON to turn on, or OFF to turn off)
-bool setHighVoltage(bool state) {
+void loop() {
+  // Wait for input data
+  while (!PORT.available()) {}
 
-  // Disconnect SA0 from VCC before applying HV to it
-  if (state == ON) {
-    setAddressPin(SA0SW, OFF);
-  }
-  digitalWrite(HVSW, state);
-  delay(10);
+  // Process input commands and data
+  parseCommand();
 
-  // Return operation result
-  return getHighVoltage() == state;
+  // Clear port buffer
+  PORT.flush();
 }
 
-// Returns HV status by reading HVDET
-bool getHighVoltage() {
-  return digitalRead(HVDET);
-}
-
-// Turns on or off select address pins
-bool setAddressPin(int pin, bool state) {
-
-  // Turn off HV when SA0 is being configured while HV is applied to it
-  if (pin == SA0SW && getHighVoltage() == ON) {
-    setHighVoltage(OFF);
-  }
-  digitalWrite(pin, state);
-  delay(10);
-
-  return digitalRead(pin) == state;
-}
-
-// Clears reversible software write protection
-bool clearWriteProtection() {
-
-  setHighVoltage(ON);
-
-  Wire.beginTransmission(CWP);
-  Wire.write(DNC);
-  Wire.write(DNC);
-  int status = Wire.endTransmission();
-
-  setHighVoltage(OFF);
-
-  return status == 0;
-}
-
-// Sets reversible write protection on specified block
-bool setWriteProtection(uint8_t block) {
-
-  int commands[] = { SWP0, SWP1, SWP2, SWP3 };
-  int cmd = (block >= 0 || block <= 3) ? commands[block] : commands[0];
-
-  setHighVoltage(ON);
-
-  Wire.beginTransmission(cmd);
-  Wire.write(DNC);
-  Wire.write(DNC);
-  int status = Wire.endTransmission(); // status == 0 when SWP is enabled
-
-  setHighVoltage(OFF);
-
-  return status == 0;
-}
-
-// Sets permanent write protection on supported EEPROMs
-bool setPermanentWriteProtection(uint8_t deviceAddress) {
-
-  uint8_t cmd = (deviceAddress & 0b111) + (PWPB << 3); // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
-
-  Wire.beginTransmission(cmd);
-  Wire.write(DNC);
-  Wire.write(DNC);
-  int status = Wire.endTransmission();
-  delay(10);
-
-  return status == 0;
-}
-
-// Read permanent write protection status
-bool readPermanentWriteProtection(uint8_t deviceAddress) {
-
-  // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
-  uint8_t cmd = (deviceAddress & 0b111) + (PWPB << 3);
-
-  Wire.beginTransmission(cmd);
-  Wire.write(DNC);
-  int status = Wire.endTransmission();
-  delay(10);
-
-  return status == 0; // returns true if PSWP is not set
-}
-
-// Reads a byte
-byte readByte(uint8_t deviceAddress, uint16_t offset) {
-
-  adjustPageAddress(offset);
-
-  Wire.beginTransmission(deviceAddress);
-  Wire.write(offset);
-  Wire.endTransmission();
-  Wire.requestFrom(deviceAddress, (uint8_t)1);
-
-  while(!Wire.available()) {}
-  return Wire.read();
-}
-
-// Writes a byte
-bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
-
-  adjustPageAddress(offset);
-
-  Wire.beginTransmission(deviceAddress);
-  Wire.write(offset);
-  Wire.write(data);
-  int status = Wire.endTransmission();
-
-  delay(10);
-
-  //return status == 0; // TODO: writing to PSWP-protected area returns true
-  return status == 0 && readByte(deviceAddress, offset) == data;
-}
-
-// Sets page address to access lower or upper 256 bytes of DDR4 SPD
-void setPageAddress(uint8_t pageNumber) {
-  Wire.beginTransmission((pageNumber == 0) ? SPA0 : SPA1);
-  Wire.endTransmission();
-
-  eepromPageAddress = pageNumber;
-}
-
-// Get currently selected page address
-int getPageAddress() {
-  return eepromPageAddress;
-}
-
-// Adjusts page address according to byte offset specified
-void adjustPageAddress(uint16_t offset) {
-  if (offset <= 0xFF && getPageAddress() != 0) {
-    setPageAddress(0);
-  }
-  if (offset > 0xFF  && getPageAddress() != 1) {
-    setPageAddress(1);
-  }
-}
-
-// Tests if device address is present on I2C bus
-bool probeAddress(uint8_t address) {
-  Wire.beginTransmission(address);
-  return Wire.endTransmission() == 0;
-}
-
-/*  -=  Command handlers  =-  */
-
-void cmdScan() {
-  int startAddress = PORT.parseInt(); // First EEPROM address
-  int endAddress   = PORT.parseInt(); // Last EEPROM address
-
-  if (startAddress > endAddress) {
-    PORT.write(NULL); // Return 0 when start and end addresses are incorrectly specified
-    return;
-  }
-
-  for (int i = startAddress; i <= endAddress; i++) {
-    PORT.write(probeAddress(i) ? i : NULL); // Return 0 to prevent application from waiting in case no devices are present
-  }
-}
-
-void cmdRead() {
-  int address = PORT.parseInt(); // EEPROM address
-  int offset  = PORT.parseInt(); // Offset address
-  PORT.write(readByte(address, offset));
-}
-
-void cmdWrite() {
-  int address = PORT.parseInt(); // EEPROM address
-  int offset  = PORT.parseInt(); // Offset address
-  byte data   = PORT.parseInt(); // Byte value
-
-  PORT.write(writeByte(address, offset, data) ? SUCCESS : ERROR);
-}
-
-void cmdTest() {
-  PORT.write(WELCOME);
-}
-
-void cmdProbeAddress() {
-  int address = PORT.parseInt(); // EEPROM address
-  PORT.write(probeAddress(address) ? address : NULL);  
-}
-
-void cmdClearRSWP() {
-  PORT.write(clearWriteProtection() ? SUCCESS : ERROR);
-}
-
-void cmdEnableRSWP() {
-  int block = PORT.parseInt(); // Block number
-  block = (block >= 0 && block <= 3) ? block : 0; // Block number can't be outside of 0-3 range
-
-  PORT.write(setWriteProtection(block) ? SUCCESS : ERROR);  
-}
-
-void cmdEnablePSWP() {
-  int address = PORT.parseInt(); // EEPROM address
-  PORT.write(setPermanentWriteProtection(address) ? SUCCESS : ERROR);
-}
-
-void cmdReadPSWP() {
-  int address = PORT.parseInt(); // EEPROM address
-  PORT.write(readPermanentWriteProtection(address) ? SUCCESS : ERROR);  
-}
-
-void cmdSetAddressPin() {
-  int  addressPin      = PORT.parseInt(); // SA pin number
-  bool addressPinState = PORT.parseInt(); // SA pin state
-  int  pin;
-
-  switch (addressPin) {
-    case 0: pin = SA0SW;
-      break;
-    case 1: pin = SA1SW;
-      break;
-    case 2: pin = SA2SW;
-      break;
-    default: pin = SA1SW;
-      break;
-  }
-
-  setAddressPin(pin, addressPinState);
-
-  PORT.write(digitalRead(pin) == addressPinState ? SUCCESS : ERROR);  
-}
-
-void cmdSetHighVoltage() {
-  bool state = (bool)PORT.parseInt();
-  PORT.write(setHighVoltage(state) ? SUCCESS : ERROR);
-}
-
-void cmdGetHighVoltage() {
-  PORT.write(getHighVoltage() ? ON : OFF);
-}
-
-void cmdVersion() {
-  PORT.print(VERSION);
-}
-
+// Process input commands and data
 void parseCommand() {
   if (!PORT.available()) {
     return;
@@ -360,11 +134,11 @@ void parseCommand() {
       break;
 
     // Scan i2c bus for addresses
-    case SCANBUS: cmdScan();
+    case SCANBUS: cmdScanBus();
       break;
 
     // Probe if i2c address is valid
-    case PROBEADDRESS: cmdProbeAddress();
+    case PROBEADDRESS: cmdProbeBusAddress();
       break;
 
     // Set EEPROM SA pin state
@@ -380,11 +154,15 @@ void parseCommand() {
       break;
 
     // Enable RSWP
-    case SETREVERSIBELSWP: cmdEnableRSWP();
+    case SETREVERSIBLESWP: cmdEnableRSWP();
       break;
 
     // Clear RSWP
     case CLEARSWP: cmdClearRSWP();
+      break;
+
+    // Read SWP status
+    case GETREVERSIBLESWP: cmdReadRSWP();
       break;
 
     // Enable PSWP
@@ -405,13 +183,296 @@ void parseCommand() {
   }
 }
 
-void loop() {
-  // Wait for input data
-  while (!PORT.available()) {}
+/*  -=  Command handlers  =-  */
 
-  // Process input commands and data
-  parseCommand();
+void cmdRead() {
+  int address = PORT.parseInt(); // EEPROM address
+  int offset  = PORT.parseInt(); // Offset address
+  PORT.write(readByte(address, offset));
+}
 
-  // Clear port buffer
-  PORT.flush();
+void cmdWrite() {
+  int address = PORT.parseInt(); // EEPROM address
+  int offset  = PORT.parseInt(); // Offset address
+  byte data   = PORT.parseInt(); // Byte value
+
+  PORT.write(writeByte(address, offset, data) ? SUCCESS : ERROR);
+}
+
+void cmdScanBus() {
+  int startAddress = PORT.parseInt(); // First bus address
+  int endAddress   = PORT.parseInt(); // Last bus address
+
+  if (startAddress > endAddress) {
+    PORT.write(ZERO); // Return 0 when start and end addresses are incorrectly specified
+    return;
+  }
+
+  for (int i = startAddress; i <= endAddress; i++) {
+    PORT.write(probeBusAddress(i) ? i : ZERO); // Return 0 to prevent application from waiting in case no devices are present
+  }
+}
+
+void cmdTest() {
+  PORT.write(WELCOME);
+}
+
+void cmdVersion() {
+  PORT.print(VERSION);
+}
+
+void cmdProbeBusAddress() {
+  int address = PORT.parseInt(); // EEPROM address
+  PORT.write(probeBusAddress(address) ? address : ZERO);
+}
+
+void cmdClearRSWP() {
+  PORT.write(clearWriteProtection() ? SUCCESS : ERROR);
+}
+
+void cmdEnableRSWP() {
+  int block = PORT.parseInt(); // Block number
+  PORT.write(setWriteProtection(block) ? SUCCESS : ERROR);
+}
+
+void cmdReadRSWP() {
+  int block = PORT.parseInt(); // Block number
+  PORT.write(readWriteProtection(block) ? SUCCESS : ERROR);
+}
+
+void cmdEnablePSWP() {
+  int address = PORT.parseInt(); // EEPROM address
+  PORT.write(setPermanentWriteProtection(address) ? SUCCESS : ERROR);
+}
+
+void cmdReadPSWP() {
+  int address = PORT.parseInt(); // EEPROM address
+  PORT.write(readPermanentWriteProtection(address) ? SUCCESS : ERROR);
+}
+
+void cmdSetAddressPin() {
+  int  addressPin      = PORT.parseInt(); // SA pin number
+  bool addressPinState = PORT.parseInt(); // SA pin state
+
+  int pins[] = { SA0SW, SA1SW, SA2SW };
+  int pin = (addressPin >= 0 || addressPin <= 2) ? pins[addressPin] : pins[1];
+
+  setAddressPin(pin, addressPinState);
+
+  PORT.write(digitalRead(pin) == addressPinState ? SUCCESS : ERROR);
+}
+
+void cmdSetHighVoltage() {
+  bool state = (bool)PORT.parseInt();
+  PORT.write(setHighVoltage(state) ? SUCCESS : ERROR);
+}
+
+void cmdGetHighVoltage() {
+  PORT.write(getHighVoltage() ? ON : OFF);
+}
+
+
+/*  -=  Read/Write functions  =-  */
+
+// Reads a byte
+byte readByte(uint8_t deviceAddress, uint16_t offset) {
+
+  adjustPageAddress(offset);
+
+  Wire.beginTransmission(deviceAddress);
+  Wire.write(offset);
+  Wire.endTransmission();
+  Wire.requestFrom(deviceAddress, (uint8_t)1);
+
+  while (!Wire.available()) {}
+  return Wire.read();
+}
+
+// Writes a byte
+bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
+
+  adjustPageAddress(offset);
+
+  Wire.beginTransmission(deviceAddress);
+  Wire.write(offset);
+  Wire.write(data);
+  int status = Wire.endTransmission();
+
+  delay(10);
+
+  return status == 0; // TODO: writing to PSWP-protected area returns true
+}
+
+
+/*  -=  RSWP functions  =-  */
+
+// Sets reversible write protection on specified block
+bool setWriteProtection(uint8_t block) {
+
+  int commands[] = { SWP0, SWP1, SWP2, SWP3 };
+  int cmd = (block >= 0 || block <= 3) ? commands[block] : commands[0];
+
+  setHighVoltage(ON);
+  bool result = probeDeviceTypeId(cmd);
+  setHighVoltage(OFF);
+
+  return result;
+}
+
+// Reads reversible write protection status
+bool readWriteProtection(uint8_t block) {
+
+  int commands[] = { RPS0, RPS1, RPS2, RPS3 };
+  int cmd = (block >= 0 || block <= 3) ? commands[block] : commands[0];
+
+  setHighVoltage(OFF);
+
+  return probeDeviceTypeId(cmd); // true = unprotected; false = protected or rswp not supported
+}
+
+// Clears reversible software write protection
+bool clearWriteProtection() {
+
+  setHighVoltage(ON);
+  bool result = probeDeviceTypeId(CWP);
+  setHighVoltage(OFF);
+
+  return result;
+}
+
+
+/*  -=  High Voltage (9V) functions  =-  */
+
+// Controls HV source (set state to ON to turn on, or OFF to turn off)
+bool setHighVoltage(bool state) {
+
+  // Disconnect SA0 from VCC before applying HV to it
+  if (state == ON) {
+    setAddressPin(SA0SW, OFF);
+  }
+  digitalWrite(HVSW, state);
+  delay(state == ON ? 25 : 0);
+
+  // Return operation result
+  return getHighVoltage() == state;
+}
+
+// Returns HV status by reading HVDET
+bool getHighVoltage() {
+  return digitalRead(HVDET);
+}
+
+
+/*  -=  PSWP functions  =-  */
+
+// Sets permanent write protection on supported EEPROMs
+bool setPermanentWriteProtection(uint8_t deviceAddress) {
+
+  // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
+  uint8_t cmd = (deviceAddress & 0b111) | (PWPB << 3);
+
+  Wire.beginTransmission(cmd);
+  // Write 2 DNC bytes to force LSB to set to 0
+  Wire.write(DNC);
+  Wire.write(DNC);
+  int status = Wire.endTransmission();
+  delay(10);
+
+  return status == 0;
+
+  //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
+  //return probeDeviceTypeId(cmd << 1);
+}
+
+// Read permanent write protection status
+bool readPermanentWriteProtection(uint8_t deviceAddress) {
+
+  // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
+  uint8_t cmd = (deviceAddress & 0b111) | (PWPB << 3);
+
+  Wire.beginTransmission(cmd);
+  // Write 1 DNC byte to force LSB to set to 1
+  Wire.write(DNC);
+  int status = Wire.endTransmission();
+  delay(10);
+
+  return status == 0; // returns true if PSWP is not set
+
+  //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
+  //return probeDeviceTypeId(cmd << 1 | 1);
+}
+
+
+/*  -=  EEPROM Page functions  =-  */
+
+// Get currently selected page address
+int getPageAddress() {
+  //return probeDeviceTypeId(RPA) ? 0 : 1; // slow
+  return eepromPageAddress;
+}
+
+// Sets page address to access lower or upper 256 bytes of DDR4 SPD
+void setPageAddress(uint8_t pageNumber) {
+
+  int cmd = (pageNumber == 0) ? SPA0 : SPA1;
+  probeDeviceTypeId(cmd);
+  eepromPageAddress = cmd >> 1 & 1;
+}
+
+// Adjusts page address according to byte offset specified
+void adjustPageAddress(uint16_t offset) {
+
+  if (offset <= 0xFF && getPageAddress() != 0) {
+    setPageAddress(0);
+  }
+  if (offset > 0xFF  && getPageAddress() != 1) {
+    setPageAddress(1);
+  }
+}
+
+
+/*  -=  I2C bus functions  =-  */
+
+// Control slave address pins
+bool setAddressPin(int pin, bool state) {
+
+  // Turn off HV when SA0 is being configured while HV is applied to it
+  if (pin == SA0SW && getHighVoltage() == ON) {
+    setHighVoltage(OFF);
+  }
+  digitalWrite(pin, state);
+  delay(1);
+
+  return digitalRead(pin) == state;
+}
+
+// Tests if device address is present on I2C bus
+bool probeBusAddress(uint8_t address) {
+  Wire.beginTransmission(address);
+  return Wire.endTransmission() == 0;
+}
+
+// Tests if device select code returns ACK
+bool probeDeviceTypeId(uint8_t deviceSelectCode) {
+
+  // Wire library uses 7 bit address, so we strip the LSB from the DSC by bitshifting right by 1
+  int cmd = deviceSelectCode >> 1;
+
+  // Check the LSB of DSC, if it is 0 (write), then we need to write DNC address + DNC data
+  bool writeBit = (deviceSelectCode & 1) == 0;
+
+  Wire.beginTransmission(cmd);
+  if (writeBit) {
+    Wire.write(DNC);
+    Wire.write(DNC);
+  }
+  int status = Wire.endTransmission();
+
+  if (writeBit) {
+    return status == 0;
+  }
+  else {
+    Wire.requestFrom(cmd, 1);
+    return Wire.available() > 0; // true when ACK is received after control byte
+  }
 }
