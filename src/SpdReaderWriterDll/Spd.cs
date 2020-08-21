@@ -279,9 +279,9 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Gets bit values from a byte at offset position
+        /// Gets bit values from a byte at specified offset position
         /// </summary>
-        /// <param name="input">Input byte to get bit value from</param>
+        /// <param name="input">Input byte to get a bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
         /// <returns>An array of bit values</returns>
@@ -305,22 +305,18 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Sets specified bit in byte
+        /// Sets specified bit in a byte at specified offset position
         /// </summary>
         /// <param name="input">Input byte to set bit in</param>
         /// <param name="position">Bit position to set</param>
         /// <param name="value">Bit value to set</param>
         public static byte SetBit(byte input, UInt8 position = 0, byte value = 0) {
 
-            if (position < 1) {
+            if (position > 7) {
                 throw new ArgumentOutOfRangeException(nameof(position));
             }
 
-            // XOR the bit if doesn't match input value
-            if (GetBit(input, position) != value) {
-                input = (byte)(input ^ (value << position));
-            }
-            return input;
+            return (byte)(value == 1 ? input | (1 << position) : input &~ (1 << position));
         }
 
         /// <summary>
