@@ -1,6 +1,6 @@
 /*
     Arduino based EEPROM SPD reader and writer
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    For overclockers and PC hardware enthusiasts
 
    Repos:   https://github.com/1a2m3/SPD-Reader-Writer
@@ -15,7 +15,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20200820 // Version number (YYYYMMDD)
+#define VERSION 20200822 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -47,6 +47,7 @@
 #define SCANBUS           's' // [S]can I2C bus
 #define PROBEADDRESS      'a' // [A]ddress test
 #define SETADDRESSPIN     'p' // [P]in control
+#define GETADDRESSPIN     'q' // [Q]uery pin state
 #define SETHVSTATE        '9' // [9]V control
 #define GETHVSTATE        'h' // [H]igh voltage status
 #define SETREVERSIBLESWP  'b' // [B]lock
@@ -69,6 +70,7 @@
 
 // Global variables
 int eepromPageAddress = 0;   // Initial EEPROM page address
+int pins[] = { SA0SW, SA1SW, SA2SW }; // SA pins array
 
 void setup() {
 
@@ -83,6 +85,8 @@ void setup() {
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
+  // Set clock frequency to 400kHz (fast mode)
+  Wire.setClock(400000);
 
   // Reset EEPROM page address
   setPageAddress(0);
@@ -143,6 +147,10 @@ void parseCommand() {
 
     // Set EEPROM SA pin state
     case SETADDRESSPIN: cmdSetAddressPin();
+      break;
+
+    // Get EEPROM SA pin state
+    case GETADDRESSPIN: cmdGetAddressPin();
       break;
 
     // Control High Voltage supply
@@ -254,12 +262,18 @@ void cmdSetAddressPin() {
   int  addressPin      = PORT.parseInt(); // SA pin number
   bool addressPinState = PORT.parseInt(); // SA pin state
 
-  int pins[] = { SA0SW, SA1SW, SA2SW };
   int pin = (addressPin >= 0 || addressPin <= 2) ? pins[addressPin] : pins[1];
 
   setAddressPin(pin, addressPinState);
 
   PORT.write(digitalRead(pin) == addressPinState ? SUCCESS : ERROR);
+}
+
+void cmdGetAddressPin() {
+  int addressPin = PORT.parseInt(); // SA pin number
+  int pin = (addressPin >= 0 || addressPin <= 2) ? pins[addressPin] : pins[1];
+  
+  PORT.write(getAddressPin(pin) == ON ? ON : OFF);
 }
 
 void cmdSetHighVoltage() {
@@ -280,7 +294,7 @@ byte readByte(uint8_t deviceAddress, uint16_t offset) {
   adjustPageAddress(offset);
 
   Wire.beginTransmission(deviceAddress);
-  Wire.write(offset);
+  Wire.write((uint8_t)(offset & 0xFF));
   Wire.endTransmission();
   Wire.requestFrom(deviceAddress, (uint8_t)1);
 
@@ -294,7 +308,7 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
   adjustPageAddress(offset);
 
   Wire.beginTransmission(deviceAddress);
-  Wire.write(offset);
+  Wire.write((uint8_t)(offset & 0xFF));
   Wire.write(data);
   int status = Wire.endTransmission();
 
@@ -444,6 +458,11 @@ bool setAddressPin(int pin, bool state) {
   delay(1);
 
   return digitalRead(pin) == state;
+}
+
+// Get slave address pin state
+bool getAddressPin(int pin) {
+  return digitalRead(pin);
 }
 
 // Tests if device address is present on I2C bus
