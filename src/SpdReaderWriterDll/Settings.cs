@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace SpdReaderWriterDll {
     
@@ -15,11 +15,11 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// DLL version
         /// </summary>
-        public const int DLLVERSION = 20200820;
+        public const int DLLVERSION = 20200822;
 
         /// <summary>
         /// Minimum device's firmware version required 
         /// </summary>
-        public static int MINVERSION = 20200820;
+        public static int MINVERSION = 20200822;
     }
 }
