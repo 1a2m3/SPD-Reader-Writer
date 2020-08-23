@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Threading;
@@ -30,6 +30,10 @@ namespace SpdReaderWriterDll {
         /// Set EEPROM SA pin state
         /// </summary>
         public const char SETADDRESSPIN    = 'p';
+        /// <summary>
+        /// Get EEPROM SA pin state
+        /// </summary>
+        public const char GETADDRESSPIN    = 'q';
         /// <summary>
         /// Set High Voltage state on SA0
         /// </summary>
@@ -289,6 +293,15 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Get Select Address pin state
+        /// </summary>
+        /// <param name="pin">Pin name</param>
+        /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
+        public bool GetAddressPin(int pin) {
+            return GetAddressPin(this, pin);
+        }
+
+        /// <summary>
         /// Resets all Select Address pins to default state
         /// </summary>
         /// <returns><see langword="true" /> when all SA pins are pulled to GND</returns>
@@ -302,7 +315,6 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
             return EepromAddress != 0 && ProbeAddress(this, EepromAddress);
-            
         }
 
         /// <summary>
@@ -584,6 +596,18 @@ namespace SpdReaderWriterDll {
         private static bool SetAddressPin(Device device, int pin, int state) {
             lock (device.PortLock) {
                 return device.ExecuteCommand($"{Command.SETADDRESSPIN} {pin} {state}")[0] == Response.SUCCESS;
+            }
+        }
+
+        /// <summary>
+        /// Get Select Address pin state
+        /// </summary>
+        /// <param name="device">Device instance</param>
+        /// <param name="pin">Pin name</param>
+        /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
+        private static bool GetAddressPin(Device device, int pin) {
+            lock (device.PortLock) {
+                return device.ExecuteCommand($"{Command.GETADDRESSPIN} {pin}")[0] == PinState.ON;
             }
         }
 
