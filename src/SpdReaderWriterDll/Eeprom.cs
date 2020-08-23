@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using UInt8   = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -101,7 +101,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true" /> when the block is writable, or <see langword="false" /> if the block is write protected or if RSWP is not supported</returns>
-        public static bool GetWriteProtection(Device device, int block) {
+        public static bool IsWriteProtectionEnabled(Device device, int block) {
             return device.ExecuteCommand($"{Command.GETREVERSIBLESWP} {block}")[0] == Response.ACK;
         }
 
@@ -128,8 +128,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
-        public static bool ReadPermanentWriteProtection(Device device) {
-            return device.ExecuteCommand($"{Command.GETPSWP} {device.EepromAddress}")[0] == Response.SUCCESS;
+        public static bool IsPermanentWriteProtectionEnabled(Device device) {
+            return device.ExecuteCommand($"{Command.GETPSWP} {device.EepromAddress}")[0] == Response.NACK;
         }
     }
 }
