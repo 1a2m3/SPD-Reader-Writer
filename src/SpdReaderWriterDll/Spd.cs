@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using Timing = System.Int32;
 using Voltage = System.Int32;
@@ -29,8 +29,8 @@ namespace SpdReaderWriterDll {
     /// Defines SPD sizes
     /// </summary>
     public enum SpdSize {
-        NONE    = 0,
-        MINIMUM = 128,
+        //NONE    = 0,
+        //MINIMUM = 128,
         SDRAM   = 256,
         DDR     = 256,
         DDR2    = 256,
@@ -124,6 +124,15 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns>RAM Type</returns>
         public static RamType GetRamType(Device device) {
+
+            if (device == null ) {
+                throw new NullReferenceException("Invalid device");
+            }
+
+            if (!device.IsConnected) {
+                throw new IOException("Invalid device");
+            }
+
             // Byte at offset 0x02 in SPD indicates RAM type
             byte _rt = Eeprom.ReadByte(device, 0x02);
             if (Enum.IsDefined(typeof(RamType), (RamType)_rt)) {
@@ -171,7 +180,7 @@ namespace SpdReaderWriterDll {
                 case RamType.DDR4:
                     return SpdSize.DDR4;
                 default:
-                    return SpdSize.NONE;
+                    return 0;
             }
         }
 
@@ -285,7 +294,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
         /// <returns>An array of bit values</returns>
-        public static byte[] GetBits(byte input, UInt8 position = 0, UInt8 count = 1) {
+        public static byte[] GetBits(byte input, UInt8 position, UInt8 count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -310,7 +319,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to set bit in</param>
         /// <param name="position">Bit position to set</param>
         /// <param name="value">Bit value to set</param>
-        public static byte SetBit(byte input, UInt8 position = 0, byte value = 0) {
+        public static byte SetBit(byte input, UInt8 position, byte value) {
 
             if (position > 7) {
                 throw new ArgumentOutOfRangeException(nameof(position));
@@ -326,20 +335,13 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
         /// <returns>Byte matching bit pattern at input position of length count</returns>
-        public static byte GetByteFromBits(byte input, UInt8 position = 0, UInt8 count = 1) {
+        public static byte GetByteFromBits(byte input, UInt8 position, UInt8 count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
             }
-
-            // Generate bit mask
-            byte mask = (byte)(Math.Pow(2, count) - 1);
-
-            // Calculate shift position for the input
-            byte shift = (byte)(position - count + 1);
-
-            // Bitwise AND shifted input and mask
-            return (byte)((input >> shift) & mask);
+            
+            return (byte)((input >> (byte)(position - count + 1)) & (byte)(Math.Pow(2, count) - 1));
         }
     }
 }
