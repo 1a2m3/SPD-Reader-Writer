@@ -15,7 +15,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20200822 // Version number (YYYYMMDD)
+#define VERSION 20210130 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -85,8 +85,8 @@ void setup() {
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
-  // Set clock frequency to 400kHz (fast mode)
-  Wire.setClock(400000);
+  // Set I2C clock frequency
+  Wire.setClock(I2CCLOCK);
 
   // Reset EEPROM page address
   setPageAddress(0);
@@ -272,7 +272,7 @@ void cmdSetAddressPin() {
 void cmdGetAddressPin() {
   int addressPin = PORT.parseInt(); // SA pin number
   int pin = (addressPin >= 0 || addressPin <= 2) ? pins[addressPin] : pins[1];
-  
+
   PORT.write(getAddressPin(pin) == ON ? ON : OFF);
 }
 

@@ -1,6 +1,6 @@
 /*
     Arduino based EEPROM SPD reader and writer
-   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    For overclockers and PC hardware enthusiasts
 
    Repos:   https://github.com/1a2m3/SPD-Reader-Writer
@@ -14,6 +14,7 @@
 /* -= Communication settings =- */
 #define PORT        Serial   // Communications Port, default is "Serial". Change to "SerialUSB" for native USB Arduinos (Leonardo, Micro, Due, Yun, etc)
 #define BAUD_RATE   115200   // Serial port baud rate, must match program's serial baud rate
+#define I2CCLOCK    100000   // I2C communication clock frequency, default value is 100000. Set to 400000 to enable Fast Mode. Some processors also support 10000 (low speed mode), 1000000 (fast mode plus) and 3400000 (high speed mode). 
 
 /* -= Pins config =- */
 #define HVSW         9       // High Voltage (9V) switch pin number
