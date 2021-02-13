@@ -15,7 +15,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20210204 // Version number (YYYYMMDD)
+#define VERSION 20210212 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -326,7 +326,7 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
 bool setWriteProtection(uint8_t block) {
 
   int commands[] = { SWP0, SWP1, SWP2, SWP3 };
-  int cmd = (block >= 0 || block <= 3) ? commands[block] : commands[0];
+  int cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
   setHighVoltage(ON);
   bool result = probeDeviceTypeId(cmd);
@@ -339,7 +339,7 @@ bool setWriteProtection(uint8_t block) {
 bool readWriteProtection(uint8_t block) {
 
   int commands[] = { RPS0, RPS1, RPS2, RPS3 };
-  int cmd = (block >= 0 || block <= 3) ? commands[block] : commands[0];
+  int cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
   setHighVoltage(OFF);
 
