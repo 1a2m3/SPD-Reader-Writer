@@ -383,6 +383,12 @@ namespace SpdReaderWriterDll {
             ReadTimeout  = 10000,
             WriteTimeout = 10000,
             RtsEnable    = true,
+            DtrEnable    = true,
+            Handshake    = Handshake.None,
+            NewLine      = "\n",
+            StopBits     = StopBits.One,
+            Parity       = Parity.None,
+            DataBits     = 8,
         };
 
         /// <summary>
@@ -485,7 +491,10 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 if (device.IsConnected) {
                     try {
-                        device.ResetAddressPins();
+                        do {
+                            device.ResetAddressPins();
+                            Wait(100);
+                        } while (device.GetAddressPin(Pin.SA0) || device.GetAddressPin(Pin.SA1));
                     }
                     finally {
                         device._sp.Dispose();
@@ -530,28 +539,48 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the device supports programmatic address pins configuration and HV control</returns>
         private static bool TestAdvancedFeatures(Device device) {
+
             lock (device.PortLock) {
                 if (device.IsConnected) {
                     // Test default configuration
-                    device.ResetAddressPins();
-                    UInt8[] _test000 = device.Scan(); // = {80}
+                    do {
+                        device.ResetAddressPins();
+                    } while (device.GetAddressPin(Pin.SA0) || device.GetAddressPin(Pin.SA1));
 
-                    // Test SA1 pin
-                    device.SetAddressPin(Pin.SA1, PinState.HIGH);
-                    UInt8[] _test010 = device.Scan(); // = {82}
+                    bool _testSA0 = false;
+                    bool _testSA1 = false;
+                    bool _testVHV = false;
 
-                    // Test HV pin
-                    device.ResetAddressPins();
-                    device.SetHighVoltage(PinState.ON);
-                    bool _test009 = device.GetHighVoltageState();
+                    // Test SA0 pin
+                    device.SetAddressPin(Pin.SA0, PinState.HIGH);
+                    _testSA0 = device.GetAddressPin(Pin.SA0) && device.ProbeAddress(81);
 
-                    device.ResetAddressPins();
+                    if (_testSA0) {
+                        // Test SA1 pin
+                        device.SetAddressPin(Pin.SA1, PinState.HIGH);
+                        _testSA1 = device.GetAddressPin(Pin.SA1) && device.ProbeAddress(83);
 
-                    if (_test000[0] == 80 && _test000.Length == 1 &&
-                        _test010[0] == 82 && _test010.Length == 1 &&
-                        _test009) {
-                        device.AdvancedFeaturesSupported = true;
+                        // Reset SA pins
+                        do {
+                            device.ResetAddressPins();
+                        } while (device.GetAddressPin(Pin.SA0) || device.GetAddressPin(Pin.SA1));
+
+                        if (_testSA1) {
+                            // Test HV pin      
+                            device.SetHighVoltage(PinState.ON);
+                            _testVHV = device.GetHighVoltageState();
+
+                            if (_testVHV) {
+                                device.SetHighVoltage(PinState.OFF);
+                            }
+                        }
                     }
+
+                    do {
+                        device.ResetAddressPins();
+                    } while (device.GetAddressPin(Pin.SA0) || device.GetAddressPin(Pin.SA1));
+
+                    device.AdvancedFeaturesSupported = _testSA0 && _testSA1 && _testVHV;
                 }
             }
 
@@ -561,7 +590,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
-        /// <param name="device">Device</param>
+        /// <param name="device">Device instance</param>
         /// <param name="startAddress">First address</param>
         /// <param name="endAddress">Last address</param>
         /// <returns>An array of EEPROM addresses present on the device's I2C bus</returns>
@@ -571,13 +600,11 @@ namespace SpdReaderWriterDll {
 
             lock (device.PortLock) {
                 if (device.IsConnected) {
-                    UInt8[] response = device.ExecuteCommand($"{Command.SCANBUS} {startAddress} {endAddress}");
 
-                    if (response.Length > 1) { // An accessible EEPROM address was found
-                        foreach (UInt8 location in response) {
-                            if (location != Response.NULL) { // Ignore 0x00
-                                addresses.Enqueue(location);
-                            }
+                    // Probe each address
+                    for (int i = startAddress; i <= endAddress; i++) {
+                        if (device.ProbeAddress(i)) {
+                            addresses.Enqueue((byte)i);
                         }
                     }
                 }
@@ -695,13 +722,15 @@ namespace SpdReaderWriterDll {
 
             lock (device.PortLock) {
                 if (device.IsConnected) {
+
                     DateTime _start = DateTime.Now;
-                    
+
                     device.ClearBuffer();
 
-                    foreach (string cmd in Command.Split(' ')) {
-                        device._sp.WriteLine(cmd);
-                    }
+                    //foreach (string cmd in Command.Split(' ')) {
+                    //    device._sp.WriteLine(cmd);
+                    //}
+                    device._sp.WriteLine(Command);
 
                     while (device.BytesToRead == 0) {
                         if ((DateTime.Now - _start).TotalMilliseconds > device._sp.ReadTimeout) {
@@ -713,6 +742,8 @@ namespace SpdReaderWriterDll {
                     while (device.BytesToRead != 0) {
                         _response.Enqueue(device.ReadByte());
                     }
+
+                    device.ClearBuffer();
                 }
             }
 
