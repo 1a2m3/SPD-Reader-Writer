@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO.Ports;
 using System.Threading;
+using System.Threading.Tasks;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -493,7 +494,7 @@ namespace SpdReaderWriterDll {
                     try {
                         do {
                             device.ResetAddressPins();
-                            Wait(100);
+                            Wait();
                         } while (device.GetAddressPin(Pin.SA0) || device.GetAddressPin(Pin.SA1));
                     }
                     finally {
@@ -737,6 +738,7 @@ namespace SpdReaderWriterDll {
                             device.Dispose();
                             throw new TimeoutException("Response timeout");
                         }
+                        Wait(10);
                     }
 
                     while (device.BytesToRead != 0) {
@@ -755,7 +757,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="timeout">Timeout time in milliseconds</param>
         private static void Wait(int timeout = 100) {
-            Thread.Sleep(timeout);
+            //Thread.Sleep(timeout);
+            Task.Delay(timeout);
         }
 
         /// <summary>
