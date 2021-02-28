@@ -362,14 +362,18 @@ namespace SpdReaderWriterDll {
 
             lock (_findLock) {
                 foreach (string _portName in SerialPort.GetPortNames()) {
-                    Device _device = new Device(_portName);
-                    lock (_device.PortLock) {
-                        if (_device.Test()) {
-                            _result.Push(_portName);
-                            _device.Dispose();
-                            _device.Disconnect();
+                    try {
+                        Device _device = new Device(_portName);
+                        lock (_device.PortLock) {
+                            if (_device.IsConnected) {
+                                _result.Push(_portName);
+                                _device.Disconnect();
+                            }
                         }
                     }
+                    catch {
+                        // Do nothing
+                    }                    
                 }
             }
 
@@ -384,13 +388,13 @@ namespace SpdReaderWriterDll {
             ReadTimeout  = 10000,
             WriteTimeout = 10000,
             RtsEnable    = true,
-            DtrEnable    = true,
+            DtrEnable    = false,
             Handshake    = Handshake.None,
             NewLine      = "\n",
             StopBits     = StopBits.One,
             Parity       = Parity.None,
             DataBits     = 8,
-        };
+    };
 
         /// <summary>
         /// Describes device's connection state
@@ -431,7 +435,7 @@ namespace SpdReaderWriterDll {
                     return _sp.BytesToRead;
                 }
                 catch {
-                    return 0;
+                    throw new Exception($"No bytes to read ({_sp.PortName})");
                 }
             }
         }
@@ -445,11 +449,11 @@ namespace SpdReaderWriterDll {
                     return _sp.BytesToWrite;
                 }
                 catch {
-                    return 0;
+                    throw new Exception($"No bytes to write ({_sp.PortName})");
                 }
             }
         }
-
+        
         /// <summary>
         /// Indicates whether the device supports RSWP and PSWP capabilities, the value is assigned by TestAdvancedFeatures method
         /// </summary>
@@ -465,17 +469,18 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device</param>
         /// <returns><see langword="true" /> if the connection is established</returns>
         private static bool Connect(Device device) {
-
             lock (device.PortLock) {
-                if (!device.IsConnected) {
-                    device._sp.PortName = device.PortName;
+                if (!device.IsConnected) {                    
                     try {
+                        device._sp.PortName = device.PortName;
                         device._sp.Open();
-                        if (!device.Test()) {
-                            return false;
-                        }
+                        Wait();
                     }
-                    catch (Exception) {
+                    catch (Exception ex) {
+                        throw new Exception($"Unable to connect ({device.PortName}): {ex.Message}");
+                    }
+
+                    if (!device.Test()) {                        
                         return false;
                     }
                 }
@@ -496,11 +501,12 @@ namespace SpdReaderWriterDll {
                             device.ResetAddressPins();
                             Wait();
                         } while (device.GetAddressPin(Pin.SA0) || device.GetAddressPin(Pin.SA1));
+
+                        device.Dispose();
                     }
-                    finally {
-                        device._sp.Dispose();
-                        //device.IsConnected = false;
-                    }
+                    catch (Exception ex) {
+                        throw new Exception($"Unable to disconnect ({device.PortName}): {ex.Message}");
+                    }                    
                 }
                 return !device.IsConnected;
             }
@@ -513,14 +519,13 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> once the device is disposed</returns>
         private static bool Dispose(Device device) {
             lock (device.PortLock) {
-                if (device._sp != null) {
-                    if (device._sp.IsOpen) {
-                        device._sp.Dispose();
-                    }
+                if (device._sp != null && device._sp.IsOpen) {
+                    device._sp.Close();
+                    device._sp.Dispose();
                 }
                 device._sp = null;
             }
-            return true;
+            return device._sp == null;
         }
 
         /// <summary>
@@ -736,7 +741,7 @@ namespace SpdReaderWriterDll {
                     while (device.BytesToRead == 0) {
                         if ((DateTime.Now - _start).TotalMilliseconds > device._sp.ReadTimeout) {
                             device.Dispose();
-                            throw new TimeoutException("Response timeout");
+                            throw new TimeoutException($"Response timeout ({device.PortName}:\"{Command}\")");
                         }
                         Wait(10);
                     }
