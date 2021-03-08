@@ -126,11 +126,11 @@ namespace SpdReaderWriterDll {
         public static RamType GetRamType(Device device) {
 
             if (device == null ) {
-                throw new NullReferenceException("Invalid device");
+                throw new NullReferenceException($"Invalid device ({device.PortName.ToString()})");
             }
 
             if (!device.IsConnected) {
-                throw new IOException("Invalid device");
+                throw new IOException($"Device not connected ({device.PortName.ToString()})");
             }
 
             // Byte at offset 0x02 in SPD indicates RAM type
@@ -148,10 +148,13 @@ namespace SpdReaderWriterDll {
         /// <returns>RAM Type</returns>
         public static RamType GetRamType(byte[] spd) {
             // Byte at offset 0x02 in SPD indicates RAM type
-            byte _rt = spd[0x02];
-            if (Enum.IsDefined(typeof(RamType), (RamType)_rt)) {
-                return (RamType)_rt;
+            if (spd.Length >= 3) {
+                byte _rt = spd[0x02];
+                if (Enum.IsDefined(typeof(RamType), (RamType)_rt)) {
+                    return (RamType)_rt;
+                }
             }
+
             return RamType.UNKNOWN;
         }
 
@@ -340,7 +343,14 @@ namespace SpdReaderWriterDll {
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
             }
-            
+
+            // Generate bit mask
+            byte mask = (byte)(Math.Pow(2, count) - 1);
+
+            // Calculate shift position for the input
+            byte shift = (byte)(position - count + 1);
+
+            // Bitwise AND shifted input and mask
             return (byte)((input >> (byte)(position - count + 1)) & (byte)(Math.Pow(2, count) - 1));
         }
     }
