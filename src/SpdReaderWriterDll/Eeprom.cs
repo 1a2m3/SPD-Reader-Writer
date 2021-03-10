@@ -84,15 +84,15 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <returns><see langword="true" /> when the write protection has been enabled on all available blocks</returns>
-        public static bool[] SetWriteProtection(Device device) {
+        public static bool SetWriteProtection(Device device) {
 
-            bool[] _RswpResult = new bool[4];
-
-            for (int i = 0; i < _RswpResult.Length; i++) {
-                _RswpResult[i] = SetWriteProtection(device, i);
+            for (int i = 0; i <= 3; i++) {
+                if (!SetWriteProtection(device, i)) {
+                    return false;
+                }
             }
 
-            return _RswpResult;
+            return true;
         }
 
         /// <summary>
