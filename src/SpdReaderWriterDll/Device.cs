@@ -6,6 +6,8 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using UInt8 = System.Byte;
+using Settings = SpdReaderWriterDll.Properties.Settings;
+
 
 namespace SpdReaderWriterDll {
 
@@ -155,8 +157,6 @@ namespace SpdReaderWriterDll {
     /// </summary>
     public class Device {
 
-        #region PublicRegion
-
         /// <summary>
         /// Serial Port Settings class
         /// </summary>
@@ -166,10 +166,6 @@ namespace SpdReaderWriterDll {
             public int BaudRate;
             public bool DtrEnable;
             public bool RtsEnable;
-            public bool ReadTimeoutEnable;
-            public int ReadTimeout;
-            public bool WriteTimeoutEnable;
-            public int WriteTimeout;
 
             // Data settings
             public int DataBits;
@@ -186,10 +182,6 @@ namespace SpdReaderWriterDll {
                 int BaudRate,
                 bool DtrEnable,
                 bool RtsEnable,
-                bool ReadTimeoutEnable,
-                int ReadTimeout,
-                bool WriteTimeoutEnable,
-                int WriteTimeout,
                 int DataBits,
                 Handshake Handshake,
                 string NewLine,
@@ -200,10 +192,6 @@ namespace SpdReaderWriterDll {
                     this.BaudRate           = BaudRate;
                     this.DtrEnable          = DtrEnable;
                     this.RtsEnable          = RtsEnable;
-                    this.ReadTimeoutEnable  = ReadTimeoutEnable;
-                    this.ReadTimeout        = ReadTimeoutEnable  ? ReadTimeout  * 1000 : -1;
-                    this.WriteTimeoutEnable = WriteTimeoutEnable;
-                    this.WriteTimeout       = WriteTimeoutEnable ? WriteTimeout * 1000 : -1;
                     this.DataBits           = DataBits;
                     this.Handshake          = Handshake;
                     this.NewLine            = NewLine.Replace("\\n", "\n").Replace("\\r", "\r");
@@ -233,8 +221,8 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
-        /// <param name = "PortName" >Serial port name</param>
-        /// <param name = "eepromAddress">EEPROM address on the device's i2c bus</param>
+        /// <param name="PortName" >Serial port name</param>
+        /// <param name="eepromAddress">EEPROM address on the device's i2c bus</param>
         public Device(SerialPortSettings spSettings, string PortName, UInt8 eepromAddress) {
             this.spSettings    = spSettings;
             this.PortName      = PortName;
@@ -408,7 +396,17 @@ namespace SpdReaderWriterDll {
         /// <param name="Command">Space separated commands to be executed on the device</param>
         /// <param name="Length">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
-        public byte[] ExecuteCommand(string Command, int Length = 1) {
+        public byte[] ExecuteCommand(string Command) {
+            return ExecuteCommand(Command, 1);
+        }
+
+        /// <summary>
+        /// Executes commands on the device.
+        /// </summary>
+        /// <param name="Command">Space separated commands to be executed on the device</param>
+        /// <param name="Length">Number of bytes to receive in response</param>
+        /// <returns>A byte array received from the device in response</returns>
+        public byte[] ExecuteCommand(string Command, int Length) {
             return ExecuteCommand(this, Command, Length);
         }
 
@@ -540,10 +538,6 @@ namespace SpdReaderWriterDll {
             throw new Exception($"Error received: {__sp.PortName}");
         }
 
-        #endregion
-
-        #region PrivateRegion
-
         /// <summary>
         /// Attempts to establish a connection with the device
         /// </summary>
@@ -561,8 +555,6 @@ namespace SpdReaderWriterDll {
                         device._sp.BaudRate     = device.spSettings.BaudRate;
                         device._sp.DtrEnable    = device.spSettings.DtrEnable;
                         device._sp.RtsEnable    = device.spSettings.RtsEnable;
-                        device._sp.ReadTimeout  = device.spSettings.ReadTimeout;
-                        device._sp.WriteTimeout = device.spSettings.WriteTimeout;
 
                         // Data settings
                         device._sp.DataBits     = device.spSettings.DataBits;
@@ -579,10 +571,7 @@ namespace SpdReaderWriterDll {
                         // Event to handle Errors
                         device._sp.ErrorReceived += ErrorReceivedHandler;
 
-                        //Debug.WriteLine("Port created");
                         device._sp.Open();
-                        
-                        //while (!device.Test()) { }
                     }
                     catch (Exception ex) {
                         throw new Exception($"Unable to connect ({device.PortName}): {ex.Message}");
@@ -795,7 +784,7 @@ namespace SpdReaderWriterDll {
                 if (device.IsConnected) {
                     _version = Int32.Parse(
                         System.Text.Encoding.Default.GetString(
-                            device.ExecuteCommand($"{Command.GETVERSION}", Settings.MINVERSION.ToString().Length)
+                            device.ExecuteCommand($"{Command.GETVERSION}", Settings.Default.MINVERSION.ToString().Length)
                         )
                     );
                 }
@@ -816,7 +805,7 @@ namespace SpdReaderWriterDll {
                 string[] _ports = SerialPort.GetPortNames().Distinct().ToArray();
 
                 foreach (string _portName in _ports) {
-                    Device _device = new Device(this.spSettings, _portName);
+                    Device _device = new Device(spSettings, _portName);
 
                     lock (_device.PortLock) {
                         try {
@@ -899,7 +888,7 @@ namespace SpdReaderWriterDll {
                     // Timeout monitoring start
                     DateTime _start = DateTime.Now;
 
-                    while (true) {
+                    while (device.spSettings.ResponseTimeout * 1000 > (DateTime.Now - _start).TotalMilliseconds) {
 
                         // Check connection
                         if (!device.IsConnected) {
@@ -920,12 +909,6 @@ namespace SpdReaderWriterDll {
                                 }
                                 break;
                             }
-                        }
-
-                        // Timeout
-                        if (device.spSettings.ResponseTimeout > 0 && (DateTime.Now - _start).TotalMilliseconds > device.spSettings.ResponseTimeout * 1000) {
-                            device.Dispose();
-                            throw new TimeoutException($"Response timeout ({device.PortName}:\"{Command}\")");
                         }
                     }
 
@@ -960,6 +943,5 @@ namespace SpdReaderWriterDll {
         /// </summary>
         private static readonly object _findLock = new object();
 
-        #endregion
     }
 }
