@@ -296,7 +296,7 @@ namespace SpdReaderWriterDll {
         /// <param name="startAddress">First address</param>
         /// <param name="endAddress">Last address</param>
         /// <returns>An array of addresses on the device's I2C bus</returns>
-        public UInt8[] Scan(int startAddress = 0x50, int endAddress = 0x57) {
+        public UInt8[] Scan(int startAddress, int endAddress) {
             return Scan(this, startAddress, endAddress);
         }
 
@@ -394,10 +394,9 @@ namespace SpdReaderWriterDll {
         /// Executes commands on the device.
         /// </summary>
         /// <param name="Command">Space separated commands to be executed on the device</param>
-        /// <param name="Length">Number of bytes to receive in response</param>
-        /// <returns>A byte array received from the device in response</returns>
-        public byte[] ExecuteCommand(string Command) {
-            return ExecuteCommand(Command, 1);
+        /// <returns>A byte received from the device in response</returns>
+        public byte ExecuteCommand(string Command) {
+            return ExecuteCommand(Command, 1)[0];
         }
 
         /// <summary>
@@ -695,7 +694,7 @@ namespace SpdReaderWriterDll {
         /// <param name="startAddress">First address</param>
         /// <param name="endAddress">Last address</param>
         /// <returns>An array of EEPROM addresses present on the device's I2C bus</returns>
-        private static UInt8[] Scan(Device device, int startAddress = 0x50, int endAddress = 0x52) {
+        private static UInt8[] Scan(Device device, int startAddress = 0x50, int endAddress = 0x57) {
 
             Queue<UInt8> addresses = new Queue<UInt8>();
 
@@ -722,7 +721,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the address has been set</returns>
         private static bool SetAddressPin(Device device, Pin pin, int state) {
             lock (device.PortLock) {
-                return device.ExecuteCommand($"{Command.SETADDRESSPIN} {pin} {state}")[0] == Response.SUCCESS;
+                return device.ExecuteCommand($"{Command.SETADDRESSPIN} {pin} {state}") == Response.SUCCESS;
             }
         }
 
@@ -734,7 +733,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
         private static int GetAddressPin(Device device, Pin pin) {
             lock (device.PortLock) {
-                return device.ExecuteCommand($"{Command.GETADDRESSPIN} {pin}")[0] == Response.ON ? PinState.HIGH : PinState.LOW;
+                return device.ExecuteCommand($"{Command.GETADDRESSPIN} {pin}") == Response.ON ? PinState.HIGH : PinState.LOW;
             }
         }
 
@@ -746,7 +745,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if operation is completed</returns>
         private static bool SetHighVoltage(Device device, int state) {
             lock (device.PortLock) {
-                return device.ExecuteCommand($"{Command.SETHVSTATE} {state}")[0] == Response.SUCCESS;
+                return device.ExecuteCommand($"{Command.SETHVSTATE} {state}") == Response.SUCCESS;
             }
         }
 
@@ -757,7 +756,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if high voltage is applied to pin SA0</returns>
         private static int GetHighVoltageState(Device device) {
             lock (device.PortLock) {
-                return device.ExecuteCommand($"{Command.GETHVSTATE}")[0] == Response.ON ? PinState.ON : PinState.OFF;
+                return device.ExecuteCommand($"{Command.GETHVSTATE}") == Response.ON ? PinState.ON : PinState.OFF;
             }
         }
 
@@ -769,7 +768,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the address is accessible</returns>
         private static bool ProbeAddress(Device device, int address) {
             lock (device.PortLock) {
-                return device.ExecuteCommand($"{Command.PROBEADDRESS} {address}")[0] == address;
+                return device.ExecuteCommand($"{Command.PROBEADDRESS} {address}") == address;
             }
         }
 
@@ -866,7 +865,13 @@ namespace SpdReaderWriterDll {
         /// <returns>A byte array received from the device in response</returns>
         private byte[] ExecuteCommand(Device device, string Command, int Length) {
             
-            if (Length < 0) throw new ArgumentOutOfRangeException(nameof(Length));
+            if (Length < 0) {
+                throw new ArgumentOutOfRangeException(nameof(Length));
+            }
+
+            if (string.IsNullOrWhiteSpace(Command)) {
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(Command));
+            }
 
             Queue<byte> _response = new Queue<byte>();
 
