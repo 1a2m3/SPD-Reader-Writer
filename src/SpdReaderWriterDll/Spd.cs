@@ -351,7 +351,7 @@ namespace SpdReaderWriterDll {
             byte shift = (byte)(position - count + 1);
 
             // Bitwise AND shifted input and mask
-            return (byte)((input >> (byte)(position - count + 1)) & (byte)(Math.Pow(2, count) - 1));
+            return (byte)((input >> shift) & mask);
         }
     }
 }
