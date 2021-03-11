@@ -15,7 +15,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/> </returns>
         public static byte ReadByte(Device device, UInt16 offset) {
-            return device.ExecuteCommand($"{Command.READBYTE} {device.EepromAddress} {offset}")[0];
+            return device.ExecuteCommand($"{Command.READBYTE} {device.EepromAddress} {offset}");
         }
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written at <paramref name="offset"/> </returns>
         public static bool WriteByte(Device device, UInt16 offset, byte value) {
-            return device.ExecuteCommand($"{Command.WRITEBYTE} {device.EepromAddress} {offset} {value}")[0] == Response.SUCCESS;
+            return device.ExecuteCommand($"{Command.WRITEBYTE} {device.EepromAddress} {offset} {value}") == Response.SUCCESS;
         }
 
         /// <summary>
@@ -76,7 +76,7 @@ namespace SpdReaderWriterDll {
         /// <param name="block">Block number to be write protected</param>
         /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
         public static bool SetWriteProtection(Device device, int block) {
-            return device.ExecuteCommand($"{Command.SETREVERSIBLESWP} {block}")[0] == Response.SUCCESS; 
+            return device.ExecuteCommand($"{Command.SETREVERSIBLESWP} {block}") == Response.SUCCESS; 
         }
 
         /// <summary>
@@ -102,7 +102,7 @@ namespace SpdReaderWriterDll {
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true" /> when the block is writable, or <see langword="false" /> if the block is write protected or if RSWP is not supported</returns>
         public static bool IsWriteProtectionEnabled(Device device, int block) {
-            return device.ExecuteCommand($"{Command.GETREVERSIBLESWP} {block}")[0] == Response.ACK;
+            return device.ExecuteCommand($"{Command.GETREVERSIBLESWP} {block}") == Response.ACK;
         }
 
         /// <summary>
@@ -111,7 +111,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the write protection has been disabled</returns>
         public static bool ClearWriteProtection(Device device) {
-            return device.ExecuteCommand($"{Command.CLEARSWP}")[0] == Response.SUCCESS;
+            return device.ExecuteCommand($"{Command.CLEARSWP}") == Response.SUCCESS;
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
         public static bool SetPermanentWriteProtection(Device device) {
-            return device.ExecuteCommand($"{Command.SETPERMANENTSWP} {device.EepromAddress}")[0] == Response.SUCCESS; 
+            return device.ExecuteCommand($"{Command.SETPERMANENTSWP} {device.EepromAddress}") == Response.SUCCESS; 
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
         public static bool IsPermanentWriteProtectionEnabled(Device device) {
-            return device.ExecuteCommand($"{Command.GETPSWP} {device.EepromAddress}")[0] == Response.NACK;
+            return device.ExecuteCommand($"{Command.GETPSWP} {device.EepromAddress}") == Response.NACK;
         }
     }
 }
