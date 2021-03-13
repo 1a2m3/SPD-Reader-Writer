@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using UInt8 = System.Byte;
@@ -146,10 +147,10 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Class describing EEPROM 'Select Address' pin names
     /// </summary>
-    public enum Pin {
-        SA0 = 0,
-        SA1 = 1,
-        SA2 = 2,
+    public struct Pin {
+        public const int SA0 = 0;
+        public const int SA1 = 1;
+        public const int SA2 = 2;
     }
 
     /// <summary>
@@ -189,33 +190,33 @@ namespace SpdReaderWriterDll {
                 StopBits StopBits,
                 bool RaiseEvent,
                 int ResponseTimeout) {
-                    this.BaudRate           = BaudRate;
-                    this.DtrEnable          = DtrEnable;
-                    this.RtsEnable          = RtsEnable;
-                    this.DataBits           = DataBits;
-                    this.Handshake          = Handshake;
-                    this.NewLine            = NewLine.Replace("\\n", "\n").Replace("\\r", "\r");
-                    this.Parity             = Parity;
-                    this.StopBits           = StopBits;
-                    this.RaiseEvent         = RaiseEvent;
-                    this.ResponseTimeout    = ResponseTimeout;
+                    this.BaudRate        = BaudRate;
+                    this.DtrEnable       = DtrEnable;
+                    this.RtsEnable       = RtsEnable;
+                    this.DataBits        = DataBits;
+                    this.Handshake       = Handshake;
+                    this.NewLine         = NewLine.Replace("\\n", "\n").Replace("\\r", "\r");
+                    this.Parity          = Parity;
+                    this.StopBits        = StopBits;
+                    this.RaiseEvent      = RaiseEvent;
+                    this.ResponseTimeout = ResponseTimeout;
             }
         }
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
-        public Device(SerialPortSettings spSettings) {
-            this.spSettings = spSettings;
+        public Device(SerialPortSettings portSettings) {
+            this.PortSettings = portSettings;
         }
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="PortName">Serial port name</param>
-        public Device(SerialPortSettings spSettings, string PortName) {
-            this.spSettings = spSettings;
-            this.PortName   = PortName;
+        public Device(SerialPortSettings portSettings, string PortName) {
+            this.PortSettings = portSettings;
+            this.PortName     = PortName;
         }
 
         /// <summary>
@@ -223,8 +224,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="PortName" >Serial port name</param>
         /// <param name="eepromAddress">EEPROM address on the device's i2c bus</param>
-        public Device(SerialPortSettings spSettings, string PortName, UInt8 eepromAddress) {
-            this.spSettings    = spSettings;
+        public Device(SerialPortSettings portSettings, string PortName, UInt8 eepromAddress) {
+            this.PortSettings  = portSettings;
             this.PortName      = PortName;
             this.EepromAddress = eepromAddress;
         }
@@ -235,8 +236,8 @@ namespace SpdReaderWriterDll {
         /// <param name="PortName">Serial port name</param>
         /// <param name="eepromAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="spdSize">Total EEPROM size</param>
-        public Device(SerialPortSettings spSettings, string PortName, UInt8 eepromAddress, SpdSize spdSize) {
-            this.spSettings    = spSettings;
+        public Device(SerialPortSettings portSettings, string PortName, UInt8 eepromAddress, SpdSize spdSize) {
+            this.PortSettings  = portSettings;
             this.PortName      = PortName;
             this.EepromAddress = eepromAddress;
             this.SpdSize       = spdSize;
@@ -322,7 +323,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pin">Pin name</param>
         /// <param name="state">Pin state</param>
         /// <returns><see langword="true" /> if the address has been set</returns>
-        public bool SetAddressPin(Pin pin, int state) {
+        public bool SetAddressPin(int pin, int state) {
             return SetAddressPin(this, pin, state);
         }
 
@@ -332,12 +333,11 @@ namespace SpdReaderWriterDll {
         /// <param name="state">Pin state</param>
         /// <returns><see langword="true" /> if pin state has been set</returns>
         public bool SetAddressPin(int state) {
-            for (Pin p = Pin.SA0; p <= Pin.SA2; p++) {
+            for (int p = Pin.SA0; p <= Pin.SA2; p++) {
                 if (!SetAddressPin(p, state)) {
                     return false;
                 }
             }
-
             return true;
         }
 
@@ -346,7 +346,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="pin">Pin name</param>
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
-        public int GetAddressPin(Pin pin) {
+        public int GetAddressPin(int pin) {
             return GetAddressPin(this, pin);
         }
 
@@ -393,20 +393,20 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Executes commands on the device.
         /// </summary>
-        /// <param name="Command">Space separated commands to be executed on the device</param>
+        /// <param name="command">Space separated commands to be executed on the device</param>
         /// <returns>A byte received from the device in response</returns>
-        public byte ExecuteCommand(string Command) {
-            return ExecuteCommand(Command, 1)[0];
+        public byte ExecuteCommand(string command) {
+            return ExecuteCommand(command, 1)[0];
         }
 
         /// <summary>
         /// Executes commands on the device.
         /// </summary>
-        /// <param name="Command">Space separated commands to be executed on the device</param>
-        /// <param name="Length">Number of bytes to receive in response</param>
+        /// <param name="command">Space separated commands to be executed on the device</param>
+        /// <param name="length">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
-        public byte[] ExecuteCommand(string Command, int Length) {
-            return ExecuteCommand(this, Command, Length);
+        public byte[] ExecuteCommand(string command, int length) {
+            return ExecuteCommand(this, command, length);
         }
 
         /// <summary>
@@ -438,7 +438,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Serial Port connection and data settings
         /// </summary>
-        public SerialPortSettings spSettings;
+        public SerialPortSettings PortSettings;
 
         /// <summary>
         /// Serial port name the device is connected to
@@ -546,24 +546,23 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 if (!device.IsConnected) {
                     try {
-                        if (device._sp == null) {
-                            device._sp = new SerialPort();
-                        }
+                        device._sp = new SerialPort();
+
                         // Port settings
-                        device._sp.PortName     = device.PortName;
-                        device._sp.BaudRate     = device.spSettings.BaudRate;
-                        device._sp.DtrEnable    = device.spSettings.DtrEnable;
-                        device._sp.RtsEnable    = device.spSettings.RtsEnable;
+                        device._sp.PortName  = device.PortName;
+                        device._sp.BaudRate  = device.PortSettings.BaudRate;
+                        device._sp.DtrEnable = device.PortSettings.DtrEnable;
+                        device._sp.RtsEnable = device.PortSettings.RtsEnable;
+                        device._sp.Handshake = device.PortSettings.Handshake;
 
                         // Data settings
-                        device._sp.DataBits     = device.spSettings.DataBits;
-                        device._sp.Handshake    = device.spSettings.Handshake;
-                        device._sp.NewLine      = device.spSettings.NewLine;
-                        device._sp.Parity       = device.spSettings.Parity;
-                        device._sp.StopBits     = device.spSettings.StopBits;
+                        device._sp.DataBits  = device.PortSettings.DataBits;
+                        device._sp.NewLine   = device.PortSettings.NewLine;
+                        device._sp.Parity    = device.PortSettings.Parity;
+                        device._sp.StopBits  = device.PortSettings.StopBits;
 
                         // Event to handle Data Reception
-                        if (device.spSettings.RaiseEvent) {
+                        if (device.PortSettings.RaiseEvent) {
                             device._sp.DataReceived += DataReceivedHandler;
                         }
 
@@ -612,7 +611,7 @@ namespace SpdReaderWriterDll {
         private static bool Dispose(Device device) {
             lock (device.PortLock) {
                 if (device._sp != null && device._sp.IsOpen) {
-                    device.ClearBuffer();
+                    //device.ClearBuffer();
                     device._sp.Close();
                 }
                 device._sp = null;
@@ -627,7 +626,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the device responds to a test command</returns>
         private static bool Test(Device device) {
             lock (device.PortLock) {
-                return device.IsConnected && device.ExecuteCommand($"{Command.TESTCOMM}", Response.WELCOME.ToString().Length)[0] == (byte) Response.WELCOME;
+                return device.IsConnected && device.ExecuteCommand($"{Command.TESTCOMM}") == (byte) Response.WELCOME;
             }
         }
 
@@ -643,6 +642,7 @@ namespace SpdReaderWriterDll {
                     // Test default configuration
                     do {
                         device.ResetAddressPins();
+                        Wait(10);
                     } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
                     bool _testSA0 = false;
@@ -650,27 +650,26 @@ namespace SpdReaderWriterDll {
                     bool _testVHV = false;
 
                     // Test SA0 pin
-                    device.SetAddressPin(Pin.SA0, PinState.HIGH);
-                    _testSA0 = device.GetAddressPin(Pin.SA0) == PinState.HIGH && device.ProbeAddress(81);
+                    _testSA0 = device.SetAddressPin(Pin.SA0, PinState.HIGH) && device.GetAddressPin(Pin.SA0) == PinState.HIGH && device.ProbeAddress(81);
 
                     if (_testSA0) {
                         // Test SA1 pin
-                        device.SetAddressPin(Pin.SA1, PinState.HIGH);
-                        _testSA1 = device.GetAddressPin(Pin.SA1) == PinState.HIGH && device.ProbeAddress(83);
+                        _testSA1 = device.SetAddressPin(Pin.SA1, PinState.HIGH) && device.GetAddressPin(Pin.SA1) == PinState.HIGH && device.ProbeAddress(83);
 
                         // Reset SA pins
                         do {
                             device.ResetAddressPins();
+                            Wait(10);
                         } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
                         if (_testSA1) {
                             // Test HV pin      
-                            device.SetHighVoltage(PinState.ON);
-                            _testVHV = device.GetHighVoltageState() == PinState.ON;
+                            _testVHV = device.SetHighVoltage(PinState.ON) && device.GetHighVoltageState() == PinState.ON;
 
                             if (_testVHV) {
                                 while (device.GetHighVoltageState() == PinState.ON) {
                                     device.SetHighVoltage(PinState.OFF);
+                                    Wait(10);
                                 }
                             }
                         }
@@ -719,7 +718,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pin">SA pin number</param>
         /// <param name="state">SA pin state</param>
         /// <returns><see langword="true" /> if the address has been set</returns>
-        private static bool SetAddressPin(Device device, Pin pin, int state) {
+        private static bool SetAddressPin(Device device, int pin, int state) {
             lock (device.PortLock) {
                 return device.ExecuteCommand($"{Command.SETADDRESSPIN} {pin} {state}") == Response.SUCCESS;
             }
@@ -731,7 +730,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <param name="pin">Pin name</param>
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
-        private static int GetAddressPin(Device device, Pin pin) {
+        private static int GetAddressPin(Device device, int pin) {
             lock (device.PortLock) {
                 return device.ExecuteCommand($"{Command.GETADDRESSPIN} {pin}") == Response.ON ? PinState.HIGH : PinState.LOW;
             }
@@ -804,7 +803,7 @@ namespace SpdReaderWriterDll {
                 string[] _ports = SerialPort.GetPortNames().Distinct().ToArray();
 
                 foreach (string _portName in _ports) {
-                    Device _device = new Device(spSettings, _portName);
+                    Device _device = new Device(PortSettings, _portName);
 
                     lock (_device.PortLock) {
                         try {
@@ -831,7 +830,7 @@ namespace SpdReaderWriterDll {
         private static bool ClearBuffer(Device device) {
             lock (device.PortLock) {
                 if (device._sp != null && device._sp.IsOpen) {
-                    if (device.spSettings.RaiseEvent && ResponseData.Count > 0) {
+                    if (device.PortSettings.RaiseEvent && ResponseData.Count > 0) {
                         ResponseData.Clear();
                     }
                     while (device.BytesToRead > 0 || device.BytesToWrite > 0) {
@@ -893,7 +892,7 @@ namespace SpdReaderWriterDll {
                     // Timeout monitoring start
                     DateTime _start = DateTime.Now;
 
-                    while (device.spSettings.ResponseTimeout * 1000 > (DateTime.Now - _start).TotalMilliseconds) {
+                    while (device.PortSettings.ResponseTimeout * 1000 > (DateTime.Now - _start).TotalMilliseconds) {
 
                         // Check connection
                         if (!device.IsConnected) {
@@ -901,7 +900,7 @@ namespace SpdReaderWriterDll {
                         }
 
                         // Wait for data
-                        if (device.spSettings.RaiseEvent) {
+                        if (device.PortSettings.RaiseEvent) {
                             if (ResponseData != null && ResponseData.Count == Length && !DataReceiving) {
                                 _response = ResponseData;
                                 break;
@@ -919,7 +918,7 @@ namespace SpdReaderWriterDll {
 
                     byte[] _responseArray = _response.ToArray();
 
-                    if (device.spSettings.RaiseEvent) { }
+                    if (device.PortSettings.RaiseEvent) { }
                     device.ClearBuffer();
 
                     return _responseArray;
