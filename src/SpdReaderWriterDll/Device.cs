@@ -201,6 +201,12 @@ namespace SpdReaderWriterDll {
                     this.RaiseEvent      = RaiseEvent;
                     this.ResponseTimeout = ResponseTimeout;
             }
+
+            public override string ToString() {
+                string _stopBits = (int)StopBits == 3 ? "1.5" : ((int)StopBits).ToString();
+                string _parity   = Parity.ToString().Substring(0, 1);
+                return $"{BaudRate}-{DataBits}-{_parity}-{_stopBits}";
+            }
         }
 
         /// <summary>
