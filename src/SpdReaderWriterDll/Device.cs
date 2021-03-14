@@ -803,7 +803,7 @@ namespace SpdReaderWriterDll {
         public string[] Find(Device device) {
             Stack<string> _result = new Stack<string>();
 
-            lock (FindLock) {
+            lock (device.FindLock) {
 
                 string[] _ports = SerialPort.GetPortNames().Distinct().ToArray();
 
