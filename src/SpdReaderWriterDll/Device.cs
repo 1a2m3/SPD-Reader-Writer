@@ -205,6 +205,7 @@ namespace SpdReaderWriterDll {
             public override string ToString() {
                 string _stopBits = (int)StopBits == 3 ? "1.5" : ((int)StopBits).ToString();
                 string _parity   = Parity.ToString().Substring(0, 1);
+
                 return $"{BaudRate}-{DataBits}-{_parity}-{_stopBits}";
             }
         }
@@ -300,11 +301,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Scans the device for I2C bus devices
         /// </summary>
-        /// <param name="startAddress">First address</param>
-        /// <param name="endAddress">Last address</param>
         /// <returns>An array of addresses on the device's I2C bus</returns>
-        public UInt8[] Scan(int startAddress, int endAddress) {
-            return Scan(this, startAddress, endAddress);
+        public UInt8[] Scan() {
+            return Scan(this);
         }
 
         /// <summary>
@@ -617,7 +616,7 @@ namespace SpdReaderWriterDll {
         private static bool Dispose(Device device) {
             lock (device.PortLock) {
                 if (device._sp != null && device._sp.IsOpen) {
-                    //device.ClearBuffer();
+                    device.ClearBuffer();
                     device._sp.Close();
                 }
                 device._sp = null;
@@ -696,19 +695,19 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <param name="startAddress">First address</param>
-        /// <param name="endAddress">Last address</param>
         /// <returns>An array of EEPROM addresses present on the device's I2C bus</returns>
-        private static UInt8[] Scan(Device device, int startAddress = 0x50, int endAddress = 0x57) {
+        private static UInt8[] Scan(Device device) {
 
             Queue<UInt8> addresses = new Queue<UInt8>();
 
             lock (device.PortLock) {
                 if (device.IsConnected) {
 
-                    foreach (byte _address in device.ExecuteCommand($"{Command.SCANBUS} {startAddress} {endAddress}", endAddress - startAddress + 1)) {
-                        if (_address != 0) {
-                            addresses.Enqueue(_address);
+                    byte _response = device.ExecuteCommand($"{Command.SCANBUS}");
+
+                    for (int i = 0; i <= 8; i++) {
+                        if ((byte)((_response >> i) & 1) == 1) {
+                            addresses.Enqueue((byte) (80 + i));
                         }
                     }
                 }
@@ -773,7 +772,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the address is accessible</returns>
         private static bool ProbeAddress(Device device, int address) {
             lock (device.PortLock) {
-                return device.ExecuteCommand($"{Command.PROBEADDRESS} {address}") == address;
+                return device.ExecuteCommand($"{Command.PROBEADDRESS} {address}") == Response.SUCCESS;
             }
         }
 
@@ -907,7 +906,7 @@ namespace SpdReaderWriterDll {
 
                         // Wait for data
                         if (device.PortSettings.RaiseEvent) {
-                            if (ResponseData != null && ResponseData.Count == Length && !DataReceiving) {
+                            if (ResponseData != null && ResponseData.Count >= Length && !DataReceiving) {
                                 _response = ResponseData;
                                 break;
                             }
