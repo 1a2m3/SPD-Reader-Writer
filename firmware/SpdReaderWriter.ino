@@ -15,7 +15,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20210212 // Version number (YYYYMMDD)
+#define VERSION 20210313 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -208,19 +208,15 @@ void cmdWrite() {
 }
 
 void cmdScanBus() {
-  int startAddress = PORT.parseInt(); // First bus address
-  int endAddress   = PORT.parseInt(); // Last bus address
 
-  if (startAddress > endAddress) {
-    // Swap the variables and proceed
-    startAddress = startAddress + endAddress;
-    endAddress   = startAddress - endAddress;
-    startAddress = startAddress - endAddress;
-  }
+  byte response = NULL;
 
-  for (int i = startAddress; i <= endAddress; i++) {
-    PORT.write(probeBusAddress(i) ? i : ZERO); // Return 0 to prevent application from waiting in case no devices are present
+  for (int i = 0; i <= 8; i++) {
+    if (probeBusAddress(i + 80)) {
+      response = response | ((byte)1 << i);
+    }
   }
+  PORT.write(response);
 }
 
 void cmdTest() {
@@ -233,7 +229,7 @@ void cmdVersion() {
 
 void cmdProbeBusAddress() {
   int address = PORT.parseInt(); // EEPROM address
-  PORT.write(probeBusAddress(address) ? address : ZERO);
+  PORT.write(probeBusAddress(address) ? SUCCESS : ERROR);
 }
 
 void cmdClearRSWP() {
