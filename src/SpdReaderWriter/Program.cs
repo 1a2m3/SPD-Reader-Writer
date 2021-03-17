@@ -1,428 +1,443 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Ports;
 using SpdReaderWriterDll;
+using SerialPortSettings = SpdReaderWriterDll.Device.SerialPortSettings;
 
 namespace SpdReaderWriter {
-	class Program {
-		static void Main(string[] args) {
+    class Program {
+        static void Main(string[] args) {
 
-			Welcome();
+            Welcome();
 
-			if (args.Length > 0) {
+            if (args.Length > 0) {
 #if DEBUG
-				// Display command line arguments in console title
-				if (Debugger.IsAttached) {
-					Console.Title = ($"{AppDomain.CurrentDomain.FriendlyName} ");
-					foreach (string cmd in args) {
-						Console.Title += ($"{cmd} ");
-					}
-				}
+                // Display command line arguments in console title
+                if (Debugger.IsAttached) {
+                    Console.Title = ($"{AppDomain.CurrentDomain.FriendlyName} ");
+                    foreach (string cmd in args) {
+                        Console.Title += ($"{cmd} ");
+                    }
+                }
 #endif
-				ParseCommand(args);
-			}
-			else {
-				ShowHelp();
-			}
+                ParseCommand(args);
+            }
+            else {
+                ShowHelp();
+            }
 
-			// Wait for input to prevent application from closing automatically
-			if (Debugger.IsAttached || args.Length == 0) {
-				Console.WriteLine("\nPress [enter] to quit.\n");
-				Console.ReadLine();
-			}
-		}
+            // Wait for input to prevent application from closing automatically
+            if (Debugger.IsAttached || args.Length == 0) {
+                Console.WriteLine("\nPress [enter] to quit.\n");
+                Console.ReadLine();
+            }
+        }
 
-		static void Welcome() {
-			string[] header = {
-				" Arduino based EEPROM SPD reader and writer",
-				"~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-				"For overclockers and PC hardware enthusiasts",
-				""
-			};
-			foreach (string line in header) {
-				Console.WriteLine(line);
-			}
-		}
-		static void ShowHelp() {
-			string[] help = {
-				"",
-				"Command line parameters:",
-				"",
-				"{0} /help",
-				"{0} /find",
-				"{0} /scan <PORT>",
-				"{0} /read <PORT> <ADDRESS#> <filepath> /silent",
-				"{0} /write <PORT> <ADDRESS#> <FILEPATH> /silent",
-				"{0} /writeforce <PORT> <ADDRESS#> <FILEPATH> /silent",
-				"{0} /enablewriteprotection <PORT>",
-				"{0} /enablewriteprotection <PORT> <block#>",
-				"{0} /disablewriteprotection <PORT>",
-				"{0} /enablepermanentwriteprotection <PORT> <ADDRESS#>",
-				"",
-				"Parameters in CAPS are mandatory!",
-				"Parameter <filepath> is optional when /read switch is used, output will be printed to console only.",
-				"Switch /silent is optional, progress won't be shown with this switch.",
-				"",
-				"For additional help, visit: https://github.com/1a2m3/SPD-Reader-Writer",
-				"                         or https://forums.evga.com/FindPost/3053544",
-				"",
-				"This program is free to use, but if you like it and wish to support me,",
-				"I am accepting donations via systems listed below:",
-				"",
-				"Paypal:  https://paypal.me/mik4rt3m",
-				"Bitcoin: 3Pe9VhVaUygyMFGT3pFuQ3dAghS36NPJTz",
-				""
-			};
+        static void Welcome() {
+            string[] header = {
+                " Arduino based EEPROM SPD reader and writer ",
+                "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+                "For overclockers and PC hardware enthusiasts",
+                ""
+            };
+            foreach (string line in header) {
+                Console.WriteLine(line);
+            }
+        }
+        static void ShowHelp() {
+            string[] help = {
+                "",
+                "Command line parameters:",
+                "",
+                "{0} /help",
+                "{0} /find",
+                "{0} /scan <PORT>",
+                "{0} /read <PORT> <ADDRESS#> <filepath> /silent",
+                "{0} /write <PORT> <ADDRESS#> <FILEPATH> /silent",
+                "{0} /writeforce <PORT> <ADDRESS#> <FILEPATH> /silent",
+                "{0} /enablewriteprotection <PORT>",
+                "{0} /enablewriteprotection <PORT> <block#>",
+                "{0} /disablewriteprotection <PORT>",
+                "{0} /enablepermanentwriteprotection <PORT> <ADDRESS#>",
+                "",
+                "Parameters in CAPS are mandatory!",
+                "Parameter <filepath> is optional when /read switch is used, output will be printed to console only.",
+                "Switch /silent is optional, progress won't be shown with this switch.",
+                "",
+                "For additional help, visit: https://github.com/1a2m3/SPD-Reader-Writer",
+                "                         or https://forums.evga.com/FindPost/3053544",
+                "",
+                "This program is free to use, but if you like it and wish to support me,",
+                "I am accepting donations via systems listed below:",
+                "",
+                "Paypal:  https://paypal.me/mik4rt3m",
+                "Bitcoin: 3Pe9VhVaUygyMFGT3pFuQ3dAghS36NPJTz",
+                ""
+            };
 
-			foreach (string line in help) {
-				Console.WriteLine(line, AppDomain.CurrentDomain.FriendlyName);
-			}
-		}
+            foreach (string line in help) {
+                Console.WriteLine(line, AppDomain.CurrentDomain.FriendlyName);
+            }
+        }
 
-		static void ParseCommand(string[] args) {
+        static void ParseCommand(string[] args) {
 
-			string mode = args[0];
+            string mode = args[0];
 
-			if (mode == "/help") {
-				ShowHelp();
-				return;
-			}
+            if (mode == "/help") {
+                ShowHelp();
+                return;
+            }
 
-			try {
-				// Find
-				if (mode == "/find") {
-					// Find 
-					string[] devices = Device.Find();
-					if (devices.Length > 0) {
-						foreach (string portName in devices) {
-							Console.WriteLine($"Found Device on Serial Port: {portName}\n");
-						}
-					}
-					else {
-						throw new Exception("Nothing found");
-					}
-					return;
-				}
+            try {
+                // Setup
+                SerialPortSettings readerSettings = new SerialPortSettings(
+                        115200,
+                        true,
+                        true,
+                        8,
+                        Handshake.None,
+                        "\n",
+                        Parity.None,
+                        StopBits.One,
+                        true,
+                        10);
 
-				// Other functions that require additional parameters
-				if (mode != "/find" && args.Length >= 2) {
+                // Find
+                if (mode == "/find") {
+                    // Find 
+                    string[] devices = new Device(readerSettings).Find();
+                    if (devices.Length > 0) {
+                        foreach (string portName in devices) {
+                            Console.WriteLine($"Found Device on Serial Port: {portName}\n");
+                        }
+                    }
+                    else {
+                        throw new Exception("Nothing found");
+                    }
+                    return;
+                }
 
-					// Init
-					string portName = args[1];
+                // Other functions that require additional parameters
+                if (mode != "/find" && args.Length >= 2) {
 
-					if (!portName.StartsWith("COM")) {
-						throw new Exception("Port name should start with \"COM\" followed by a number.");
-					}
+                    // Init
+                    string portName = args[1];
 
-					Device reader = new Device(portName);
+                    if (!portName.StartsWith("COM")) {
+                        throw new Exception("Port name should start with \"COM\" followed by a number.");
+                    }
 
-					if (!reader.Connect()) {
-						throw new Exception($"Could not connect to the device on port {portName}.");
-					}
+                    Device reader = new Device(readerSettings, portName);
 
-					if (reader.GetFirmwareVersion() < Settings.MINVERSION) {
-						throw new Exception($"The device on port {portName} requires its firmware to be updated.");
-					}
+                    if (!reader.Connect()) {
+                        throw new Exception($"Could not connect to the device on port {portName}.");
+                    }
 
-					//if (!reader.Test()) {
-					//	throw new Exception($"The device on port {portName} does not respond.");
-					//}
+                    if (reader.GetFirmwareVersion() < SpdReaderWriterDll.Settings.MINVERSION) {
+                        throw new Exception($"The device on port {portName} requires its firmware to be updated.");
+                    }
 
-					// Scan
-					if (mode == "/scan") {
-						byte[] addresses = reader.Scan();
+                    //if (!reader.Test()) {
+                    //	throw new Exception($"The device on port {portName} does not respond.");
+                    //}
 
-						if (addresses.Length == 0) {
-							throw new Exception("No EEPROM devices found.");
-						}
+                    // Scan
+                    if (mode == "/scan") {
+                        byte[] addresses = reader.Scan();
 
-						foreach (int location in addresses) {
-							Console.WriteLine($"Found EEPROM at address: {location}");
-						}
+                        if (addresses.Length == 0) {
+                            throw new Exception("No EEPROM devices found.");
+                        }
 
-						reader.Disconnect();
-						return;
-					}
+                        foreach (int location in addresses) {
+                            Console.WriteLine($"Found EEPROM at address: {location}");
+                        }
 
-					// Test reversible write protection capabilities
-					if (mode == "/enablewriteprotection" || mode == "/disablewriteprotection") {
-						if (!reader.TestAdvancedFeatures()) {
-							throw new Exception("Your device does not support write protection features.");
-						}
+                        reader.Disconnect();
+                        return;
+                    }
 
-						// Turn on write protection
-						if (mode == "/enablewriteprotection") {
+                    // Test reversible write protection capabilities
+                    if (mode == "/enablewriteprotection" || mode == "/disablewriteprotection") {
+                        if (!reader.TestAdvancedFeatures()) {
+                            throw new Exception("Your device does not support write protection features.");
+                        }
 
-							int[] block;
+                        // Turn on write protection
+                        if (mode == "/enablewriteprotection") {
 
-							if (args.Length == 3) { // Block # was specified
-								try {
-									block = new[] { (Int32.Parse(args[2])) };
-								}
-								catch {
-									throw new Exception("Block number should be specified in decimal notation.");
-								}
+                            int[] block;
 
-							}
-							else { // No block number specified, protect all available
-								if (Spd.GetRamType(reader) == RamType.DDR4) {
-									block = new[] { 0, 1, 2, 3 };
-								}
-								else { // DDR3 + DDR2
-									block = new[] { 0 };
-								}
-							}
+                            if (args.Length == 3) { // Block # was specified
+                                try {
+                                    block = new[] { (Int32.Parse(args[2])) };
+                                }
+                                catch {
+                                    throw new Exception("Block number should be specified in decimal notation.");
+                                }
 
-							reader.ResetAddressPins();
+                            }
+                            else { // No block number specified, protect all available
+                                if (Spd.GetRamType(reader) == RamType.DDR4) {
+                                    block = new[] { 0, 1, 2, 3 };
+                                }
+                                else { // DDR3 + DDR2
+                                    block = new[] { 0 };
+                                }
+                            }
 
-							for (int i = 0; i < block.Length; i++) {
-								if (Eeprom.SetWriteProtection(reader, i)) {
-									Console.WriteLine($"Block {i} is now read-only");
-								}
-								else {
-									throw new Exception($"Unable to set write protection for block {i}. Either SA0 is not connected to HV, or the block is already read-only.");
-								}
-							}
+                            reader.ResetAddressPins();
 
-							return;
-						}
+                            for (int i = 0; i < block.Length; i++) {
+                                if (Eeprom.SetWriteProtection(reader, i)) {
+                                    Console.WriteLine($"Block {i} is now read-only");
+                                }
+                                else {
+                                    throw new Exception($"Unable to set write protection for block {i}. Either SA0 is not connected to HV, or the block is already read-only.");
+                                }
+                            }
 
-						// Disable write protection
-						if (mode == "/disablewriteprotection") {
+                            return;
+                        }
 
-							reader.SetAddressPin(Pin.SA1, PinState.HIGH);
+                        // Disable write protection
+                        if (mode == "/disablewriteprotection") {
 
-							if (Eeprom.ClearWriteProtection(reader)) {
-								Console.WriteLine("Write protection successfully disabled.");
-							}
-							else {
-								throw new Exception("Unable to clear write protection");
-							}
+                            reader.SetAddressPin(Pin.SA1, PinState.HIGH);
 
-							reader.ResetAddressPins();
+                            if (Eeprom.ClearWriteProtection(reader)) {
+                                Console.WriteLine("Write protection successfully disabled.");
+                            }
+                            else {
+                                throw new Exception("Unable to clear write protection");
+                            }
 
-							return;
-						}
-					}
+                            reader.ResetAddressPins();
 
-					byte address;
+                            return;
+                        }
+                    }
 
-					try {
-						address = (byte)Int32.Parse(args[2]);
-					}
-					catch {
-						throw new Exception("EEPROM address should be specified in decimal notation.");
-					}
+                    byte address;
 
-					reader.EepromAddress = address;
-					reader.SpdSize = Spd.GetSpdSize(reader);
+                    try {
+                        address = (byte)Int32.Parse(args[2]);
+                    }
+                    catch {
+                        throw new Exception("EEPROM address should be specified in decimal notation.");
+                    }
 
-					if (!reader.ProbeAddress()) {
-						throw new Exception($"EEPROM is not present at address {reader.EepromAddress}.");
-					}
+                    reader.I2CAddress = address;
+                    reader.SpdSize = Spd.GetSpdSize(reader);
 
-					string filePath = (args.Length >= 4) ? args[3] : "";
-					bool silent = (args.Length >= 5 && args[4] == "/silent") ? true : false;
+                    if (!reader.ProbeAddress()) {
+                        throw new Exception($"EEPROM is not present at address {reader.I2CAddress}.");
+                    }
 
-					// Read SPD contents
-					if (mode == "/read") {
+                    string filePath = (args.Length >= 4) ? args[3] : "";
+                    bool silent = (args.Length >= 5 && args[4] == "/silent") ? true : false;
 
-						Console.Write($"Reading EEPROM at address {reader.EepromAddress} ({Spd.GetRamType(reader)})");
+                    // Read SPD contents
+                    if (mode == "/read") {
 
-						if (filePath != "") {
-							Console.WriteLine($" to {filePath}");
-						}
-						Console.WriteLine("\n");
+                        Console.Write($"Reading EEPROM at address {reader.I2CAddress} ({Spd.GetRamType(reader)})");
 
-						int startTick = Environment.TickCount;
+                        if (filePath != "") {
+                            Console.WriteLine($" to {filePath}");
+                        }
+                        Console.WriteLine("\n");
 
-						byte[] spdDump = Eeprom.ReadByte(reader, 0, (int)reader.SpdSize);
+                        int startTick = Environment.TickCount;
 
-						for (int i = 0; i < spdDump.Length; i++) {
-							if (!silent) {
-								ConsoleDisplayByte(i, spdDump[i]);
-							}
-						}
+                        byte[] spdDump = Eeprom.ReadByte(reader, 0, (int)reader.SpdSize);
 
-						Console.Write("\n\nRead {0} {1} from EEPROM at address {2} on port {3} in {4} ms",
-							spdDump.Length,
-							(spdDump.Length > 1) ? "bytes" : "byte",
-							reader.EepromAddress,
-							reader.PortName,
-							Environment.TickCount - startTick
-							);
+                        for (int i = 0; i < spdDump.Length; i++) {
+                            if (!silent) {
+                                ConsoleDisplayByte(i, spdDump[i]);
+                            }
+                        }
 
-						if (filePath != "") {
-							try {
-								File.WriteAllBytes(filePath, spdDump);
-							}
-							catch {
-								throw new Exception($"Unable to write to {filePath}");
-							}
-							Console.Write($" to file \"{filePath}\"");
-						}
+                        Console.Write("\n\nRead {0} {1} from EEPROM at address {2} on port {3} in {4} ms",
+                            spdDump.Length,
+                            (spdDump.Length > 1) ? "bytes" : "byte",
+                            reader.I2CAddress,
+                            reader.PortName,
+                            Environment.TickCount - startTick
+                            );
 
-						reader.Disconnect();
-						return;
-					}
+                        if (filePath != "") {
+                            try {
+                                File.WriteAllBytes(filePath, spdDump);
+                            }
+                            catch {
+                                throw new Exception($"Unable to write to {filePath}");
+                            }
+                            Console.Write($" to file \"{filePath}\"");
+                        }
 
-					// Write contents to EEPROM
-					if (mode.StartsWith("/write")) {
+                        reader.Disconnect();
+                        return;
+                    }
 
-						if (filePath.Length < 1) {
-							throw new Exception("File path is mandatory for write mode.");
-						}
+                    // Write contents to EEPROM
+                    if (mode.StartsWith("/write")) {
 
-						if (!File.Exists(filePath)) {
-							throw new Exception($"File \"{filePath}\" not found.");
-						}
+                        if (filePath.Length < 1) {
+                            throw new Exception("File path is mandatory for write mode.");
+                        }
 
-						byte[] inputFile;
-						try {
-							inputFile = File.ReadAllBytes(filePath);
-						}
-						catch {
-							throw new Exception($"Unable to read {filePath}");
-						}
+                        if (!File.Exists(filePath)) {
+                            throw new Exception($"File \"{filePath}\" not found.");
+                        }
 
-						Console.WriteLine(
-							"Writing \"{0}\" ({1} {2}) to EEPROM at address {3}\n",
-							filePath,
-							inputFile.Length,
-							(inputFile.Length > 1) ? "bytes" : "byte",
-							reader.EepromAddress);
+                        byte[] inputFile;
+                        try {
+                            inputFile = File.ReadAllBytes(filePath);
+                        }
+                        catch {
+                            throw new Exception($"Unable to read {filePath}");
+                        }
 
-						if (inputFile.Length > (int)reader.SpdSize) {
-							throw new Exception($"File \"{filePath}\" is larger than {reader.SpdSize} bytes.");
-						}
+                        Console.WriteLine(
+                            "Writing \"{0}\" ({1} {2}) to EEPROM at address {3}\n",
+                            filePath,
+                            inputFile.Length,
+                            (inputFile.Length > 1) ? "bytes" : "byte",
+                            reader.I2CAddress);
 
-						int bytesWritten = 0;
-						int startTick = Environment.TickCount;
-						byte b;
+                        if (inputFile.Length > (int)reader.SpdSize) {
+                            throw new Exception($"File \"{filePath}\" is larger than {reader.SpdSize} bytes.");
+                        }
 
-						for (int i = 0; i != inputFile.Length; i++) {
-							b = inputFile[i];
-							bool writeResult = (mode == "/writeforce")
-								? Eeprom.WriteByte(reader, (ushort)i, inputFile[i])
-								: Eeprom.UpdateByte(reader, (ushort)i, inputFile[i]);
+                        int bytesWritten = 0;
+                        int startTick = Environment.TickCount;
+                        byte b;
 
-							if (!writeResult) {
-								throw new Exception($"Could not write byte {i} to EEPROM at address {reader.EepromAddress} on port {reader.PortName}.");
-							}
+                        for (int i = 0; i != inputFile.Length; i++) {
+                            b = inputFile[i];
+                            bool writeResult = (mode == "/writeforce")
+                                ? Eeprom.WriteByte(reader, (ushort)i, inputFile[i])
+                                : Eeprom.UpdateByte(reader, (ushort)i, inputFile[i]);
 
-							bytesWritten++;
+                            if (!writeResult) {
+                                throw new Exception($"Could not write byte {i} to EEPROM at address {reader.I2CAddress} on port {reader.PortName}.");
+                            }
 
-							if (!silent) {
-								ConsoleDisplayByte(i, b);
-							}
-						}
-						reader.Disconnect();
+                            bytesWritten++;
 
-						Console.WriteLine(
-							"\n\nWritten {0} {1} to EEPROM at address {2} on port {3} in {4} ms",
-							bytesWritten,
-							(bytesWritten > 1) ? "bytes" : "byte",
-							reader.EepromAddress,
-							reader.PortName,
-							Environment.TickCount - startTick);
-						return;
-					}
+                            if (!silent) {
+                                ConsoleDisplayByte(i, b);
+                            }
+                        }
+                        reader.Disconnect();
 
-					if (mode == "/enablepermanentwriteprotection") {
-						if (Eeprom.SetPermanentWriteProtection(reader)) {
-							Console.WriteLine($"Permanent write protection enabled on {reader.PortName}:{reader.EepromAddress}");
-						}
-						else {
-							throw new Exception($"Unable to set permanent write protection on {reader.PortName}:{reader.EepromAddress}");
-						}
-					}
-				}
-			}
-			catch (Exception e) {
-				//Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine(
+                            "\n\nWritten {0} {1} to EEPROM at address {2} on port {3} in {4} ms",
+                            bytesWritten,
+                            (bytesWritten > 1) ? "bytes" : "byte",
+                            reader.I2CAddress,
+                            reader.PortName,
+                            Environment.TickCount - startTick);
+                        return;
+                    }
+
+                    if (mode == "/enablepermanentwriteprotection") {
+                        if (Eeprom.SetPermanentWriteProtection(reader)) {
+                            Console.WriteLine($"Permanent write protection enabled on {reader.PortName}:{reader.I2CAddress}");
+                        }
+                        else {
+                            throw new Exception($"Unable to set permanent write protection on {reader.PortName}:{reader.I2CAddress}");
+                        }
+                    }
+                }
+            }
+            catch (Exception e) {
+                //Console.ForegroundColor = ConsoleColor.Red;
 #if DEBUG
-				Console.WriteLine($"{e}\n");
+                Console.WriteLine($"{e}\n");
 #else
-				Console.WriteLine($"{e.Message}\n");
+                Console.WriteLine($"{e.Message}\n");
 #endif
-				
-				//Console.ForegroundColor = ConsoleColor.Gray;
-				return;
-			}
 
-			Console.WriteLine("Unknown command line parameters.\n");
-			ShowHelp();
-		}
+                //Console.ForegroundColor = ConsoleColor.Gray;
+                return;
+            }
 
-		/// <summary>
-		/// Prints bytes in a grid pattern
-		/// </summary>
-		/// <param name="pos">Byte offset</param>
-		/// <param name="b">Byte value</param>
-		/// <param name="bpr">Bytes per row</param>
-		/// <param name="showOffset">Show or hide offsets on top and at the beginning of each line</param>
-		/// <param name="color">Set to true to display colored output, or false to disable colors</param>
-		static void ConsoleDisplayByte(int pos, byte b, int bpr = 16, bool showOffset = true, bool color = true) {
+            Console.WriteLine("Unknown command line parameters.\n");
+            ShowHelp();
+        }
 
-			ConsoleColor _defaultForeColor = Console.ForegroundColor;   // Text Color
-			ConsoleColor _defaultBackColor = Console.BackgroundColor;   // Background Color
+        /// <summary>
+        /// Prints bytes in a grid pattern
+        /// </summary>
+        /// <param name="pos">Byte offset</param>
+        /// <param name="b">Byte value</param>
+        /// <param name="bpr">Bytes per row</param>
+        /// <param name="showOffset">Show or hide offsets on top and at the beginning of each line</param>
+        /// <param name="color">Set to true to display colored output, or false to disable colors</param>
+        static void ConsoleDisplayByte(int pos, byte b, int bpr = 16, bool showOffset = true, bool color = true) {
 
-			// Colors sorted in rainbow order
-			ConsoleColor[] colors = {
-				ConsoleColor.DarkGray,
-				ConsoleColor.Gray,
-				ConsoleColor.Red,
-				ConsoleColor.DarkRed,
-				ConsoleColor.DarkYellow,
-				ConsoleColor.Yellow,
-				ConsoleColor.Green,
-				ConsoleColor.DarkGreen,
-				ConsoleColor.DarkCyan,
-				ConsoleColor.Cyan,
-				ConsoleColor.Blue,
-				ConsoleColor.DarkBlue,
-				ConsoleColor.DarkMagenta,
-				ConsoleColor.Magenta,
-				ConsoleColor.White,
-				ConsoleColor.Gray,
-			};
+            ConsoleColor _defaultForeColor = Console.ForegroundColor;   // Text Color
+            ConsoleColor _defaultBackColor = Console.BackgroundColor;   // Background Color
 
-			// Print top row (offsets)
-			if (pos == 0 && showOffset) {
-				Console.Write("      "); // Indentation
-				for (int i = 0; i < bpr; i++) {
-					Console.Write($"{i:X2} ");
-				}
-			}
+            // Colors sorted in rainbow order
+            ConsoleColor[] colors = {
+                ConsoleColor.DarkGray,
+                ConsoleColor.Gray,
+                ConsoleColor.Red,
+                ConsoleColor.DarkRed,
+                ConsoleColor.DarkYellow,
+                ConsoleColor.Yellow,
+                ConsoleColor.Green,
+                ConsoleColor.DarkGreen,
+                ConsoleColor.DarkCyan,
+                ConsoleColor.Cyan,
+                ConsoleColor.Blue,
+                ConsoleColor.DarkBlue,
+                ConsoleColor.DarkMagenta,
+                ConsoleColor.Magenta,
+                ConsoleColor.White,
+                ConsoleColor.Gray,
+            };
 
-			// Print contents
-			if (pos % bpr == 0) {
-				Console.Write(Environment.NewLine);
-				if (showOffset) {
-					// Print row offsets
-					Console.Write("{0:X4}: ", pos);
-				}
-			}
+            // Print top row (offsets)
+            if (pos == 0 && showOffset) {
+                Console.Write("      "); // Indentation
+                for (int i = 0; i < bpr; i++) {
+                    Console.Write($"{i:X2} ");
+                }
+            }
 
-			// Set colors
-			if (color) {
-				// Print byte values on black background, so the output looks good in cmd and in powershell
-				Console.BackgroundColor = ConsoleColor.Black;
-				// Set color 
-				Console.ForegroundColor = colors[b >> 4];
-			}
-			// Print byte value
-			Console.Write($"{b:X2}");
+            // Print contents
+            if (pos % bpr == 0) {
+                Console.Write(Environment.NewLine);
+                if (showOffset) {
+                    // Print row offsets
+                    Console.Write("{0:X4}: ", pos);
+                }
+            }
 
-			// Print blank space between each byte, but not at the end of the line
-			if (pos % bpr != bpr - 1) {
-				Console.Write(" ");
-			}
+            // Set colors
+            if (color) {
+                // Print byte values on black background, so the output looks good in cmd and in powershell
+                Console.BackgroundColor = ConsoleColor.Black;
+                // Set color 
+                Console.ForegroundColor = colors[b >> 4];
+            }
+            // Print byte value
+            Console.Write($"{b:X2}");
 
-			// Reset foreground (text) color
-			Console.ForegroundColor = _defaultForeColor;
-			// Reset background color
-			Console.BackgroundColor = _defaultBackColor;
-		}
-	}
+            // Print blank space between each byte, but not at the end of the line
+            if (pos % bpr != bpr - 1) {
+                Console.Write(" ");
+            }
+
+            // Reset foreground (text) color
+            Console.ForegroundColor = _defaultForeColor;
+            // Reset background color
+            Console.BackgroundColor = _defaultBackColor;
+        }
+    }
 }
