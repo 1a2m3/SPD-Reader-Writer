@@ -3,12 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Threading;
-using System.Threading.Tasks;
 using UInt8 = System.Byte;
-using Settings = SpdReaderWriterDll.Properties.Settings;
-
 
 namespace SpdReaderWriterDll {
 
@@ -230,23 +226,23 @@ namespace SpdReaderWriterDll {
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="PortName" >Serial port name</param>
-        /// <param name="eepromAddress">EEPROM address on the device's i2c bus</param>
-        public Device(SerialPortSettings portSettings, string PortName, UInt8 eepromAddress) {
+        /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
+        public Device(SerialPortSettings portSettings, string PortName, UInt8 i2cAddress) {
             this.PortSettings  = portSettings;
             this.PortName      = PortName;
-            this.EepromAddress = eepromAddress;
+            this.I2CAddress    = i2cAddress;
         }
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="PortName">Serial port name</param>
-        /// <param name="eepromAddress">EEPROM address on the device's i2c bus</param>
+        /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="spdSize">Total EEPROM size</param>
-        public Device(SerialPortSettings portSettings, string PortName, UInt8 eepromAddress, SpdSize spdSize) {
+        public Device(SerialPortSettings portSettings, string PortName, UInt8 i2cAddress, SpdSize spdSize) {
             this.PortSettings  = portSettings;
             this.PortName      = PortName;
-            this.EepromAddress = eepromAddress;
+            this.I2CAddress    = i2cAddress;
             this.SpdSize       = spdSize;
         }
 
@@ -368,7 +364,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
-            return EepromAddress != 0 && ProbeAddress(this, EepromAddress);
+            return I2CAddress != 0 && ProbeAddress(this, I2CAddress);
         }
 
         /// <summary>
@@ -458,7 +454,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// EEPROM address
         /// </summary>
-        public UInt8 EepromAddress;
+        public UInt8 I2CAddress;
 
         /// <summary>
         /// EEPROM size
@@ -787,7 +783,7 @@ namespace SpdReaderWriterDll {
                 if (device.IsConnected) {
                     _version = Int32.Parse(
                         System.Text.Encoding.Default.GetString(
-                            device.ExecuteCommand($"{Command.GETVERSION}", Settings.Default.MINVERSION.ToString().Length)
+                            device.ExecuteCommand($"{Command.GETVERSION}", Settings.MINVERSION.ToString().Length)
                         )
                     );
                 }
@@ -901,7 +897,7 @@ namespace SpdReaderWriterDll {
 
                         // Check connection
                         if (!device.IsConnected) {
-                            throw new IOException($"Device {device.PortName} not responding");
+                            throw new IOException($"Device {device.PortName} not connected.");
                         }
 
                         // Wait for data
@@ -923,14 +919,13 @@ namespace SpdReaderWriterDll {
 
                     byte[] _responseArray = _response.ToArray();
 
-                    if (device.PortSettings.RaiseEvent) { }
-                    device.ClearBuffer();
+                    //device.ClearBuffer();
 
                     return _responseArray;
                 }
             }
 
-            throw new Exception("No data");
+            throw new Exception("No data.");
         }
 
         /// <summary>
