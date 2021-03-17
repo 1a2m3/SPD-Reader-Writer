@@ -15,7 +15,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/> </returns>
         public static byte ReadByte(Device device, UInt16 offset) {
-            return device.ExecuteCommand($"{Command.READBYTE} {device.EepromAddress} {offset}");
+            return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset}");
         }
 
         /// <summary>
@@ -44,7 +44,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written at <paramref name="offset"/> </returns>
         public static bool WriteByte(Device device, UInt16 offset, byte value) {
-            return device.ExecuteCommand($"{Command.WRITEBYTE} {device.EepromAddress} {offset} {value}") == Response.SUCCESS;
+            return device.ExecuteCommand($"{Command.WRITEBYTE} {device.I2CAddress} {offset} {value}") == Response.SUCCESS;
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
         public static bool SetPermanentWriteProtection(Device device) {
-            return device.ExecuteCommand($"{Command.SETPERMANENTSWP} {device.EepromAddress}") == Response.SUCCESS; 
+            return device.ExecuteCommand($"{Command.SETPERMANENTSWP} {device.I2CAddress}") == Response.SUCCESS; 
         }
 
         /// <summary>
@@ -129,7 +129,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
         public static bool IsPermanentWriteProtectionEnabled(Device device) {
-            return device.ExecuteCommand($"{Command.GETPSWP} {device.EepromAddress}") == Response.NACK;
+            return device.ExecuteCommand($"{Command.GETPSWP} {device.I2CAddress}") == Response.NACK;
         }
     }
 }
