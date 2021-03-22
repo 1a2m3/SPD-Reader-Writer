@@ -176,26 +176,26 @@ namespace SpdReaderWriterDll {
             public int ResponseTimeout;
 
             public SerialPortSettings(
-                int BaudRate,
-                bool DtrEnable,
-                bool RtsEnable,
-                int DataBits,
-                Handshake Handshake,
-                string NewLine,
-                Parity Parity,
-                StopBits StopBits,
-                bool RaiseEvent,
-                int ResponseTimeout) {
-                    this.BaudRate        = BaudRate;
-                    this.DtrEnable       = DtrEnable;
-                    this.RtsEnable       = RtsEnable;
-                    this.DataBits        = DataBits;
-                    this.Handshake       = Handshake;
-                    this.NewLine         = NewLine.Replace("\\n", "\n").Replace("\\r", "\r");
-                    this.Parity          = Parity;
-                    this.StopBits        = StopBits;
-                    this.RaiseEvent      = RaiseEvent;
-                    this.ResponseTimeout = ResponseTimeout;
+                int baudRate        = 115200,
+                bool dtrEnable      = true,
+                bool rtsEnable      = true,
+                int dataBits        = 8,
+                Handshake handshake = Handshake.None,
+                string newLine      = "\n",
+                Parity parity       = Parity.None,
+                StopBits stopBits   = StopBits.One,
+                bool raiseEvent     = false,
+                int responseTimeout = 10) {
+                    this.BaudRate        = baudRate;
+                    this.DtrEnable       = dtrEnable;
+                    this.RtsEnable       = rtsEnable;
+                    this.DataBits        = dataBits;
+                    this.Handshake       = handshake;
+                    this.NewLine         = newLine.Replace("\\n", "\n").Replace("\\r", "\r");
+                    this.Parity          = parity;
+                    this.StopBits        = stopBits;
+                    this.RaiseEvent      = raiseEvent;
+                    this.ResponseTimeout = responseTimeout;
             }
 
             public override string ToString() {
@@ -216,34 +216,37 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
-        /// <param name="PortName">Serial port name</param>
-        public Device(SerialPortSettings portSettings, string PortName) {
+        /// <param name="portSettings">Serial port settings</param>
+        /// <param name="portName">Serial port name</param>
+        public Device(SerialPortSettings portSettings, string portName) {
             this.PortSettings = portSettings;
-            this.PortName     = PortName;
+            this.PortName     = portName;
         }
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
-        /// <param name="PortName" >Serial port name</param>
+        /// <param name="portSettings">Serial port settings</param>
+        /// <param name="portName" >Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        public Device(SerialPortSettings portSettings, string PortName, UInt8 i2cAddress) {
-            this.PortSettings  = portSettings;
-            this.PortName      = PortName;
-            this.I2CAddress    = i2cAddress;
+        public Device(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
+            this.PortSettings = portSettings;
+            this.PortName     = portName;
+            this.I2CAddress   = i2cAddress;
         }
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
-        /// <param name="PortName">Serial port name</param>
+        /// <param name="portSettings">Serial port settings</param>
+        /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="spdSize">Total EEPROM size</param>
-        public Device(SerialPortSettings portSettings, string PortName, UInt8 i2cAddress, SpdSize spdSize) {
-            this.PortSettings  = portSettings;
-            this.PortName      = PortName;
-            this.I2CAddress    = i2cAddress;
-            this.SpdSize       = spdSize;
+        public Device(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, SpdSize spdSize) {
+            this.PortSettings = portSettings;
+            this.PortName     = portName;
+            this.I2CAddress   = i2cAddress;
+            this.SpdSize      = spdSize;
         }
 
         /// <summary>
@@ -413,7 +416,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Get device's firmware version 
         /// </summary>
-        /// <returns>Version number</returns>
+        /// <returns>Firmware version number</returns>
         public int GetFirmwareVersion() {
             return GetFirmwareVersion(this);
         }
@@ -449,7 +452,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Device's firmware version
         /// </summary>
-        public int Version => GetFirmwareVersion(this);
+        public int FirmwareVersion => GetFirmwareVersion(this);
 
         /// <summary>
         /// EEPROM address
@@ -776,7 +779,7 @@ namespace SpdReaderWriterDll {
         /// Get Device's firmware version 
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns>Version number</returns>
+        /// <returns>Firmware version number</returns>
         private int GetFirmwareVersion(Device device) {
             int _version = 0;
             lock (device.PortLock) {
@@ -801,10 +804,8 @@ namespace SpdReaderWriterDll {
 
             lock (device.FindLock) {
 
-                string[] _ports = SerialPort.GetPortNames().Distinct().ToArray();
-
-                foreach (string _portName in _ports) {
-                    Device _device = new Device(PortSettings, _portName);
+                foreach (string _portName in SerialPort.GetPortNames().Distinct().ToArray()) {
+                    Device _device = new Device(this.PortSettings, _portName);
 
                     lock (_device.PortLock) {
                         try {
@@ -860,17 +861,17 @@ namespace SpdReaderWriterDll {
         /// Executes commands on the device.
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <param name="Command">Space separated commands to be executed on the device</param>
-        /// <param name="Length">Number of bytes to receive in response</param>
+        /// <param name="command">Space separated commands to be executed on the device</param>
+        /// <param name="length">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
-        private byte[] ExecuteCommand(Device device, string Command, int Length) {
+        private byte[] ExecuteCommand(Device device, string command, int length) {
             
-            if (Length < 0) {
-                throw new ArgumentOutOfRangeException(nameof(Length));
+            if (length < 0) {
+                throw new ArgumentOutOfRangeException(nameof(length));
             }
 
-            if (string.IsNullOrWhiteSpace(Command)) {
-                throw new ArgumentException("Value cannot be null or whitespace.", nameof(Command));
+            if (string.IsNullOrWhiteSpace(command)) {
+                throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
 
             Queue<byte> _response = new Queue<byte>();
@@ -880,13 +881,13 @@ namespace SpdReaderWriterDll {
 
                     device.ClearBuffer();
 
-                    foreach (string cmd in Command.Split(' ')) {
+                    foreach (string cmd in command.Split(' ')) {
                         device._sp.WriteLine(cmd);
                     }
 
                     device.FlushBuffer();
 
-                    if (Length == 0) {
+                    if (length == 0) {
                         return new byte[0];
                     }
 
@@ -902,13 +903,13 @@ namespace SpdReaderWriterDll {
 
                         // Wait for data
                         if (device.PortSettings.RaiseEvent) {
-                            if (ResponseData != null && ResponseData.Count >= Length && !DataReceiving) {
+                            if (ResponseData != null && ResponseData.Count >= length && !DataReceiving) {
                                 _response = ResponseData;
                                 break;
                             }
                         }
                         else {
-                            if (device.BytesToRead == Length) {
+                            if (device.BytesToRead == length) {
                                 while (device.BytesToRead != 0) {
                                     _response.Enqueue(device.ReadByte());
                                 }
@@ -916,12 +917,8 @@ namespace SpdReaderWriterDll {
                             }
                         }
                     }
-
-                    byte[] _responseArray = _response.ToArray();
-
-                    //device.ClearBuffer();
-
-                    return _responseArray;
+                    
+                    return _response.ToArray();
                 }
             }
 
