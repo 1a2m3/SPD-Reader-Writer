@@ -15,7 +15,7 @@
 #include <Wire.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20210313 // Version number (YYYYMMDD)
+#define VERSION 20210321 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -196,7 +196,11 @@ void parseCommand() {
 void cmdRead() {
   int address = PORT.parseInt(); // EEPROM address
   int offset  = PORT.parseInt(); // Offset address
-  PORT.write(readByte(address, offset));
+  int count   = PORT.parseInt(); // Byte count
+  
+  for (int i = 0; i < count; i++) {
+    PORT.write(readByte(address, offset + i));
+  }
 }
 
 void cmdWrite() {
@@ -213,7 +217,7 @@ void cmdScanBus() {
 
   for (int i = 0; i <= 8; i++) {
     if (probeBusAddress(i + 80)) {
-      response = response | ((byte)1 << i);
+      response |= ((byte)1 << i);
     }
   }
   PORT.write(response);
