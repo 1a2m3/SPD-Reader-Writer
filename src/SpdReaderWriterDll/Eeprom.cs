@@ -1,5 +1,5 @@
 using System;
-using UInt8   = System.Byte;
+using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
 
@@ -15,7 +15,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/> </returns>
         public static byte ReadByte(Device device, UInt16 offset) {
-            return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset}");
+            return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset} 1");
         }
 
         /// <summary>
@@ -26,14 +26,7 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset" /> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Device device, UInt16 offset, int count) {
-            
-            byte[] output = new byte[count];
-
-            for (UInt16 i = 0; i < count; i++) {
-                output[i] = ReadByte(device, (UInt16)(i + offset));
-            }
-
-            return output;
+            return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset} {count}", count);
         }
 
         /// <summary>
@@ -67,6 +60,26 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if byte at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Device device, UInt16 offset, byte value) {
             return ReadByte(device, offset) == value;
+        }
+
+        /// <summary>
+        /// Verifies if the offset content matches the input specified
+        /// </summary>
+        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="offset">Byte position</param>
+        /// <param name="value">Byte array</param>
+        /// <returns></returns>
+        public static bool VerifyByte(Device device, UInt16 offset, byte[] value) {
+
+            byte[] source = ReadByte(device, offset, value.Length);
+
+            for (int i = 0; i < source.Length; i++) {
+                if (source[i] != value[i]) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
