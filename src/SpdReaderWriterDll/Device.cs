@@ -477,12 +477,30 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Number of bytes to be read from the device
         /// </summary>
-        public int BytesToRead => _sp.BytesToRead;
+        public int BytesToRead {
+            get {
+                try {
+                    return _sp.BytesToRead;
+                }
+                catch {
+                    throw new IOException("No bytes to read");
+                }
+            }
+        }
 
         /// <summary>
         /// Number of bytes to be sent to the device
         /// </summary>
-        public int BytesToWrite => _sp.BytesToWrite;
+        public int BytesToWrite {
+            get {
+                try {
+                    return _sp.BytesToWrite;
+                }
+                catch {
+                    throw new IOException("No bytes to write");
+                }
+            }
+        }
 
         /// <summary>
         /// Clear to Send status
@@ -550,20 +568,20 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 if (!device.IsConnected) {
                     try {
-                        device._sp = new SerialPort();
+                        device._sp = new SerialPort {
+                            // Port settings
+                            PortName  = device.PortName,
+                            BaudRate  = device.PortSettings.BaudRate,
+                            DtrEnable = device.PortSettings.DtrEnable,
+                            RtsEnable = device.PortSettings.RtsEnable,
+                            Handshake = device.PortSettings.Handshake,
 
-                        // Port settings
-                        device._sp.PortName  = device.PortName;
-                        device._sp.BaudRate  = device.PortSettings.BaudRate;
-                        device._sp.DtrEnable = device.PortSettings.DtrEnable;
-                        device._sp.RtsEnable = device.PortSettings.RtsEnable;
-                        device._sp.Handshake = device.PortSettings.Handshake;
-
-                        // Data settings
-                        device._sp.DataBits  = device.PortSettings.DataBits;
-                        device._sp.NewLine   = device.PortSettings.NewLine;
-                        device._sp.Parity    = device.PortSettings.Parity;
-                        device._sp.StopBits  = device.PortSettings.StopBits;
+                            // Data settings
+                            DataBits  = device.PortSettings.DataBits,
+                            NewLine   = device.PortSettings.NewLine,
+                            Parity    = device.PortSettings.Parity,
+                            StopBits  = device.PortSettings.StopBits,
+                        };
 
                         // Event to handle Data Reception
                         if (device.PortSettings.RaiseEvent) {
