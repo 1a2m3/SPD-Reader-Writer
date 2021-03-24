@@ -699,6 +699,7 @@ namespace SpdReaderWriterDll {
 
                     do {
                         device.ResetAddressPins();
+                        Wait(10);
                     } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
                     device.AdvancedFeaturesSupported = _testSA0 && _testSA1 && _testVHV;
@@ -933,6 +934,11 @@ namespace SpdReaderWriterDll {
                                 }
                                 break;
                             }
+                        }
+
+                        if (!command.StartsWith(Command.READBYTE.ToString()) ||
+                            !command.StartsWith(Command.WRITEBYTE.ToString())) {
+                            Wait(1);
                         }
                     }
                     
