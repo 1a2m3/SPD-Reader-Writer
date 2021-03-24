@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using UInt8 = System.Byte;
 
@@ -936,17 +937,17 @@ namespace SpdReaderWriterDll {
                             }
                         }
 
-                        if (!command.StartsWith(Command.READBYTE.ToString()) ||
-                            !command.StartsWith(Command.WRITEBYTE.ToString())) {
+                        if (!(command.StartsWith(Command.READBYTE.ToString()) || 
+                              command.StartsWith(Command.WRITEBYTE.ToString()))) {
                             Wait(1);
                         }
                     }
-                    
+
                     return _response.ToArray();
                 }
             }
 
-            throw new Exception("No data.");
+            throw new IOException($"No data.");
         }
 
         /// <summary>
