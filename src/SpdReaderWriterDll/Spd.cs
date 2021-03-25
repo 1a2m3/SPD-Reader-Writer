@@ -29,7 +29,7 @@ namespace SpdReaderWriterDll {
     /// Defines SPD sizes
     /// </summary>
     public enum SpdSize {
-        //NONE    = 0,
+        UNKNOWN = 0,
         //MINIMUM = 128,
         SDRAM   = 256,
         DDR     = 256,
@@ -134,9 +134,14 @@ namespace SpdReaderWriterDll {
             }
 
             // Byte at offset 0x02 in SPD indicates RAM type
-            byte _rt = Eeprom.ReadByte(device, 0x02);
-            if (Enum.IsDefined(typeof(RamType), (RamType)_rt)) {
-                return (RamType)_rt;
+            try {
+                byte _rt = Eeprom.ReadByte(device, 0x02);
+                if (Enum.IsDefined(typeof(RamType), (RamType) _rt)) {
+                    return (RamType) _rt;
+                }
+            }
+            catch {
+                throw new Exception($"Unable to detect RAM type at {device.I2CAddress} on {device.PortName}");
             }
             return RamType.UNKNOWN;
         }
@@ -337,7 +342,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
-        /// <returns>Byte matching bit pattern at input position of length count</returns>
+        /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="length"/> count</returns>
         public static byte GetByteFromBits(byte input, UInt8 position, UInt8 count) {
 
             if (count < 1) {
