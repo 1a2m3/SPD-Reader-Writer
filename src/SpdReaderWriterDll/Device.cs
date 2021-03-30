@@ -72,6 +72,14 @@ namespace SpdReaderWriterDll {
         /// Device Communication Test
         /// </summary>
         public const char TESTCOMM         = 't';
+        /// <summary>
+        /// Device get identification
+        /// </summary>
+        public const char ID               = 'i';
+        /// <summary>
+        /// Device assign name
+        /// </summary>
+        public const char NAME             = 'n';
     }
 
     /// <summary>
@@ -422,6 +430,23 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Assigns a name to the Device
+        /// </summary>
+        /// <param name="name">Device name</param>
+        /// <returns><see langword="true" /> when the device name is set</returns>
+        public bool AssignName(string name) {
+            return AssignName(this, name);
+        }
+
+        /// <summary>
+        /// Gets Device's name
+        /// </summary>
+        /// <returns>Device's name</returns>
+        public string GetName() {
+            return GetName(this);
+        }
+
+        /// <summary>
         /// Finds devices connected to computer by sending a test command to every serial port device detected
         /// </summary>
         /// <returns>An array of serial port names which have a device or devices connected to</returns>
@@ -532,6 +557,11 @@ namespace SpdReaderWriterDll {
         public bool AdvancedFeaturesSupported;
 
         /// <summary>
+        /// Device's name
+        /// </summary>
+        public string DeviceName;
+
+        /// <summary>
         /// Byte stack containing data received from Serial Port
         /// </summary>
         public static Queue<byte> ResponseData = new Queue<byte>();
@@ -619,9 +649,11 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 if (device.IsConnected) {
                     try {
-                        do {
-                            device.ResetAddressPins();
-                        } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);                        
+                        if (device.AdvancedFeaturesSupported) {
+                            do {
+                                device.ResetAddressPins();
+                            } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
+                        }
                     }
                     catch (Exception ex) {
                         throw new Exception($"Unable to disconnect ({device.PortName}): {ex.Message}");
@@ -646,9 +678,9 @@ namespace SpdReaderWriterDll {
                     device._sp.Close();
                 }
 
-                device._sp = null;
+                device = null;
             }
-            return device._sp == null;
+            return device == null;
         }
 
         /// <summary>
@@ -719,7 +751,6 @@ namespace SpdReaderWriterDll {
                         } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
                         device.AdvancedFeaturesSupported = _testSA0 && _testSA1 && _testVHV;
-
                     }
                 }
                 catch {
@@ -753,7 +784,6 @@ namespace SpdReaderWriterDll {
                     }
                 }
                 catch {
-                    return addresses.ToArray();
                     throw new Exception($"Unable to scan I2C bus on {device.PortName}");
                 }
             }
@@ -823,7 +853,9 @@ namespace SpdReaderWriterDll {
         private static int GetHighVoltageState(Device device) {
             lock (device.PortLock) {
                 try {
-                    return device.ExecuteCommand($"{Command.GETHVSTATE}") == Response.ON ? PinState.ON : PinState.OFF;
+                    return device.ExecuteCommand($"{Command.GETHVSTATE}") == Response.ON 
+                        ? PinState.ON 
+                        : PinState.OFF;
                 }
                 catch {
                     throw new Exception($"Unable to get High Voltage state on {device.PortName}");
@@ -871,6 +903,61 @@ namespace SpdReaderWriterDll {
                 }
             }
             return _version;
+        }
+
+        /// <summary>
+        /// Assigns a name to the Device
+        /// </summary>
+        /// <param name="device">Device instance</param>
+        /// <param name="name">Device name</param>
+        /// <returns><see langword="true" /> when the device name is set</returns>
+        private bool AssignName(Device device, string name) {
+
+            if (name == null) throw new ArgumentNullException("Name can't be null");
+            if (name == "") throw new ArgumentException("Name can't be blank");
+
+            lock (device.PortLock) {
+                try {
+                    if (device.IsConnected) {
+
+                        string _name = name.Trim();
+
+                        if (_name == GetName()) {
+                            return false;
+                        }
+
+                        if (device.ExecuteCommand($"{Command.NAME} {_name}.") == Response.SUCCESS) {
+                            this.DeviceName = _name;
+                            return true;
+                        }
+                    }
+                }
+                catch {
+                    throw new Exception($"Unable to assign name to {device.PortName}");
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Gets Device's name
+        /// </summary>
+        /// <param name="device">Device instance</param>
+        /// <returns>Device's name</returns>
+        private string GetName(Device device) {
+            lock (device.PortLock) {
+                try {
+                    if (string.IsNullOrEmpty(DeviceName)) {
+                        DeviceName = System.Text.Encoding.Default.GetString(device.ExecuteCommand($"{Command.ID}", 16)).Split('\0')[0];
+                    }
+
+                    return DeviceName;
+                }
+                catch {
+                    throw new Exception($"Unable to get {device.PortName} name");
+                }
+            }
         }
 
         /// <summary>
