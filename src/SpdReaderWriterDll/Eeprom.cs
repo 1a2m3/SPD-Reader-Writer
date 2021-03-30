@@ -19,7 +19,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset} 1");
             }
             catch {
-                throw new Exception($"Unable to read byte {offset} at {device.I2CAddress} on {device.PortName}");
+                throw new Exception($"Unable to read byte 0x{offset:X} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -35,7 +35,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset} {count}", count);
             }
             catch {
-                throw new Exception($"Unable to read bytes {offset} at {device.I2CAddress} on {device.PortName}");
+                throw new Exception($"Unable to read byte 0x{offset:X} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -51,7 +51,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand($"{Command.WRITEBYTE} {device.I2CAddress} {offset} {value}") == Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to write {value:X2} to {offset:X} at {device.I2CAddress} on {device.PortName}");
+                throw new Exception($"Unable to write {value:X2} to 0x{offset:X} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -67,7 +67,7 @@ namespace SpdReaderWriterDll {
                 return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
             }
             catch {
-                throw new Exception($"Unable to update byte {offset:X} with {value:X2} at {device.I2CAddress} on {device.PortName}");
+                throw new Exception($"Unable to update byte 0x{offset:X} with {value:X2} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -83,7 +83,7 @@ namespace SpdReaderWriterDll {
                 return ReadByte(device, offset) == value;
             }
             catch {
-                throw new Exception($"Unable to verify byte {offset:X} at {device.I2CAddress} on {device.PortName}");
+                throw new Exception($"Unable to verify byte 0x{offset:X} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -95,7 +95,6 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Device device, UInt16 offset, byte[] value) {
-
             try {
                 byte[] source = ReadByte(device, offset, value.Length);
 
@@ -108,7 +107,7 @@ namespace SpdReaderWriterDll {
                 return true;
             }
             catch {
-                throw new Exception($"Unable to verify bytes {offset:X}-{(offset + value.Length):X} at {device.I2CAddress} on {device.PortName}");
+                throw new Exception($"Unable to verify bytes 0x{offset:X}-0x{(offset + value.Length):X} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
