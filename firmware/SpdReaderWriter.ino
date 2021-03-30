@@ -13,9 +13,10 @@
 */
 
 #include <Wire.h>
+#include <EEPROM.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20210321 // Version number (YYYYMMDD)
+#define VERSION 20210330 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -57,6 +58,8 @@
 #define GETPSWP           'u' // [U]nwritable?
 #define GETVERSION        'v' // [V]ersion
 #define TEST              't' // [T]est
+#define ID                'i' // [I]dentify
+#define NAME              'n' // [N]ame device
 
 // Device responses
 #define SUCCESS (byte)  0
@@ -67,6 +70,10 @@
 // Pin states
 #define ON  HIGH
 #define OFF LOW
+
+// Device id settings
+#define NAMELENGTH 16
+char deviceId[NAMELENGTH] = { ZERO };
 
 // Global variables
 int eepromPageAddress = 0;   // Initial EEPROM page address
@@ -188,6 +195,14 @@ void parseCommand() {
     // Device Communication Test
     case TEST: cmdTest();
       break;
+
+    // Device get identification
+    case ID: cmdGetId();
+      break;
+
+    // Device assign ID
+    case NAME: cmdAssignId();
+      break;
   }
 }
 
@@ -197,7 +212,7 @@ void cmdRead() {
   int address = PORT.parseInt(); // EEPROM address
   int offset  = PORT.parseInt(); // Offset address
   int count   = PORT.parseInt(); // Byte count
-  
+
   for (int i = 0; i < count; i++) {
     PORT.write(readByte(address, offset + i));
   }
@@ -213,7 +228,7 @@ void cmdWrite() {
 
 void cmdScanBus() {
 
-  byte response = NULL;
+  byte response = ZERO;
 
   for (int i = 0; i <= 8; i++) {
     if (probeBusAddress(i + 80)) {
@@ -229,6 +244,25 @@ void cmdTest() {
 
 void cmdVersion() {
   PORT.print(VERSION);
+}
+
+void cmdGetId() {
+
+  String deviceName = getId();
+
+  PORT.print(deviceName);  
+
+  // Pad the respoinse with zero's
+  if (deviceName.length() < NAMELENGTH) {
+    for (int i = deviceName.length(); i < NAMELENGTH; i++) {
+      PORT.write(ZERO);
+    }
+  }
+}
+
+void cmdAssignId() {
+  String id = PORT.readStringUntil('.');
+  PORT.write(assignId(id) ? SUCCESS : ERROR);
 }
 
 void cmdProbeBusAddress() {
@@ -444,6 +478,39 @@ void adjustPageAddress(uint16_t offset) {
   if (offset > 0xFF  && getPageAddress() != 1) {
     setPageAddress(1);
   }
+}
+
+
+/*  -=  Device name functions =-  */
+
+// Assign a new name
+bool assignId(String newName) {
+
+  newName.trim();
+  
+  char deviceChar[NAMELENGTH];
+  strcpy(deviceChar, newName.c_str());
+
+  EEPROM.put(0, deviceChar);
+
+  return newName == getId();
+}
+
+// Get device's name
+String getId() {
+
+  char deviceChar[NAMELENGTH] = { ZERO };
+
+  EEPROM.get(0, deviceChar);
+
+  for (int i = 0; i < NAMELENGTH; i++) {
+    deviceId[i] = deviceChar[i];
+    if (deviceChar[i] == ZERO) {
+      break;
+    }    
+  }
+
+  return deviceId;
 }
 
 
