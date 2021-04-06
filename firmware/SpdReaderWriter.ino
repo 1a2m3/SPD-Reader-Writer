@@ -65,7 +65,7 @@
 #define SUCCESS (byte)  0
 #define ERROR   (byte)  1
 #define ZERO    (byte)  0   // Used to indicate an error where a numeric non-zero answer is normally expected
-#define WELCOME (byte) '!'
+#define WELCOME (char) '!'
 
 // Pin states
 #define ON  HIGH
@@ -235,6 +235,7 @@ void cmdScanBus() {
       response |= ((byte)1 << i);
     }
   }
+  
   PORT.write(response);
 }
 
