@@ -10,7 +10,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// DLL version
         /// </summary>
-        public const int DLLVERSION  = 20210330;
+        public const int DLLVERSION  = 20210406;
 
         /// <summary>
         /// Minimum device's firmware version required 
