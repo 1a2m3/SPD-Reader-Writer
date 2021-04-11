@@ -708,7 +708,6 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the device supports programmatic address pins configuration and HV control</returns>
         private static bool TestAdvancedFeatures(Device device) {
-
             lock (device.PortLock) {
                 try {
                     if (device.IsConnected) {
@@ -718,23 +717,17 @@ namespace SpdReaderWriterDll {
                             Wait(10);
                         } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
-                        bool _testSA0 = false;
                         bool _testSA1 = false;
                         bool _testVHV = false;
 
-                        // Test SA0 pin
-                        _testSA0 = device.SetAddressPin(Pin.SA0, PinState.HIGH) && device.GetAddressPin(Pin.SA0) == PinState.HIGH && device.ProbeAddress(81);
+                        // Test SA1 pin
+                        _testSA1 = device.SetAddressPin(Pin.SA1, PinState.HIGH) && device.GetAddressPin(Pin.SA1) == PinState.HIGH && device.ProbeAddress(82);
 
-                        if (_testSA0) {
-                            // Test SA1 pin
-                            _testSA1 = device.SetAddressPin(Pin.SA1, PinState.HIGH) && device.GetAddressPin(Pin.SA1) == PinState.HIGH && device.ProbeAddress(83);
-
-                            // Reset SA pins
-                            do {
-                                device.ResetAddressPins();
-                                Wait(10);
-                            } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
-                        }
+                        // Reset SA pins
+                        do {
+                            device.ResetAddressPins();
+                            Wait(10);
+                        } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
                         if (_testSA1) {
                             // Test HV pin      
@@ -753,7 +746,7 @@ namespace SpdReaderWriterDll {
                             Wait(10);
                         } while (device.GetAddressPin(Pin.SA0) == PinState.HIGH || device.GetAddressPin(Pin.SA1) == PinState.HIGH);
 
-                        device.AdvancedFeaturesSupported = _testSA0 && _testSA1 && _testVHV;
+                        device.AdvancedFeaturesSupported = _testSA1 && _testVHV;
                     }
                 }
                 catch {
