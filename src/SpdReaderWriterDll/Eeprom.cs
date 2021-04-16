@@ -30,7 +30,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position to start reading from</param>
         /// <param name="count">Total number of bytes to read from <paramref name="offset" /> </param>
         /// <returns>A byte array containing byte values</returns>
-        public static byte[] ReadByte(Device device, UInt16 offset, int count) {
+        public static byte[] ReadByte(Device device, UInt16 offset, uint count) {
             try {
                 return device.ExecuteCommand($"{Command.READBYTE} {device.I2CAddress} {offset} {count}", count);
             }
@@ -96,7 +96,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Device device, UInt16 offset, byte[] value) {
             try {
-                byte[] source = ReadByte(device, offset, value.Length);
+                byte[] source = ReadByte(device, offset, (uint)value.Length);
 
                 for (int i = 0; i < source.Length; i++) {
                     if (source[i] != value[i]) {
