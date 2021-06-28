@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20210330 // Version number (YYYYMMDD)
+#define VERSION 20210628 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -58,6 +58,7 @@
 #define GETPSWP           'u' // [U]nwritable?
 #define GETVERSION        'v' // [V]ersion
 #define TEST              't' // [T]est
+#define DEBUG             '?' // Self-test 
 #define ID                'i' // [I]dentify
 #define NAME              'n' // [N]ame device
 
@@ -82,9 +83,9 @@ int pins[] = { SA0SW, SA1SW, SA2SW }; // SA pins array
 void setup() {
 
   // SA controls
-  pinMode(SA0SW, OUTPUT);
-  pinMode(SA1SW, OUTPUT);
-  pinMode(SA2SW, OUTPUT);
+  for (int i = 0; i <= 2; i++) {
+    pinMode(pins[i], OUTPUT);
+  }
 
   // HV controls
   pinMode(HVSW,  OUTPUT);
@@ -99,9 +100,7 @@ void setup() {
   setPageAddress(0);
 
   // Reset SA pins configuration
-  setAddressPin(SA0SW, OFF);
-  setAddressPin(SA1SW, OFF);
-  setAddressPin(SA2SW, OFF);
+  resetPins();
 
   // Reset HV state
   setHighVoltage(OFF);
@@ -196,6 +195,10 @@ void parseCommand() {
     case TEST: cmdTest();
       break;
 
+    // Self-test and debug
+    case DEBUG: cmdSelfTest();
+      break;
+
     // Device get identification
     case ID: cmdGetId();
       break;
@@ -227,20 +230,73 @@ void cmdWrite() {
 }
 
 void cmdScanBus() {
-
-  byte response = ZERO;
-
-  for (int i = 0; i <= 8; i++) {
-    if (probeBusAddress(i + 80)) {
-      response |= ((byte)1 << i);
-    }
-  }
-  
-  PORT.write(response);
+  PORT.write(scanBus());
 }
 
 void cmdTest() {
   PORT.write(WELCOME);
+}
+
+void cmdSelfTest() {
+
+  PORT.println("Self testing report");
+
+  PORT.println("Scanning I2C bus...");
+
+  byte i2cData = scanBus();
+
+  if (i2cData == ZERO) {
+    PORT.println("No I2C devices detected, test aborted!");
+    return;
+  }
+
+  byte i2cCount = 0;
+
+  for (int i = 0; i <= 7; i++) {
+    if (i2cData & (1 << i) == (1 << i)) {
+      byte address = 80 + i;
+      if (probeBusAddress(address)) {
+        PORT.println("I2C device at address " + (String)address + " is OK :)");
+        i2cCount++;
+      }
+    }
+  }
+
+  PORT.println("Testing SA pins...");
+
+  if (i2cCount > 1) {
+    PORT.println("Multiple I2C devices detected, SA pins test aborted!");
+    return;
+  }
+
+  resetPins();
+
+  if (scanBus() != 1) {
+    PORT.println("SA pins cannot reset, test aborted!");
+    return;
+  }
+
+  // Test SA pins
+  for (int i = 0; i <= 2; i++) {
+    byte oldI2cData = scanBus();
+    if (setAddressPin(pins[i], ON)) {
+      PORT.println("Testing pin SA" + (String)i);
+      PORT.println("Pin SA" + (String)i + " control " + ((oldI2cData != scanBus()) ? "active :)" : "inactive :/"));
+    }
+    else {
+      PORT.println("Pin SA" + (String)i + " control inaccessible :(");
+    }
+  }
+
+  PORT.println("Testing 9V control...");
+
+  setHighVoltage(ON);
+
+  PORT.println("9V control " + (String)(getHighVoltage() ? "active :)" : "inactive :/"));
+
+  PORT.println("All tests finished!");
+
+  resetPins();
 }
 
 void cmdVersion() {
@@ -251,7 +307,7 @@ void cmdGetId() {
 
   String deviceName = getId();
 
-  PORT.print(deviceName);  
+  PORT.print(deviceName);
 
   // Pad the respoinse with zero's
   if (deviceName.length() < NAMELENGTH) {
@@ -488,7 +544,7 @@ void adjustPageAddress(uint16_t offset) {
 bool assignId(String newName) {
 
   newName.trim();
-  
+
   char deviceChar[NAMELENGTH];
   strcpy(deviceChar, newName.c_str());
 
@@ -508,7 +564,7 @@ String getId() {
     deviceId[i] = deviceChar[i];
     if (deviceChar[i] == ZERO) {
       break;
-    }    
+    }
   }
 
   return deviceId;
@@ -516,6 +572,19 @@ String getId() {
 
 
 /*  -=  I2C bus functions  =-  */
+
+byte scanBus() {
+
+  byte response = ZERO;
+
+  for (int i = 0; i <= 8; i++) {
+    if (probeBusAddress(i + 80)) {
+      response |= ((byte)1 << i);
+    }
+  }
+
+  return response;
+}
 
 // Control slave address pins
 bool setAddressPin(int pin, bool state) {
@@ -533,6 +602,14 @@ bool setAddressPin(int pin, bool state) {
 // Get slave address pin state
 bool getAddressPin(int pin) {
   return digitalRead(pin);
+}
+
+// Reset SA and HV pins
+void resetPins() {
+  for (int i = 0; i <= 2; i++) {
+    setAddressPin(pins[i], OFF);
+  }
+  setHighVoltage(OFF);
 }
 
 // Tests if device address is present on I2C bus
