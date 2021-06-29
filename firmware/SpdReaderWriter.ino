@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h" // Settings
 
-#define VERSION 20210628 // Version number (YYYYMMDD)
+#define VERSION 20210629 // Version number (YYYYMMDD)
 
 // EEPROM page commands
 #define SPA0 0x6C   // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
@@ -43,24 +43,24 @@
 #define DNC  0x00   // "Do not care" byte
 
 // Device commands
-#define READBYTE          'r' // [R]ead
-#define WRITEBYTE         'w' // [W]rite
-#define SCANBUS           's' // [S]can I2C bus
-#define PROBEADDRESS      'a' // [A]ddress test
-#define SETADDRESSPIN     'p' // [P]in control
-#define GETADDRESSPIN     'q' // [Q]uery pin state
-#define SETHVSTATE        '9' // [9]V control
-#define GETHVSTATE        'h' // [H]igh voltage status
-#define SETREVERSIBLESWP  'b' // [B]lock
-#define GETREVERSIBLESWP  'o' // [O]btain RSWP status
-#define CLEARSWP          'c' // [C]lear RSWP
-#define SETPERMANENTSWP   'l' // [L]ock
-#define GETPSWP           'u' // [U]nwritable?
-#define GETVERSION        'v' // [V]ersion
-#define TEST              't' // [T]est
-#define DEBUG             '?' // Self-test 
-#define ID                'i' // [I]dentify
-#define NAME              'n' // [N]ame device
+#define READBYTE       'r' // [R]ead
+#define WRITEBYTE      'w' // [W]rite
+#define SCANBUS        's' // [S]can I2C bus
+#define PROBEADDRESS   'a' // [A]ddress test
+#define SETADDRESSPIN  'p' // [P]in control
+#define GETADDRESSPIN  'q' // [Q]uery pin state
+#define SETHVSTATE     '9' // [9]V control
+#define GETHVSTATE     'h' // [H]igh voltage status
+#define SETRSWP        'b' // [B]lock
+#define GETRSWP        'o' // [O]btain RSWP status
+#define CLEARSWP       'c' // [C]lear RSWP
+#define SETPSWP        'l' // [L]ock
+#define GETPSWP        'u' // [U]nwritable?
+#define GETVERSION     'v' // [V]ersion
+#define TEST           't' // [T]est
+#define DEBUG          '?' // Self-test
+#define GETNAME        'i' // [I]dentify
+#define SETNAME        'n' // [N]ame device
 
 // Device responses
 #define SUCCESS (byte)  0
@@ -168,7 +168,7 @@ void parseCommand() {
       break;
 
     // Enable RSWP
-    case SETREVERSIBLESWP: cmdEnableRSWP();
+    case SETRSWP: cmdEnableRSWP();
       break;
 
     // Clear RSWP
@@ -176,11 +176,11 @@ void parseCommand() {
       break;
 
     // Read SWP status
-    case GETREVERSIBLESWP: cmdReadRSWP();
+    case GETRSWP: cmdReadRSWP();
       break;
 
     // Enable PSWP
-    case SETPERMANENTSWP: cmdEnablePSWP();
+    case SETPSWP: cmdEnablePSWP();
       break;
 
     // Read permanent write protection status
@@ -200,11 +200,11 @@ void parseCommand() {
       break;
 
     // Device get identification
-    case ID: cmdGetId();
+    case GETNAME: cmdGetId();
       break;
 
     // Device assign ID
-    case NAME: cmdAssignId();
+    case SETNAME: cmdAssignId();
       break;
   }
 }
@@ -279,8 +279,8 @@ void cmdSelfTest() {
   // Test SA pins
   for (int i = 0; i <= 2; i++) {
     byte oldI2cData = scanBus();
+    PORT.println("Testing pin SA" + (String)i);
     if (setAddressPin(pins[i], ON)) {
-      PORT.println("Testing pin SA" + (String)i);
       PORT.println("Pin SA" + (String)i + " control " + ((oldI2cData != scanBus()) ? "active :)" : "inactive :/"));
     }
     else {
