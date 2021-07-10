@@ -36,6 +36,7 @@ namespace SpdReaderWriterDll {
         DDR2    = 256,
         DDR3    = 256,
         DDR4    = 512,
+        DDR5    = 1024,
     }
 
     /// <summary>
@@ -193,6 +194,16 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// TODO:
+        /// </summary>
+        /// <param name="input"></param>
+        /// <returns></returns>
+        public static string GetModuleManufacturer(byte[] input) {
+            
+            return "UNKNOWN";
+        }
+
+        /// <summary>
         /// Gets model name from SPD contents
         /// </summary>
         /// <param name="input">SPD contents</param>
@@ -234,8 +245,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
         /// <returns>A calculated checksum</returns>
-        public static UInt16 Crc16(byte[] input) {
-
+        public static UInt16 Crc16(byte[] input, int poly) {
             UInt16[] table = new UInt16[256];
             UInt16 crc = 0;
 
@@ -245,9 +255,9 @@ namespace SpdReaderWriterDll {
                 UInt16 a = (UInt16)(i << 8);
 
                 for (int j = 0; j < 8; ++j) {
-                    //temp = ((temp ^ a) & 0x8000) != 0 ? (ushort)((temp << 1) ^ 0x1021) : temp <<= 1;
+                    //temp = ((temp ^ a) & 0x8000) != 0 ? (ushort)((temp << 1) ^ poly) : temp <<= 1;
                     if (((temp ^ a) & 0x8000) != 0) {
-                        temp = (UInt16)((temp << 1) ^ 0x1021);
+                        temp = (UInt16)((temp << 1) ^ poly);
                     }
                     else {
                         temp <<= 1;
