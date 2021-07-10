@@ -50,7 +50,7 @@ namespace SpdReaderWriter {
                 "",
                 "Command line parameters:",
                 "",
-                "{0} /help",
+                "{0} /?",
                 "{0} /find",
                 "{0} /scan <PORT>",
                 "{0} /read <PORT> <ADDRESS#> <filepath> /silent",
@@ -85,7 +85,7 @@ namespace SpdReaderWriter {
 
             string mode = args[0];
 
-            if (mode == "/help") {
+            if (mode == "/?" || mode == "/help") {
                 ShowHelp();
                 return;
             }
@@ -93,15 +93,25 @@ namespace SpdReaderWriter {
             try {
                 // Setup
                 SerialPortSettings readerSettings = new SerialPortSettings(
+                        // Baud rate
                         115200,
+                        // Enable DTR
                         true,
+                        // Enable RTS
                         true,
+                        // Data bits
                         8,
+                        // Handshake
                         Handshake.None,
+                        // New line
                         "\n",
+                        // Parity
                         Parity.None,
+                        // Stop bits
                         StopBits.One,
+                        // Use event handler
                         true,
+                        // Response timeout (sec.)
                         10);
 
                 // Find
@@ -160,19 +170,23 @@ namespace SpdReaderWriter {
                     }
 
                     // Test reversible write protection capabilities
-                    if (mode == "/enablewriteprotection" || mode == "/disablewriteprotection") {
-                        if (!reader.TestAdvancedFeatures()) {
+                    if (mode.StartsWith("/") && mode.EndsWith("writeprotection")) {
+
+                        byte pinCtl = reader.GetPinControls();
+                        reader.AdvancedPinControlSupported = (pinCtl | Response.REQ_TEST) == pinCtl;
+
+                        if (!reader.AdvancedPinControlSupported) {
                             throw new Exception("Your device does not support write protection features.");
                         }
 
                         // Turn on write protection
-                        if (mode == "/enablewriteprotection") {
+                        if (mode.StartsWith("/enable") || mode.StartsWith("/set")) {
 
                             int[] block;
 
                             if (args.Length == 3) { // Block # was specified
                                 try {
-                                    block = new[] { (Int32.Parse(args[2])) };
+                                    block = new[] {Int32.Parse(args[2])};
                                 }
                                 catch {
                                     throw new Exception("Block number should be specified in decimal notation.");
@@ -203,7 +217,7 @@ namespace SpdReaderWriter {
                         }
 
                         // Disable write protection
-                        if (mode == "/disablewriteprotection") {
+                        if (mode.StartsWith("/disable") || mode.StartsWith("/clear")) {
 
                             reader.SetAddressPin(Pin.SA1, PinState.HIGH);
 
@@ -251,7 +265,7 @@ namespace SpdReaderWriter {
 
                         int startTick = Environment.TickCount;
 
-                        byte[] spdDump = Eeprom.ReadByte(reader, 0, (int)reader.SpdSize);
+                        byte[] spdDump = Eeprom.ReadByte(reader, 0, (uint)reader.SpdSize);
 
                         for (int i = 0; i < spdDump.Length; i++) {
                             if (!silent) {
