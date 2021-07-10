@@ -119,7 +119,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
         public static bool SetWriteProtection(Device device, int block) {
             try {
-                return device.ExecuteCommand($"{Command.SETREVERSIBLESWP} {block}") == Response.SUCCESS;
+                return device.ExecuteCommand($"{Command.SETRSWP} {block}") == Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set reversible write protection on {device.PortName}");
@@ -154,7 +154,7 @@ namespace SpdReaderWriterDll {
         public static bool IsWriteProtectionEnabled(Device device) {
             try {
                 for (int i = 0; i <= 3; i++) {
-                    if (device.ExecuteCommand($"{Command.GETREVERSIBLESWP} {i}") == Response.NACK) {
+                    if (device.ExecuteCommand($"{Command.GETRSWP} {i}") == Response.NACK) {
                         return true;
                     }
                 }
@@ -174,7 +174,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the block is writable, or <see langword="false" /> if the block is write protected or if RSWP is not supported</returns>
         public static bool IsWriteProtectionEnabled(Device device, int block) {
             try {
-                return device.ExecuteCommand($"{Command.GETREVERSIBLESWP} {block}") == Response.ACK;
+                return device.ExecuteCommand($"{Command.GETRSWP} {block}") == Response.ACK;
             }
             catch {
                 throw new Exception($"Unable to get block {block} reversible write protection status on {device.PortName}");
@@ -202,7 +202,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
         public static bool SetPermanentWriteProtection(Device device) {
             try {
-                return device.ExecuteCommand($"{Command.SETPERMANENTSWP} {device.I2CAddress}") == Response.SUCCESS;
+                return device.ExecuteCommand($"{Command.SETPSWP} {device.I2CAddress}") == Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set permanent write protection on {device.PortName}");
