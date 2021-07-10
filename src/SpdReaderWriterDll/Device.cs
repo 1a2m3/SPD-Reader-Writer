@@ -15,71 +15,71 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Read byte
         /// </summary>
-        public const char READBYTE         = 'r';
+        public const char READBYTE      = 'r';
         /// <summary>
         /// Write byte
         /// </summary>
-        public const char WRITEBYTE        = 'w';
+        public const char WRITEBYTE     = 'w';
         /// <summary>
         /// Scan i2c bus
         /// </summary>
-        public const char SCANBUS          = 's';
+        public const char SCANBUS       = 's';
         /// <summary>
         /// Probe i2c address
         /// </summary>
-        public const char PROBEADDRESS     = 'a';
+        public const char PROBEADDRESS  = 'a';
         /// <summary>
         /// Set EEPROM SA pin state
         /// </summary>
-        public const char SETADDRESSPIN    = 'p';
+        public const char SETADDRESSPIN = 'p';
         /// <summary>
         /// Get EEPROM SA pin state
         /// </summary>
-        public const char GETADDRESSPIN    = 'q';
+        public const char GETADDRESSPIN = 'q';
         /// <summary>
         /// Set High Voltage state on SA0
         /// </summary>
-        public const char SETHVSTATE       = '9';
+        public const char SETHVSTATE    = '9';
         /// <summary>
         /// Get High Voltage status on SA0
         /// </summary>
-        public const char GETHVSTATE       = 'h';
+        public const char GETHVSTATE    = 'h';
         /// <summary>
         /// Enable Reversible SWP
         /// </summary>
-        public const char SETREVERSIBLESWP = 'b';
+        public const char SETRSWP       = 'b';
         /// <summary>
         /// Read Reversible SWP status
         /// </summary>
-        public const char GETREVERSIBLESWP = 'o';
+        public const char GETRSWP       = 'o';
         /// <summary>
         /// Clear Reversible SWP
         /// </summary>
-        public const char CLEARSWP         = 'c';
+        public const char CLEARSWP      = 'c';
         /// <summary>
         /// Enable Permanent SWP
         /// </summary>
-        public const char SETPERMANENTSWP  = 'l';
+        public const char SETPSWP       = 'l';
         /// <summary>
         /// Read Permanent SWP status
         /// </summary>
-        public const char GETPSWP          = 'u';
+        public const char GETPSWP       = 'u';
         /// <summary>
         /// Get Firmware version
         /// </summary>
-        public const char GETVERSION       = 'v';
+        public const char GETVERSION    = 'v';
         /// <summary>
         /// Device Communication Test
         /// </summary>
-        public const char TESTCOMM         = 't';
+        public const char TESTCOMM      = 't';
         /// <summary>
         /// Device get identification
         /// </summary>
-        public const char ID               = 'i';
+        public const char GETNAME       = 'i';
         /// <summary>
         /// Device assign name
         /// </summary>
-        public const char NAME             = 'n';
+        public const char SETNAME       = 'n';
     }
 
     /// <summary>
@@ -110,6 +110,43 @@ namespace SpdReaderWriterDll {
         /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
         /// </summary>
         public const char WELCOME = '!';
+        /// <summary>
+        /// Bitmask value indicating SA0 control is OK
+        /// </summary>
+        public const byte SA0_TEST_OK = 0b0001;
+        /// <summary>
+        /// Bitmask value indicating SA0 control is N/A
+        /// </summary>
+        public const byte SA0_TEST_NA = SA0_TEST_OK << 4;
+        /// <summary>
+        /// Bitmask value indicating SA1 control is OK
+        /// </summary>
+        public const byte SA1_TEST_OK = 0b0010;
+        /// <summary>
+        /// Bitmask value indicating SA1 control is N/A
+        /// </summary>
+        public const byte SA1_TEST_NA = SA1_TEST_OK << 4;
+        /// <summary>
+        /// Bitmask value indicating SA2 control is OK
+        /// </summary>
+        public const byte SA2_TEST_OK = 0b0100;
+        /// <summary>
+        /// Bitmask value indicating SA2 control is N/A
+        /// </summary>
+        public const byte SA2_TEST_NA = SA2_TEST_OK << 4;
+        /// <summary>
+        /// Bitmask value indicating VHV control is OK
+        /// </summary>
+        public const byte VHV_TEST_OK = 0b1000;
+        /// <summary>
+        /// Bitmask value indicating VHV control is N/A
+        /// </summary>
+        public const byte VHV_TEST_NA = VHV_TEST_OK << 4;
+
+        /// <summary>
+        /// Bitmask value indicating minimum required RSWP/PSWP pin controls are OK
+        /// </summary>
+        public const byte REQ_TEST = SA1_TEST_OK | VHV_TEST_OK;
 
         // Aliases
         public const byte ACK     = SUCCESS;
@@ -290,9 +327,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Tests if the device is capable of SA pin control
         /// </summary>
-        /// <returns><see langword="true" /> if the device supports SA pin control</returns>
-        public bool TestAdvancedFeatures() {
-            return TestAdvancedFeatures(this);
+        /// <returns>Bitmask representing programmatic address pins configuration and HV control availability</returns>
+        public byte GetPinControls() {
+            return GetPinControls(this);
         }
 
         /// <summary>
@@ -309,6 +346,16 @@ namespace SpdReaderWriterDll {
         /// <returns>An array of addresses on the device's I2C bus</returns>
         public UInt8[] Scan() {
             return Scan(this);
+        }
+
+        /// <summary>
+        /// Scans for EEPROM addresses on the device's I2C bus
+        /// </summary>
+        /// <param name="device">Device instance</param>
+        /// <param name="bitmask">Enable bitmask</param>
+        /// <returns>A bitmask representing available EEPROM devices on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        public UInt8 Scan(bool bitmask) {
+            return Scan(this, bitmask);
         }
 
         /// <summary>
@@ -548,9 +595,9 @@ namespace SpdReaderWriterDll {
         public bool CarrierDetect => _sp.CDHolding;
 
         /// <summary>
-        /// Indicates whether the device supports RSWP and PSWP capabilities, the value is assigned by TestAdvancedFeatures method
+        /// Indicates whether the device supports RSWP and PSWP capabilities, the value is assigned by GetPinControls method
         /// </summary>
-        public bool AdvancedFeaturesSupported;
+        public bool AdvancedPinControlSupported;
 
         /// <summary>
         /// Device's name
@@ -652,7 +699,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 if (device.IsConnected) {
                     try {
-                        if (device.AdvancedFeaturesSupported) {
+                        if (device.AdvancedPinControlSupported) {
                             while (!device.ResetAddressPins()) {
                                 Wait();
                             }
@@ -709,63 +756,72 @@ namespace SpdReaderWriterDll {
         /// Tests if the device supports programmatic address pins configuration and HV control, used to determine device's RSWP and PSWP capabilities
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> if the device supports programmatic address pins configuration and HV control</returns>
-        private static bool TestAdvancedFeatures(Device device) {
+        /// <returns>Bitmask representing programmatic address pins configuration and HV control availability</returns>
+        private static byte GetPinControls(Device device) {
+
             lock (device.PortLock) {
                 try {
                     if (device.IsConnected) {
+                        // Skip tests if multiple or no EEPROMs are present, as results might be inaccurate or unpredictable
+                        if (device.Scan().Length != 1) {
+                            return 0;
+                        }
+
+                        bool _testSA0 = false;
                         bool _testSA1 = false;
+                        bool _testSA2 = false;
                         bool _testVHV = false;
+                        byte _i2cBus  = 0;
 
                         // Reset SA pins
                         while (!device.ResetAddressPins()) {
                             Wait();
                         }
 
-                        // Test default configuration
-                        if (device.GetAddressPin(Pin.SA1) == PinState.DEFAULT && 
-                            device.ProbeAddress(80)) {
-                            // Test SA1 pin
-                            _testSA1 = device.SetAddressPin(Pin.SA1, PinState.HIGH) &&   // Turn on SA1 pin
-                                       device.GetAddressPin(Pin.SA1) == PinState.HIGH && // Check SA1 pin state
-                                       device.ProbeAddress(82);                          // Check if SA1 pin affects I2C address
-                        }
+                        // Test SA0 pin control
+                        //_i2cBus = device.Scan(true);
+                        //_testSA0 = device.SetAddressPin(Pin.SA0, PinState.ON);
+                        //_testSA0 &= device.GetAddressPin(Pin.SA0) == PinState.HIGH;
+                        //_testSA0 &= _i2cBus != device.Scan(true);
+
+
+                        // Test SA1 pin control
+                        _i2cBus   = device.Scan(true);
+                        _testSA1  = device.SetAddressPin(Pin.SA1, PinState.ON);
+                        _testSA1 &= device.GetAddressPin(Pin.SA1) == PinState.HIGH;
+                        _testSA1 &= _i2cBus != device.Scan(true);
+
+                        // Test SA2 pin control
+                        //_i2cBus = device.Scan(true);
+                        //_testSA2 = device.SetAddressPin(Pin.SA2, PinState.ON);
+                        //_testSA2 &= device.GetAddressPin(Pin.SA2) == PinState.HIGH;
+                        //_testSA2 &= _i2cBus != device.Scan(true);
+
+
+                        // Test HV pin control
+                        _testVHV = device.SetHighVoltage(PinState.ON);
+                        _testVHV &= device.GetHighVoltageState() == PinState.ON;
 
                         // Reset SA pins
                         while (!device.ResetAddressPins()) {
                             Wait();
                         }
 
-                        // Test HV pin 
-                        if (_testSA1) {
-                            _testVHV = device.SetHighVoltage(PinState.ON) &&        // Enable HV on pin SA0
-                                       device.GetHighVoltageState() == PinState.ON; // Check HV on pin SA0
-                        }
-
-                        // Reset HV control
-                        if (_testVHV) {
-                            while (device.GetHighVoltageState() == PinState.ON) {
-                                device.SetHighVoltage(PinState.OFF);
-                                Wait();
-                            }
-                        }
-
-                        // Reset SA pins
-                        while (!device.ResetAddressPins()) {
-                            Wait();
-                        }
-
-                        device.AdvancedFeaturesSupported = _testVHV;
+                        return (byte)
+                            ((_testSA0 ? Response.SA0_TEST_OK : Response.SA0_TEST_NA) |
+                             (_testSA1 ? Response.SA1_TEST_OK : Response.SA1_TEST_NA) |
+                             (_testSA2 ? Response.SA2_TEST_OK : Response.SA2_TEST_NA) |
+                             (_testVHV ? Response.VHV_TEST_OK : Response.VHV_TEST_NA));
                     }
                 }
                 catch {
-                    throw new Exception($"Unable to determine if {device.PortName} supports advanced features.");
+                    throw new Exception($"Unable to determine if {device.PortName} supports pin control.");
                 }
             }
 
-            return device.AdvancedFeaturesSupported;
+            return Response.SA0_TEST_NA | Response.SA1_TEST_NA | Response.SA2_TEST_NA | Response.VHV_TEST_NA;
         }
-
+        
         /// <summary>
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
@@ -777,7 +833,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     if (device.IsConnected) {
-                        byte _response = device.ExecuteCommand($"{Command.SCANBUS}");
+                        byte _response = device.Scan(true);
 
                         for (int i = 0; i <= 8; i++) {
                             if ((byte)((_response >> i) & 1) == 1) {
@@ -792,6 +848,29 @@ namespace SpdReaderWriterDll {
             }
 
             return addresses.ToArray();
+        }
+
+        /// <summary>
+        /// Scans for EEPROM addresses on the device's I2C bus
+        /// </summary>
+        /// <param name="device">Device instance</param>
+        /// <param name="bitmask">Enable bitmask</param>
+        /// <returns>A bitmask representing available EEPROM devices on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        private static UInt8 Scan(Device device, bool bitmask) {
+            if (bitmask) {
+                lock (device.PortLock) {
+                    try {
+                        if (device.IsConnected) {
+                            return device.ExecuteCommand($"{Command.SCANBUS}");
+                        }
+                    }
+                    catch {
+                        throw new Exception($"Unable to scan I2C bus on {device.PortName}");
+                    }
+                }
+            }
+
+            return 0;
         }
 
         /// <summary>
@@ -931,7 +1010,7 @@ namespace SpdReaderWriterDll {
                             return false;
                         }
 
-                        if (device.ExecuteCommand($"{Command.NAME} {_name}.") == Response.SUCCESS) {
+                        if (device.ExecuteCommand($"{Command.SETNAME} {_name}.") == Response.SUCCESS) {
                             this.DeviceName = _name;
                             return true;
                         }
@@ -954,7 +1033,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     if (string.IsNullOrEmpty(DeviceName)) {
-                        DeviceName = System.Text.Encoding.Default.GetString(device.ExecuteCommand($"{Command.ID}", 16)).Split('\0')[0];
+                        DeviceName = System.Text.Encoding.Default.GetString(device.ExecuteCommand($"{Command.GETNAME}", 16)).Split('\0')[0];
                     }
 
                     return DeviceName;
