@@ -11,15 +11,25 @@ namespace SpdReaderWriter {
         /// Serial port settings
         /// </summary>
         public static Device.SerialPortSettings readerSettings = new Device.SerialPortSettings(
+            // Baud rate
             115200,
+            // Enable DTR
             true,
+            // Enable RTS
             true,
+            // Data bits
             8,
+            // Handshake
             Handshake.None,
+            // New line
             "\n",
+            // Parity
             Parity.None,
+            // Stop bits
             StopBits.One,
+            // Use event handler
             true,
+            // Response timeout (sec.)
             10);
 
         /// <summary>
@@ -58,7 +68,7 @@ namespace SpdReaderWriter {
             byte lastByte = Eeprom.ReadByte(myDevice, (ushort)(myDevice.SpdSize - 1));
 
             // Read the entire EEPROM (this will take a bit longer, about 1-5 seconds)
-            byte[] spdDump = Eeprom.ReadByte(myDevice, 0, (int)myDevice.SpdSize);
+            byte[] spdDump = Eeprom.ReadByte(myDevice, 0, (uint)myDevice.SpdSize);
 
             // When you're done, disconnect
             myDevice.Disconnect();
@@ -125,7 +135,7 @@ namespace SpdReaderWriter {
             byte[] spdHeader = Eeprom.ReadByte(MyReader, 0, 126);
 
             // Calculate CRC
-            ushort crc = Spd.Crc16(spdHeader);
+            ushort crc = Spd.Crc16(spdHeader, 0x1021);
 
             // Get LSB (byte 127) and MSB (byte 128)
             byte CrcLsb = (byte)(crc & 0xff);   // CRC LSB at 0x7e for 0-125 range or @ 0xfe for 128-253 range
