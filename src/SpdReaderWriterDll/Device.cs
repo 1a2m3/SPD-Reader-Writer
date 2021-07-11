@@ -351,7 +351,6 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
-        /// <param name="device">Device instance</param>
         /// <param name="bitmask">Enable bitmask</param>
         /// <returns>A bitmask representing available EEPROM devices on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         public UInt8 Scan(bool bitmask) {
@@ -422,8 +421,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
-            return I2CAddress != 0 && 
-                   ProbeAddress(this, I2CAddress);
+            return I2CAddress != 0 && ProbeAddress(this, I2CAddress);
         }
 
         /// <summary>
@@ -507,8 +505,7 @@ namespace SpdReaderWriterDll {
         public bool IsConnected {
             get {
                 try {
-                    return _sp != null && 
-                           _sp.IsOpen;
+                    return _sp != null && _sp.IsOpen;
                 }
                 catch {
                     return false;
@@ -578,21 +575,6 @@ namespace SpdReaderWriterDll {
                 }
             }
         }
-
-        /// <summary>
-        /// Clear to Send status
-        /// </summary>
-        public bool ClearToSend  => _sp.CtsHolding;
-
-        /// <summary>
-        /// Data Set Ready signal
-        /// </summary>
-        public bool DataSetReady => _sp.DsrHolding;
-
-        /// <summary>
-        /// Carrier Detect line ready state
-        /// </summary>
-        public bool CarrierDetect => _sp.CDHolding;
 
         /// <summary>
         /// Indicates whether the device supports RSWP and PSWP capabilities, the value is assigned by GetPinControls method
