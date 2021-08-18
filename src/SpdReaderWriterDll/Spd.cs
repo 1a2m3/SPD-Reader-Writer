@@ -36,7 +36,7 @@ namespace SpdReaderWriterDll {
         DDR2    = 256,
         DDR3    = 256,
         DDR4    = 512,
-        DDR5    = 1024,
+        //DDR5  = 1024,
     }
 
     /// <summary>
@@ -244,6 +244,7 @@ namespace SpdReaderWriterDll {
         /// Calculates CRC16/XMODEM checksum
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
+        /// <param name="poly">Polynomial value</param>
         /// <returns>A calculated checksum</returns>
         public static UInt16 Crc16(byte[] input, int poly) {
             UInt16[] table = new UInt16[256];
@@ -352,7 +353,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
-        /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="length"/> count</returns>
+        /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
         public static byte GetByteFromBits(byte input, UInt8 position, UInt8 count) {
 
             if (count < 1) {
