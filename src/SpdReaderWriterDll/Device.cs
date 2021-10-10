@@ -149,11 +149,11 @@ namespace SpdReaderWriterDll {
         public const byte REQ_TEST = SA1_TEST_OK | VHV_TEST_OK;
 
         // Aliases
-        public const byte ACK     = SUCCESS;
-        public const byte NOACK   = ERROR;
-        public const byte NACK    = ERROR;
-        public const byte FAIL    = ERROR;
-        public const byte ZERO    = NULL;
+        public const byte ACK   = SUCCESS;
+        public const byte NACK  = ERROR;
+        public const byte NOACK = ERROR;
+        public const byte FAIL  = ERROR;
+        public const byte ZERO  = NULL;
     }
 
     /// <summary>
@@ -761,8 +761,8 @@ namespace SpdReaderWriterDll {
                         }
 
                         // Test SA0 pin control
-                        //_i2cBus = device.Scan(true);
-                        //_testSA0 = device.SetAddressPin(Pin.SA0, PinState.ON);
+                        //_i2cBus   = device.Scan(true);
+                        //_testSA0  = device.SetAddressPin(Pin.SA0, PinState.ON);
                         //_testSA0 &= device.GetAddressPin(Pin.SA0) == PinState.HIGH;
                         //_testSA0 &= _i2cBus != device.Scan(true);
 
@@ -774,8 +774,8 @@ namespace SpdReaderWriterDll {
                         _testSA1 &= _i2cBus != device.Scan(true);
 
                         // Test SA2 pin control
-                        //_i2cBus = device.Scan(true);
-                        //_testSA2 = device.SetAddressPin(Pin.SA2, PinState.ON);
+                        //_i2cBus   = device.Scan(true);
+                        //_testSA2  = device.SetAddressPin(Pin.SA2, PinState.ON);
                         //_testSA2 &= device.GetAddressPin(Pin.SA2) == PinState.HIGH;
                         //_testSA2 &= _i2cBus != device.Scan(true);
 
@@ -1131,6 +1131,11 @@ namespace SpdReaderWriterDll {
                     DateTime _start = DateTime.Now;
 
                     while (device.PortSettings.ResponseTimeout * 1000 > (DateTime.Now - _start).TotalMilliseconds) {
+                        // Check connection
+                        if (!device.IsConnected) {
+                            throw new IOException($"{device.PortName} not connected");
+                        }
+
                         // Wait for data
                         if (device.PortSettings.RaiseEvent) {
                             if (ResponseData != null && ResponseData.Count >= length && !DataReceiving) {
