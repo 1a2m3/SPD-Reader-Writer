@@ -811,6 +811,7 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
     return status == 0;
   }
   
+  Wire.requestFrom(cmd, 1);
   return Wire.requestFrom(cmd, (uint8_t)1) > 0; // true when ACK is received after control byte
 }
 
