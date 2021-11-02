@@ -13,57 +13,7 @@ namespace SpdReaderWriterDll {
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
     public class Device {
-        /// <summary>
-        /// Serial Port Settings class
-        /// </summary>
-        public struct SerialPortSettings {
-            // Connection settings
-            public int BaudRate;
-            public bool DtrEnable;
-            public bool RtsEnable;
-
-            // Data settings
-            public int DataBits;
-            public Handshake Handshake;
-            public string NewLine;
-            public Parity Parity;
-            public StopBits StopBits;
-
-            // Response settings
-            public bool RaiseEvent;
-            public int ResponseTimeout;
-
-            public SerialPortSettings(
-                int baudRate        = 115200,
-                bool dtrEnable      = true,
-                bool rtsEnable      = true,
-                int dataBits        = 8,
-                Handshake handshake = Handshake.None,
-                string newLine      = "\n",
-                Parity parity       = Parity.None,
-                StopBits stopBits   = StopBits.One,
-                bool raiseEvent     = false,
-                int responseTimeout = 10) {
-                        BaudRate        = baudRate;
-                        DtrEnable       = dtrEnable;
-                        RtsEnable       = rtsEnable;
-                        DataBits        = dataBits;
-                        Handshake       = handshake;
-                        NewLine         = newLine.Replace("\\n", "\n").Replace("\\r", "\r");
-                        Parity          = parity;
-                        StopBits        = stopBits;
-                        RaiseEvent      = raiseEvent;
-                        ResponseTimeout = responseTimeout;
-            }
-
-            public override string ToString() {
-                string _stopBits = (int)StopBits == 3 ? "1.5" : ((int)StopBits).ToString();
-                string _parity   = Parity.ToString().Substring(0, 1);
-
-                return $"{BaudRate}-{_parity}-{DataBits}-{_stopBits}";
-            }
-        }
-
+        
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
@@ -106,6 +56,57 @@ namespace SpdReaderWriterDll {
             PortName     = portName;
             I2CAddress   = i2cAddress;
             SpdSize      = spdSize;
+        }
+
+        /// <summary>
+        /// Serial Port Settings class
+        /// </summary>
+        public struct SerialPortSettings {
+            // Connection settings
+            public int BaudRate;
+            public bool DtrEnable;
+            public bool RtsEnable;
+
+            // Data settings
+            public int DataBits;
+            public Handshake Handshake;
+            public string NewLine;
+            public Parity Parity;
+            public StopBits StopBits;
+
+            // Response settings
+            public bool RaiseEvent;
+            public int ResponseTimeout;
+
+            public SerialPortSettings(
+                int baudRate = 115200,
+                bool dtrEnable = true,
+                bool rtsEnable = true,
+                int dataBits = 8,
+                Handshake handshake = Handshake.None,
+                string newLine = "\n",
+                Parity parity = Parity.None,
+                StopBits stopBits = StopBits.One,
+                bool raiseEvent = false,
+                int responseTimeout = 10) {
+                BaudRate = baudRate;
+                DtrEnable = dtrEnable;
+                RtsEnable = rtsEnable;
+                DataBits = dataBits;
+                Handshake = handshake;
+                NewLine = newLine.Replace("\\n", "\n").Replace("\\r", "\r");
+                Parity = parity;
+                StopBits = stopBits;
+                RaiseEvent = raiseEvent;
+                ResponseTimeout = responseTimeout;
+            }
+
+            public override string ToString() {
+                string _stopBits = (int)StopBits == 3 ? "1.5" : ((int)StopBits).ToString();
+                string _parity = Parity.ToString().Substring(0, 1);
+
+                return $"{BaudRate}-{_parity}-{DataBits}-{_stopBits}";
+            }
         }
 
         /// <summary>
@@ -266,7 +267,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Resets all config pins to default state
+        /// Resets all config pins to their default state
         /// </summary>
         /// <returns><see langword="true" /> when all config pins are reset</returns>
         public bool ResetAddressPins() {
@@ -401,7 +402,16 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if DDR4 is found</returns>
         public bool DetectDdr4() {
-            return DetectDdr4(this);
+            return DetectDdr4(I2CAddress);
+        }
+
+        /// <summary>
+        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address"/>
+        /// </summary>
+        /// <param name="address">I2C address</param>
+        /// <returns><see langword="true" /> if DDR4 is found at <see cref="address"/></returns>
+        public bool DetectDdr4(UInt8 address) {
+            return DetectDdr4(this, address);
         }
 
         /// <summary>
@@ -409,7 +419,16 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if DDR5 is found</returns>
         public bool DetectDdr5() {
-            return DetectDdr5(this);
+            return DetectDdr5(I2CAddress);
+        }
+
+        /// <summary>
+        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address"/>
+        /// </summary>
+        /// <param name="address">I2C address</param>
+        /// <returns><see langword="true" /> if DDR5 is found at <see cref="address"/></returns>
+        public bool DetectDdr5(UInt8 address) {
+            return DetectDdr5(this, address);
         }
 
         /// <summary>
@@ -714,6 +733,7 @@ namespace SpdReaderWriterDll {
 
                         bool _testSA1 = false;
                         bool _testVHV = false;
+                        bool _testOFL = false;
                         byte _i2cBus  = 0;
 
                         // Reset SA pins
@@ -732,12 +752,17 @@ namespace SpdReaderWriterDll {
                         device.PIN_VHV = Pin.State.ON;
                         _testVHV = device.PIN_VHV;
 
+                        // Test Offline switch control
+                        device.PIN_OFFLINE = Pin.State.ON;
+                        _testOFL = device.PIN_OFFLINE;
+
                         // Reset SA pins
                         device.ResetAddressPins();
 
                         return (byte)
                             ((_testSA1 ? Response.SA1_TEST_OK : Response.SA1_TEST_NA) |
-                             (_testVHV ? Response.VHV_TEST_OK : Response.VHV_TEST_NA));
+                             (_testVHV ? Response.VHV_TEST_OK : Response.VHV_TEST_NA) |
+                             (_testOFL ? Response.OFFLINE_TEST_OK: Response.OFFLINE_TEST_NA));
                     }
                 }
                 catch {
@@ -745,7 +770,7 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            return Response.SA1_TEST_NA | Response.VHV_TEST_NA;
+            return Response.SA1_TEST_NA | Response.VHV_TEST_NA | Response.OFFLINE_TEST_NA;
         }
         
         /// <summary>
@@ -930,8 +955,8 @@ namespace SpdReaderWriterDll {
                             return false;
                         }
 
-                        // byte array containing cmd byte + name byte array + end command
-                        byte[] _nameCommand = new byte[_name.Length + 2];
+                        // byte array containing cmd byte + name length + name
+                        byte[] _nameCommand = new byte[1 + 1 + _name.Length];
                         // command byte at position 0
                         _nameCommand[0] = Command.NAME;
                         // name length at position 1
@@ -1005,12 +1030,13 @@ namespace SpdReaderWriterDll {
         /// Detects if DDR4 RAM is present on the device's I2C bus
         /// </summary>
         /// <param name="device">Device instance</param>
+        /// <param name="address">I2C address</param>
         /// <returns><see langword="true" /> if DDR4 is found</returns>
-        private bool DetectDdr4(Device device) {
+        private bool DetectDdr4(Device device, UInt8 address) {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.DDR4DETECT }) == Response.SUCCESS;
+                           device.ExecuteCommand(new[] { Command.DDR4DETECT, address }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Error detecting DDR4 on {device.PortName}");
@@ -1022,12 +1048,13 @@ namespace SpdReaderWriterDll {
         /// Detects if DDR5 RAM is present on the device's I2C bus
         /// </summary>
         /// <param name="device">Device instance</param>
+        /// <param name="address">I2C address</param>
         /// <returns><see langword="true" /> if DDR5 is found</returns>
-        private bool DetectDdr5(Device device) {
+        private bool DetectDdr5(Device device, UInt8 address) {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.DDR5DETECT }) == Response.SUCCESS;
+                           device.ExecuteCommand(new[] { Command.DDR5DETECT, address }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Error detecting DDR5 on {device.PortName}");
