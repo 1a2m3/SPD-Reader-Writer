@@ -119,9 +119,9 @@
 char deviceName[NAMELENGTH] = { ZERO };
 
 // Global variables
-const uint8_t ramSupport = RAM_SUPPORT; // bitmask representing supported RAM enabled in the settings file
-int pins[] = { OFF_SW, SA1_SW, HV_SW };        // Configuration pins array
+uint8_t ramSupport;                     // Bitmask representing supported RAM
 uint8_t eepromPageAddress = 0;          // Initial EEPROM page address
+const int pins[] = { OFF_SW, SA1_SW, HV_SW }; // Configuration pins array
 
 void setup() {
 
@@ -138,12 +138,12 @@ void setup() {
   Wire.begin();
   // Set I2C clock frequency
   Wire.setClock(I2C_CLOCK);
+  
+  // Perform device features test
+  selfTest();
 
   // Reset EEPROM page address
   setPageAddress(0);
-
-  // Reset config pins and HV state
-  resetPins();
 
   // Start serial data transmission
   PORT.begin(BAUD_RATE);
@@ -154,6 +154,38 @@ void setup() {
   
   // Send a welcome byte when the device is ready
   PORT.write(WELCOME);
+}
+
+// Perform basic device feature test and report capabilities
+byte selfTest() {
+  // Reset config pins and HV state
+  resetPins();
+  
+  // Scan i2c bus
+  if (!scanBus()) {
+    // No devices 
+    return;
+  }
+  
+  // RSWP DDR5 test
+  ddr5SetOfflineMode(ON);
+  if (ddr5GetOfflineMode()) {
+      ramSupport |= DDR5;
+  }
+  
+  // RSWP VHV test
+  setHighVoltage(ON);
+  if (getHighVoltage() == ON) {
+      ramSupport |= DDR4;      
+  } 
+  
+  // RSWP SA1 test
+  byte _i2c = scanBus();
+  if (setConfigPin(SA1_SW, ON) && scanBus() != _i2c) {
+      ramSupport |= DDR3|DDR2;
+  }  
+  
+  resetPins();
 }
 
 void loop() {
@@ -285,7 +317,7 @@ void cmdTest() {
 }
 
 void cmdFeaturesReport() {
-  PORT.write(RAM_SUPPORT);
+  PORT.write(ramSupport);
 }
 
 void cmdDdr4Detect() {
