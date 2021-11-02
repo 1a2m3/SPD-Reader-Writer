@@ -95,8 +95,6 @@
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
 
-#define TEMP         'd' // Dump temperature register data
-
 // Device control pins
 #define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
 #define SA1_SWITCH          1 // Pin to toggle SA1 state
@@ -122,13 +120,13 @@ char deviceName[NAMELENGTH] = { ZERO };
 
 // Global variables
 const uint8_t ramSupport = RAM_SUPPORT; // bitmask representing supported RAM enabled in the settings file
-int pins[] = { OFF_SW, SA1_SW };        // Configuration pins array
+int pins[] = { OFF_SW, SA1_SW, HV_SW };        // Configuration pins array
 uint8_t eepromPageAddress = 0;          // Initial EEPROM page address
 
 void setup() {
 
   // Config pin controls
-  for (int i = 0; i <= 1; i++) {
+  for (int i = 0; i <= sizeof(pins[0]); i++) {
     pinMode(pins[i], OUTPUT);
   }
 
@@ -291,11 +289,21 @@ void cmdFeaturesReport() {
 }
 
 void cmdDdr4Detect() {
-  PORT.write(ddr4Detect() ? SUCCESS : ERROR);
+  // Data buffer for address
+  byte buffer[1] = { ZERO };
+  PORT.readBytes(buffer, sizeof(buffer));
+  
+  uint8_t address = buffer[0]; // i2c address
+  PORT.write(ddr4Detect(address) ? SUCCESS : ERROR);
 }
 
 void cmdDdr5Detect() {
-  PORT.write(ddr5Detect() ? SUCCESS : ERROR);
+  // Data buffer for address
+  byte buffer[1] = { ZERO };
+  PORT.readBytes(buffer, sizeof(buffer));
+  
+  uint8_t address = buffer[0]; // i2c address
+  PORT.write(ddr5Detect(address) ? SUCCESS : ERROR);
 }
 
 void cmdVersion() {
@@ -336,11 +344,11 @@ void cmdName() {
 
 void cmdProbeBusAddress() {
 
-  // Data buffer for command byte
+  // Data buffer for address
   byte buffer[1] = { ZERO };
   PORT.readBytes(buffer, sizeof(buffer));
 
-  int address = buffer[0]; // i2c address
+  uint8_t address = buffer[0]; // i2c address
   PORT.write(probeBusAddress(address) ? SUCCESS : ERROR);
 }
 
@@ -365,7 +373,7 @@ void cmdRSWP() {
   }
   // get RSWP status
   else if (state == GET) {
-    PORT.write(readWriteProtection(block) ? SUCCESS : ERROR);
+    PORT.write(getWriteProtection(block) ? SUCCESS : ERROR);
   }
   // unrecognized RSWP command
   else {
@@ -476,6 +484,7 @@ void readByte(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *data
   Wire.requestFrom(deviceAddress, length);
   
   if (Wire.available() < 0) {
+    data = { ERROR };
     return;
   }
 
@@ -520,7 +529,7 @@ bool setWriteProtection(uint8_t block) {
 }
 
 // Reads reversible write protection status
-bool readWriteProtection(uint8_t block) {
+bool getWriteProtection(uint8_t block) {
 
   byte commands[] = { RPS0, RPS1, RPS2, RPS3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
@@ -564,7 +573,7 @@ bool getHighVoltage() {
 // Sets permanent write protection on supported EEPROMs
 bool setPermanentWriteProtection(uint8_t deviceAddress) {
 
-  if (ddr4Detect() || ddr5Detect()) {
+  if (ddr4Detect(deviceAddress) || ddr5Detect(deviceAddress)) {
     return ERROR;
   }
 
@@ -684,7 +693,7 @@ void adjustPageAddress(uint8_t address, uint16_t offset) {
   }
 
   // Check if DDR5 is present and adjust page number and addressing mode
-  if (ddr5Detect()) {
+  if (ddr5Detect(address)) {
     // Enable 1-byte addresing mode
     setLegacyModeAddress(address, false);
 
@@ -752,8 +761,6 @@ byte scanBus() {
 // Control slave address pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
-  delay(1);
-
   return digitalRead(pin) == state;
 }
 
@@ -764,7 +771,7 @@ bool getConfigPin(uint8_t pin) {
 
 // Reset SA and HV pins
 void resetPins() {
-  for (uint8_t i = 0; i <= 1; i++) {
+  for (int i = 0; i <= sizeof(pins[0]); i++) {
     setConfigPin(pins[i], OFF);
   }
   setHighVoltage(OFF);
@@ -773,13 +780,12 @@ void resetPins() {
 // Toggle DDR5 offline mode
 bool ddr5SetOfflineMode(bool state) {
   digitalWrite(OFF_SW, state);
-  //TODO: check if MR48:2 is 1
-  return digitalRead(OFF_SW) == state;
+  return ddr5GetOfflineMode() == state;
 }
 
 bool ddr5GetOfflineMode() {
   
-  // TODO: read MR48
+  // TODO: read MR48:2
   return false;
 }
 
@@ -811,20 +817,19 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
     return status == 0;
   }
   
-  Wire.requestFrom(cmd, 1);
   return Wire.requestFrom(cmd, (uint8_t)1) > 0; // true when ACK is received after control byte
 }
 
 // DDR4 detection test
-bool ddr4Detect() {
+bool ddr4Detect(uint8_t address) {
 
-  if (!scanBus()) {
+  if (!probeBusAddress(address) || !scanBus()) {
     return false;
   }
 
   bool result = true;
   bool avrCpu = true;
-  byte eePage = -1;
+  byte eePage = 128;
 
   for (uint8_t i = 0; i <= 1; i++) {
     setPageAddress(i);
@@ -849,22 +854,39 @@ bool ddr4Detect() {
 
   // Read protection status of blocks 1-3, if at least one is unprotected, return true.
   for (uint8_t i = 1; i <= 3; i++) {
-    if (readWriteProtection(i)) {
+    if (getWriteProtection(i)) {
       return true;
     }
   }
 
-  // TODO: Check for TS registers. If present, return true.
+  // Check for TS registers, if present, return true.
+  if (probeBusAddress(TSRB << 3 | address & 0b111)) {
+    return true;
+  }
 
-  // TODO: Read data from 2 pages and compare. If contents don't match, return true.
+  // Read data from 2 pages, if contents don't match, return true.
+  byte page0[16] = { ZERO };
+  byte page1[16] = { ZERO };
+  
+  for (uint16_t i = 0; i <= 256; i += 16) {        
+
+    readByte(address, i,       16, page0); // Read page 0
+    readByte(address, i + 256, 16, page1); // Read page 1
+    
+    for (uint8_t j = 0; j < 16; j++) {
+      if (page0[j] != page1[j]) {
+        return true;
+      }               
+    }
+  }
 
   return result;
 }
 
 // DDR5 detetion
-bool ddr5Detect() {
+bool ddr5Detect(uint8_t address) {
 
-  if (!scanBus()) {
+  if (!probeBusAddress(address) || !scanBus()) {
     return false;
   }
 
