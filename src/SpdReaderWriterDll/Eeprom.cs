@@ -36,7 +36,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.READBYTE, device.I2CAddress, (byte)(offset >> 8), (byte)(offset & 0xFF), count }, count);
             }
             catch {
-                throw new Exception($"Unable to read byte 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to read byte # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -52,7 +52,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.WRITEBYTE, device.I2CAddress, (byte)(offset >> 8), (byte)(offset & 0xFF), value }) == Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to write {value:X2} to 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to write \"0x{value:X2}\" to # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -68,7 +68,7 @@ namespace SpdReaderWriterDll {
                 return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
             }
             catch {
-                throw new Exception($"Unable to update byte 0x{offset:X4} with {value:X2} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to update byte # 0x{offset:X4} with \"0x{value:X2}\" at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -84,7 +84,7 @@ namespace SpdReaderWriterDll {
                 return ReadByte(device, offset) == value;
             }
             catch {
-                throw new Exception($"Unable to verify byte 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to verify byte # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -108,7 +108,7 @@ namespace SpdReaderWriterDll {
                 return true;
             }
             catch {
-                throw new Exception($"Unable to verify bytes 0x{offset:X4}-0x{(offset + value.Length):X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to verify bytes # 0x{offset:X4}-0x{(offset + value.Length):X4} at {device.PortName}:{device.I2CAddress}");
             }
         }
 
@@ -123,7 +123,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.RSWP, block, Command.ON }) == Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to set reversible write protection on {device.PortName}");
+                throw new Exception($"Unable to set RSWP on {device.PortName}");
             }
         }
 
@@ -143,7 +143,7 @@ namespace SpdReaderWriterDll {
                 return true;
             }
             catch {
-                throw new Exception($"Unable to set reversible write protection on {device.PortName}");
+                throw new Exception($"Unable to set RSWP on {device.PortName}");
             }
         }
 
@@ -163,7 +163,7 @@ namespace SpdReaderWriterDll {
                 return false;
             }
             catch {
-                throw new Exception($"Unable to get reversible write protection status on {device.PortName}");
+                throw new Exception($"Unable to get RSWP status on {device.PortName}");
             }
         }
 
@@ -178,7 +178,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.RSWP, block, Command.GET }) == Response.NACK;
             }
             catch {
-                throw new Exception($"Unable to get block {block} reversible write protection status on {device.PortName}");
+                throw new Exception($"Unable to get block {block} RSWP status on {device.PortName}");
             }
         }
 
@@ -192,7 +192,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.RSWP, Command.DNC, Command.OFF }) == Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to clear write protection on {device.PortName}");
+                throw new Exception($"Unable to clear RSWP on {device.PortName}");
             }
         }
 
@@ -206,7 +206,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.PSWP, device.I2CAddress, Command.ON }) == Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to set permanent write protection on {device.PortName}");
+                throw new Exception($"Unable to set PSWP on {device.PortName}");
             }
         }
 
@@ -220,7 +220,7 @@ namespace SpdReaderWriterDll {
                 return device.ExecuteCommand(new[] { Command.PSWP, device.I2CAddress, Command.ON }) == Response.NACK;
             }
             catch {
-                throw new Exception($"Unable to get permanent write protection status on {device.PortName}");
+                throw new Exception($"Unable to get PSWP status on {device.PortName}");
             }
         }
     }
