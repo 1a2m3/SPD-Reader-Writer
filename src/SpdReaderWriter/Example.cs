@@ -56,10 +56,10 @@ namespace SpdReaderWriter {
             myDevice.ProbeAddress(); // You can omit the address if myDevice already has "I2CAddress" set
 
             // Set SPD size to DDR4's EEPROM size (512 bytes)
-            myDevice.SpdSize = SpdSize.DDR4;
+            myDevice.SpdSize = Ram.SpdSize.DDR4;
 
             // The device can also be initialized in one line, like so:
-            Device myOtherDevice = new Device(readerSettings, portName, 80, SpdSize.DDR4);
+            Device myOtherDevice = new Device(readerSettings, portName, 80, Ram.SpdSize.DDR4);
 
             // Read first byte at offset 0
             byte firstByte = Eeprom.ReadByte(myDevice, 0);
@@ -67,15 +67,17 @@ namespace SpdReaderWriter {
             // Read last byte (located at offset 511, not 512!)
             byte lastByte = Eeprom.ReadByte(myDevice, (ushort)(myDevice.SpdSize - 1));
 
-            // Read the entire EEPROM (this will take a bit longer, about 1-5 seconds)
-            byte[] spdDump = Eeprom.ReadByte(myDevice, 0, (uint)myDevice.SpdSize);
+            // Read the entire EEPROM, 1 byte at a time
+            byte[] spdDump = new byte[(int)myDevice.SpdSize];
+            for (ushort i = 0; i < (int)myDevice.SpdSize; i++) {
+                spdDump[i] = Eeprom.ReadByte(myDevice, i);
+            }
 
             // When you're done, disconnect
             myDevice.Disconnect();
 
             // Attempt to read  once we're disconnected (this will fail)
-            Eeprom.ReadByte(myDevice, 0, (int)SpdSize.DDR4);
-
+            Eeprom.ReadByte(myDevice, 0, 1);
         }
 
         /// <summary>
@@ -100,7 +102,7 @@ namespace SpdReaderWriter {
             RealDevice.Scan(); //{ 80 }
 
             // Test a real device
-            Device MyReader = new Device(readerSettings, portName, 0x50, SpdSize.DDR4);
+            Device MyReader = new Device(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
             MyReader.Test(); //true
         }
 
@@ -109,7 +111,7 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_DuplicateRam() {
             // Copy SPD contents from one DIMM to another
-            Device source = new Device(readerSettings, "COM1", 80, SpdSize.DDR4);
+            Device source = new Device(readerSettings, "COM1", 80, Ram.SpdSize.DDR4);
             Device destination = new Device(readerSettings, "COM4", 82, source.SpdSize);
 
             for (ushort i = 0; i < (int)source.SpdSize; i++) {
@@ -129,7 +131,7 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_FixCRC() {
 
-            Device MyReader = new Device(readerSettings, portName, 0x52, SpdSize.DDR4);
+            Device MyReader = new Device(readerSettings, portName, 0x52, Ram.SpdSize.DDR4);
 
             // Read first 126 bytes
             byte[] spdHeader = Eeprom.ReadByte(MyReader, 0, 126);
@@ -158,7 +160,7 @@ namespace SpdReaderWriter {
         /// Erase SPD contents (fill with 0xff's)
         /// </summary>
         public static void Example_EraseSPD() {
-            Device MyReader = new Device(readerSettings, portName, 0x50, SpdSize.DDR4);
+            Device MyReader = new Device(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
             for (ushort i = 0; i <= (int)MyReader.SpdSize; i++) {
                 Eeprom.UpdateByte(MyReader, i, 0xff);
                 Console.WriteLine(i.ToString());
@@ -174,7 +176,7 @@ namespace SpdReaderWriter {
 
             bool[] _probes = new bool[128];
 
-            for (int i = 0; i < 128; i++) {
+            for (byte i = 0; i < 128; i++) {
                 _probes[i] = myDevice.ProbeAddress(i);
             }
         }
