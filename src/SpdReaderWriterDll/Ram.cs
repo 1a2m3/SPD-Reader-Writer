@@ -6,7 +6,7 @@ namespace SpdReaderWriterDll {
     /// </summary>
     public class Ram {
         /// <summary>
-        /// Defines RAM Type (SPD byte 0x02)
+        /// Defines basic memory type byte value
         /// </summary>
         public enum Type {
             UNKNOWN      = 0x00,
@@ -35,26 +35,26 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Device supported RAM types
+        /// Bitmask values describing specific RAM type RSWP support
         /// </summary>
         public struct BitMask {
             /// <summary>
-            /// Value describing <value>DDR2</value> support
+            /// Value describing <value>DDR2</value> RSWP support
             /// </summary>
             public const byte DDR2 = 1 << 2;
 
             /// <summary>
-            /// Value describing <value>DDR3</value> support
+            /// Value describing <value>DDR3</value> RSWP support
             /// </summary>
             public const byte DDR3 = 1 << 3;
 
             /// <summary>
-            /// Value describing <value>DDR4</value> support
+            /// Value describing <value>DDR4</value> RSWP support
             /// </summary>
             public const byte DDR4 = 1 << 4;
 
             /// <summary>
-            /// Value describing <value>DDR5</value> support
+            /// Value describing <value>DDR5</value> RSWP support
             /// </summary>
             public const byte DDR5 = 1 << 5;
         }
