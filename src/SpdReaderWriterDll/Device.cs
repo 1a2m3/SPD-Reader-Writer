@@ -6,6 +6,9 @@ using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using static SpdReaderWriterDll.Command;
+using static SpdReaderWriterDll.Pin;
+using static SpdReaderWriterDll.Spd;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -194,15 +197,15 @@ namespace SpdReaderWriterDll {
         /// Gets or sets SA1 control pin
         /// </summary>
         public bool PIN_SA1 {
-            get => GetConfigPin(Pin.SA1_SWITCH);
-            set => SetConfigPin(Pin.SA1_SWITCH, value);
+            get => GetConfigPin(SA1_SWITCH);
+            set => SetConfigPin(SA1_SWITCH, value);
         }
 
         /// <summary>
         /// Gets or sets DDR5 offline mode control pin
         /// </summary>
         public bool PIN_OFFLINE {
-            get => GetConfigPin(Pin.OFFLINE_MODE_SWITCH);
+            get => GetConfigPin(OFFLINE_MODE_SWITCH);
             set => SetOfflineMode(value);
         }
 
@@ -246,7 +249,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
         public bool GetConfigPin(byte pin) {
-            return GetConfigPin(this, pin) == Pin.State.ON;
+            return GetConfigPin(this, pin) == State.ON;
         }
 
         /// <summary>
@@ -272,9 +275,9 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when all config pins are reset</returns>
         public bool ResetAddressPins() {
 
-            PIN_SA1 = Pin.State.DEFAULT;
-            PIN_VHV = Pin.State.DEFAULT;
-            PIN_OFFLINE = Pin.State.DEFAULT;
+            PIN_SA1 = State.DEFAULT;
+            PIN_VHV = State.DEFAULT;
+            PIN_OFFLINE = State.DEFAULT;
 
             return !PIN_SA1 && !PIN_VHV && !PIN_OFFLINE;
         }
@@ -678,7 +681,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] {Command.TESTCOMM}) == Response.WELCOME;
+                           device.ExecuteCommand(new[] {TESTCOMM}) == Response.WELCOME;
                 }
                 catch {
                     throw new Exception($"Unable to test {device.PortName}");
@@ -694,7 +697,7 @@ namespace SpdReaderWriterDll {
         private static byte GetRamTypeSupport(Device device) {
             lock (device.PortLock) {
                 try {
-                    return device.ExecuteCommand(new[] { Command.RAMSUPPORT});
+                    return device.ExecuteCommand(new[] { RAMSUPPORT});
                 }
                 catch {
                     throw new Exception($"Unable to get {device.PortName} supported RAM");
@@ -720,7 +723,7 @@ namespace SpdReaderWriterDll {
         private static byte RswpRetest(Device device) {
             lock (device.PortLock) {
                 try {
-                    return device.ExecuteCommand(new[] { Command.RETEST });
+                    return device.ExecuteCommand(new[] { RETEST });
                 }
                 catch {
                     throw new Exception($"Unable to get {device.PortName} supported RAM");
@@ -737,7 +740,7 @@ namespace SpdReaderWriterDll {
         private bool SetOfflineMode(Device device, bool state) {
             lock (device.PortLock) {
                 try {
-                    return device.ExecuteCommand(new[] { Command.PINCONTROL, Pin.OFFLINE_MODE_SWITCH, Spd.BoolToInt(state) }) == Response.SUCCESS;
+                    return device.ExecuteCommand(new[] { PINCONTROL, OFFLINE_MODE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set offline mode on {device.PortName}");
@@ -748,7 +751,7 @@ namespace SpdReaderWriterDll {
         private bool GetOfflineMode(Device device) {
             lock (device.PortLock) {
                 try {
-                    return device.ExecuteCommand(new[] { Command.PINCONTROL, Pin.OFFLINE_MODE_SWITCH, Command.GET }) == Response.SUCCESS;
+                    return device.ExecuteCommand(new[] { PINCONTROL, OFFLINE_MODE_SWITCH, GET }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to get offline mode status on {device.PortName}");
@@ -799,7 +802,7 @@ namespace SpdReaderWriterDll {
                 lock (device.PortLock) {
                     try {
                         if (device.IsConnected) {
-                            return device.ExecuteCommand(new[] { Command.SCANBUS });
+                            return device.ExecuteCommand(new[] { SCANBUS });
                         }
                     }
                     catch {
@@ -821,7 +824,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.PINCONTROL, pin, Spd.BoolToInt(state) }) == Response.SUCCESS;
+                           device.ExecuteCommand(new[] { PINCONTROL, pin, BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set SA pin state on {device.PortName}");
@@ -838,7 +841,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.PINCONTROL, pin, Command.GET }) == Response.ON;
+                           device.ExecuteCommand(new[] { PINCONTROL, pin, GET }) == Response.ON;
                 }
                 catch {
                     throw new Exception($"Unable to get address SA pin state on {device.PortName}");
@@ -856,7 +859,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.PINCONTROL, Pin.HIGH_VOLTAGE_SWITCH, Spd.BoolToInt(state) }) == Response.SUCCESS;
+                           device.ExecuteCommand(new[] { PINCONTROL, HIGH_VOLTAGE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set High Voltage state on {device.PortName}");
@@ -873,7 +876,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.PINCONTROL, Pin.HIGH_VOLTAGE_SWITCH, Command.GET }) == Response.ON;
+                           device.ExecuteCommand(new[] { PINCONTROL, HIGH_VOLTAGE_SWITCH, GET }) == Response.ON;
                 }
                 catch {
                     throw new Exception($"Unable to get High Voltage state on {device.PortName}");
@@ -891,7 +894,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.PROBEADDRESS, address }) == Response.ACK;
+                           device.ExecuteCommand(new[] { PROBEADDRESS, address }) == Response.ACK;
                 }
                 catch {
                     throw new Exception($"Unable to probe address {address} on {device.PortName}");
@@ -911,7 +914,7 @@ namespace SpdReaderWriterDll {
                     if (device.IsConnected) {
                         _version = Int32.Parse(
                             Encoding.Default.GetString(
-                                device.ExecuteCommand(new[] { Command.GETVERSION }, (uint)Settings.MINVERSION.ToString().Length)
+                                device.ExecuteCommand(new[] { GETVERSION }, (uint)Settings.MINVERSION.ToString().Length)
                             )
                         );
                     }
@@ -945,7 +948,7 @@ namespace SpdReaderWriterDll {
                         // byte array containing cmd byte + name length + name
                         byte[] _nameCommand = new byte[1 + 1 + _name.Length];
                         // command byte at position 0
-                        _nameCommand[0] = Command.NAME;
+                        _nameCommand[0] = NAME;
                         // name length at position 1
                         _nameCommand[1] = (byte)_name.Length;
                         // copy new name to byte array
@@ -974,7 +977,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     if (CurrentName == null) {
-                        CurrentName = Encoding.Default.GetString(device.ExecuteCommand(new[] { Command.NAME, Command.GET }, 16)).Split('\0')[0];
+                        CurrentName = Encoding.Default.GetString(device.ExecuteCommand(new[] { NAME, GET }, 16)).Split('\0')[0];
                     }
                     return CurrentName;
                 }
@@ -1023,7 +1026,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.DDR4DETECT, address }) == Response.SUCCESS;
+                           device.ExecuteCommand(new[] { DDR4DETECT, address }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Error detecting DDR4 on {device.PortName}");
@@ -1041,7 +1044,7 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 try {
                     return device.IsConnected &&
-                           device.ExecuteCommand(new[] { Command.DDR5DETECT, address }) == Response.SUCCESS;
+                           device.ExecuteCommand(new[] { DDR5DETECT, address }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Error detecting DDR5 on {device.PortName}");
@@ -1146,8 +1149,8 @@ namespace SpdReaderWriterDll {
                             }
                         }
 
-                        if (command[0] == Command.READBYTE ||
-                            command[0] == Command.WRITEBYTE) {
+                        if (command[0] == READBYTE ||
+                            command[0] == WRITEBYTE) {
                             Wait(1);
                         }
                         else {
