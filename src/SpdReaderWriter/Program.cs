@@ -172,10 +172,7 @@ namespace SpdReaderWriter {
                     // Test reversible write protection capabilities
                     if (mode.StartsWith("/") && mode.EndsWith("writeprotection")) {
 
-                        byte pinCtl = reader.GetPinControls();
-                        reader.AdvancedPinControlSupported = (pinCtl | Response.REQ_TEST) == pinCtl;
-
-                        if (!reader.AdvancedPinControlSupported) {
+                        if (reader.GetRamTypeSupport() < Ram.BitMask.DDR2) {
                             throw new Exception("Your device does not support write protection features.");
                         }
 
@@ -186,7 +183,7 @@ namespace SpdReaderWriter {
 
                             if (args.Length == 3) { // Block # was specified
                                 try {
-                                    block = new[] {Int32.Parse(args[2])};
+                                    block = new[] { Int32.Parse(args[2]) };
                                 }
                                 catch {
                                     throw new Exception("Block number should be specified in decimal notation.");
@@ -194,7 +191,7 @@ namespace SpdReaderWriter {
 
                             }
                             else { // No block number specified, protect all available
-                                if (Spd.GetRamType(reader) == RamType.DDR4) {
+                                if (Spd.GetRamType(reader) == Ram.Type.DDR4) {
                                     block = new[] { 0, 1, 2, 3 };
                                 }
                                 else { // DDR3 + DDR2
@@ -204,7 +201,7 @@ namespace SpdReaderWriter {
 
                             reader.ResetAddressPins();
 
-                            for (int i = 0; i < block.Length; i++) {
+                            for (byte i = 0; i < block.Length; i++) {
                                 if (Eeprom.SetWriteProtection(reader, i)) {
                                     Console.WriteLine($"Block {i} is now read-only");
                                 }
@@ -219,9 +216,9 @@ namespace SpdReaderWriter {
                         // Disable write protection
                         if (mode.StartsWith("/disable") || mode.StartsWith("/clear")) {
 
-                            reader.SetAddressPin(Pin.SA1, PinState.HIGH);
+                            reader.PIN_SA1 = Pin.State.ON;
 
-                            if (Eeprom.ClearWriteProtection(reader)) {
+                            if (Eeprom.ClearReversibleWriteProtection(reader)) {
                                 Console.WriteLine("Write protection successfully disabled.");
                             }
                             else {
@@ -265,7 +262,11 @@ namespace SpdReaderWriter {
 
                         int startTick = Environment.TickCount;
 
-                        byte[] spdDump = Eeprom.ReadByte(reader, 0, (uint)reader.SpdSize);
+                        byte[] spdDump = new byte[(int)reader.SpdSize];
+
+                        for (ushort i = 0; i < (int)reader.SpdSize; i++) {
+                            spdDump[i] = Eeprom.ReadByte(reader, i);
+                        }
 
                         for (int i = 0; i < spdDump.Length; i++) {
                             if (!silent) {
