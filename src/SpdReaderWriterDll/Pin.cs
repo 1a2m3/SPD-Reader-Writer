@@ -1,4 +1,4 @@
-﻿namespace SpdReaderWriterDll {
+namespace SpdReaderWriterDll {
     /// <summary>
     /// Class describing digital pin states
     /// </summary>
@@ -11,7 +11,7 @@
         /// <summary>
         /// Slave address 1 (SA1) control pin
         /// </summary>
-        public const byte SA1_SWITCH = 1;
+        public const byte SA1_SWITCH          = 1;
         /// <summary>
         /// High voltage (9V) control pin
         /// </summary>
@@ -47,6 +47,4 @@
             public const bool DEFAULT  = LOW;
         }
     }
-
-
 }
