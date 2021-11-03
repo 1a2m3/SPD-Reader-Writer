@@ -1,4 +1,4 @@
-﻿namespace SpdReaderWriterDll {
+namespace SpdReaderWriterDll {
     /// <summary>
     /// Device commands
     /// </summary>
@@ -43,6 +43,10 @@
         /// Report supported RAM type(s)
         /// </summary>
         public const byte RAMSUPPORT   = (byte) 'f';
+        /// <summary>
+        /// Re-evaluate RSWP capabilities
+        /// </summary>
+        public const byte RETEST       = (byte) 'e';
         /// <summary>
         /// Device name controls
         /// </summary>
