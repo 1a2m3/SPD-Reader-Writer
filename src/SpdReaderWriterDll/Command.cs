@@ -12,6 +12,10 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte WRITEBYTE    = (byte) 'w';
         /// <summary>
+        /// Write page (16 bytes)
+        /// </summary>
+        public const byte WRITEPAGE    = (byte) 'g';
+        /// <summary>
         /// Scan i2c bus
         /// </summary>
         public const byte SCANBUS      = (byte) 's';
