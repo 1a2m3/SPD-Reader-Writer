@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211031  // Version number (YYYYMMDD)
+#define VERSION 20211102  // Version number (YYYYMMDD)
 
 // RAM types
 #define DDR2 (1 << 2)
@@ -82,7 +82,8 @@
 
 // Device commands
 #define READBYTE     'r' // Read
-#define WRITEBYTE    'w' // Write
+#define WRITEBYTE    'w' // Write byte
+#define WRITEPAGE    'g' // Write page (16 bytes)
 #define SCANBUS      's' // Scan I2C bus
 #define PROBEADDRESS 'a' // Address test
 #define PINCONTROL   'p' // Pin control
@@ -94,7 +95,7 @@
 #define FEATURES     'f' // Supported RAM bitmask report
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
-#define RETEST       'e' // TODO: Reevaluate RSWP capabilities
+#define RETEST       'e' // Reevaluate RSWP capabilities
 
 // Device control pins
 #define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
@@ -157,44 +158,6 @@ void setup() {
   PORT.write(WELCOME);
 }
 
-// Perform basic device feature test and report capabilities
-byte selfTest() {
-
-  // Reset supported RAM value
-  ramSupport = 0;
-
-  // Reset config pins and HV state
-  resetPins();
-
-  // Scan i2c bus
-  if (!scanBus()) {
-    // No I2C devices
-    return ZERO;
-  }
-
-  // RSWP DDR5 test
-  ddr5SetOfflineMode(ON);
-  if (ddr5GetOfflineMode()) {
-    ramSupport |= DDR5;
-  }
-
-  // RSWP VHV test
-  setHighVoltage(ON);
-  if (getHighVoltage() == ON) {
-    ramSupport |= DDR4;
-
-    // RSWP SA1 test
-    byte _i2c = scanBus();
-    if (setConfigPin(SA1_SW, ON) && scanBus() != _i2c) {
-      ramSupport |= DDR3 | DDR2;
-    }
-  }
-
-  resetPins();
-
-  return ramSupport;
-}
-
 void loop() {
   // Wait for input data
   while (!PORT.available()) {}
@@ -222,6 +185,10 @@ void parseCommand() {
 
     // Write byte
     case WRITEBYTE: cmdWrite();
+      break;
+      
+    // Write page
+    case WRITEPAGE: cmdWritePage();
       break;
 
     // Scan i2c bus for addresses
@@ -252,7 +219,7 @@ void parseCommand() {
     case TEST: cmdTest();
       break;
 
-    // Report supported RAM features
+    // Report supported RAM RSWP capabilities
     case FEATURES: cmdFeaturesReport();
       break;
 
@@ -316,7 +283,29 @@ void cmdWrite() {
 }
 
 void cmdWritePage() {
-  //TODO
+    
+  // Data buffer
+  byte buffer[4];
+  PORT.readBytes(buffer, sizeof(buffer));
+  
+  // EEPROM address
+  uint8_t address = buffer[0];
+  // Offset address
+  uint16_t offset = buffer[1] << 8 | buffer[2];
+  // Bytes count
+  uint8_t length = buffer[3];
+  
+  // Data buffer
+  byte data[length];
+  PORT.readBytes(data, sizeof(data));
+  
+  // Maximum page size is 16 bytes
+  if (length > 16) {
+    PORT.write(ERROR);
+    return;
+  }
+  
+  PORT.write(writePage(address, offset, length, data) ? SUCCESS : ERROR);
 }
 
 void cmdScanBus() {
@@ -559,6 +548,25 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
   delay(10);
 
   return status == 0;  // TODO: writing to PSWP-protected area returns true
+}
+
+// Writes a page (16 bytes)
+bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte * data) {
+  
+  if (deviceAddress >= 80 || deviceAddress <= 87) {
+    adjustPageAddress(deviceAddress, offset);
+  }
+ 
+  Wire.beginTransmission(deviceAddress);
+  Wire.write((uint8_t)(offset));
+  for (uint8_t i = 0; i < length; i++) {
+    Wire.write(data[i]);
+  }  
+  uint8_t status = Wire.endTransmission();
+  
+  delay(10);
+  
+  return status == 0;
 }
 
 
@@ -944,4 +952,42 @@ bool ddr5Detect(uint8_t address) {
   // TODO: return true if MR0 is 0x51 or 0x52
 
   return result;
+}
+
+// Perform basic device feature test and report capabilities
+byte selfTest() {
+
+  // Reset supported RAM value
+  ramSupport = 0;
+
+  // Reset config pins and HV state
+  resetPins();
+
+  // Scan i2c bus
+  if (!scanBus()) {
+    // No I2C devices
+    return ZERO;
+  }
+
+  // RSWP DDR5 test
+  ddr5SetOfflineMode(ON);
+  if (ddr5GetOfflineMode()) {
+    ramSupport |= DDR5;
+  }
+
+  // RSWP VHV test
+  setHighVoltage(ON);
+  if (getHighVoltage() == ON) {
+    ramSupport |= DDR4;
+
+    // RSWP SA1 test
+    byte _i2c = scanBus();
+    if (setConfigPin(SA1_SW, ON) && scanBus() != _i2c) {
+      ramSupport |= DDR3 | DDR2;
+    }
+  }
+
+  resetPins();
+
+  return ramSupport;
 }
