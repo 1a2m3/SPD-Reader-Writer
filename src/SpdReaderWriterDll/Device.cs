@@ -144,8 +144,8 @@ namespace SpdReaderWriterDll {
         /// Gets supported RAM type(s)
         /// </summary>
         /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
-        public byte RamTypeSupport() {
-            return RamTypeSupport(this);
+        public byte GetRamTypeSupport() {
+            return GetRamTypeSupport(this);
         }
 
         /// <summary>
@@ -153,16 +153,16 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
         /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
-        public bool RamTypeSupport(Ram.BitMask ramTypeBitmask) {
-            return RamTypeSupport(this, ramTypeBitmask);
+        public bool GetRamTypeSupport(byte ramTypeBitmask) {
+            return GetRamTypeSupport(this, ramTypeBitmask);
         }
 
         /// <summary>
-        /// Tests if the device is capable of SA pin control
+        /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>Bitmask representing programmatic address pins configuration and HV control availability</returns>
-        public byte GetPinControls() {
-            return GetPinControls(this);
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        public byte RswpRetest() {
+            return RswpRetest(this);
         }
 
         /// <summary>
@@ -495,9 +495,32 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Indicates whether the device supports RSWP and PSWP capabilities, the value is assigned by GetPinControls method
+        /// Bitmask value representing RAM type supported defined in Ram.Bitmask enum
         /// </summary>
-        public bool AdvancedPinControlSupported;
+        public byte RamTypeSupport {
+            get {
+                try {
+                    return GetRamTypeSupport();
+                }
+                catch {
+                    throw new Exception("Unable to get supported RAM type");
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// Value representing whether the device supports RSWP capabilities based on RAM type supported reported by the device
+        /// </summary>
+        public bool RswpPresent {
+            get {
+                return IsConnected &&
+                       ((RamTypeSupport & Ram.BitMask.DDR2) == Ram.BitMask.DDR2 ||
+                        (RamTypeSupport & Ram.BitMask.DDR3) == Ram.BitMask.DDR3 ||
+                        (RamTypeSupport & Ram.BitMask.DDR4) == Ram.BitMask.DDR4 ||
+                        (RamTypeSupport & Ram.BitMask.DDR5) == Ram.BitMask.DDR5);
+            }
+        }
 
         /// <summary>
         /// Byte stack containing data received from Serial Port
@@ -667,8 +690,8 @@ namespace SpdReaderWriterDll {
         /// Gets supported RAM type(s)
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns>A bitmask representing available RAM supported defined in the RAMTYPE struct</returns>
-        private static byte RamTypeSupport(Device device) {
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        private static byte GetRamTypeSupport(Device device) {
             lock (device.PortLock) {
                 try {
                     return device.ExecuteCommand(new[] { Command.RAMSUPPORT});
@@ -685,8 +708,24 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
         /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
-        private static bool RamTypeSupport(Device device, Ram.BitMask ramTypeBitmask) {
-            return ((Ram.BitMask)device.RamTypeSupport() & ramTypeBitmask) == ramTypeBitmask;
+        private static bool GetRamTypeSupport(Device device, byte ramTypeBitmask) {
+            return (device.GetRamTypeSupport() & ramTypeBitmask) == ramTypeBitmask;
+        }
+
+        /// <summary>
+        /// Re-evaluate device's RSWP capabilities
+        /// </summary>
+        /// <param name="device">Device instance</param>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        private static byte RswpRetest(Device device) {
+            lock (device.PortLock) {
+                try {
+                    return device.ExecuteCommand(new[] { Command.RETEST });
+                }
+                catch {
+                    throw new Exception($"Unable to get {device.PortName} supported RAM");
+                }
+            }
         }
 
         /// <summary>
@@ -716,62 +755,6 @@ namespace SpdReaderWriterDll {
                 }
             }
         }
-
-        /// <summary>
-        /// Tests if the device supports programmatic address pins configuration and HV control, used to determine device's RSWP and PSWP capabilities
-        /// </summary>
-        /// <param name="device">Device instance</param>
-        /// <returns>Bitmask representing programmatic address pins configuration and HV control availability</returns>
-        private static byte GetPinControls(Device device) {
-            lock (device.PortLock) {
-                try {
-                    if (device.IsConnected) {
-                        // Skip tests if multiple or no EEPROMs are present, as results might be inaccurate or unpredictable
-                        if (device.Scan().Length != 1) {
-                            return 0;
-                        }
-
-                        bool _testSA1 = false;
-                        bool _testVHV = false;
-                        bool _testOFL = false;
-                        byte _i2cBus  = 0;
-
-                        // Reset SA pins
-                        while (!device.ResetAddressPins()) {
-                            Wait();
-                        }
-
-                        // Test SA1 pin control
-                        _i2cBus   = device.Scan(true);
-                        device.PIN_SA1 = Pin.State.ON;
-                        _testSA1  = device.PIN_SA1;
-                        _testSA1 &= _i2cBus != device.Scan(true);
-
-                        
-                        // Test HV pin control
-                        device.PIN_VHV = Pin.State.ON;
-                        _testVHV = device.PIN_VHV;
-
-                        // Test Offline switch control
-                        device.PIN_OFFLINE = Pin.State.ON;
-                        _testOFL = device.PIN_OFFLINE;
-
-                        // Reset SA pins
-                        device.ResetAddressPins();
-
-                        return (byte)
-                            ((_testSA1 ? Response.SA1_TEST_OK : Response.SA1_TEST_NA) |
-                             (_testVHV ? Response.VHV_TEST_OK : Response.VHV_TEST_NA) |
-                             (_testOFL ? Response.OFFLINE_TEST_OK: Response.OFFLINE_TEST_NA));
-                    }
-                }
-                catch {
-                    throw new Exception($"GetPinControls: Unable to determine if {device.PortName} supports pin control.");
-                }
-            }
-
-            return Response.SA1_TEST_NA | Response.VHV_TEST_NA | Response.OFFLINE_TEST_NA;
-        }
         
         /// <summary>
         /// Scans for EEPROM addresses on the device's I2C bus
@@ -785,6 +768,10 @@ namespace SpdReaderWriterDll {
                 try {
                     if (device.IsConnected) {
                         byte _response = device.Scan(true);
+
+                        if (_response == Response.NULL) {
+                            return new byte[0];
+                        }
 
                         for (UInt8 i = 0; i <= 8; i++) {
                             if ((byte)((_response >> i) & 1) == 1) {
@@ -806,7 +793,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <param name="bitmask">Enable bitmask response</param>
-        /// <returns>A bitmask representing available EEPROM devices on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        /// <returns>A bitmask representing available EEPROM addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         private static UInt8 Scan(Device device, bool bitmask) {
             if (bitmask) {
                 lock (device.PortLock) {
@@ -829,7 +816,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <param name="state">Config pin state</param>
-        /// <returns><see langword="true" /> if the Select Address pin has been set</returns>
+        /// <returns><see langword="true" /> if the config pin has been set</returns>
         private static bool SetConfigPin(Device device, byte pin, bool state) {
             lock (device.PortLock) {
                 try {
@@ -1185,7 +1172,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Delays execution 
         /// </summary>
-        /// <param name="timeout">Timeout in milliseconds</param>
+        /// <param name="timeout">Delay in milliseconds</param>
         private static void Wait(int timeout) {
             Thread.Sleep(timeout);
         }
