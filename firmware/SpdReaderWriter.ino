@@ -26,13 +26,13 @@
 
 // SPD5 hub registers
 #define MEMREG 0b11111 // SPD5 internal register bitmask
-#define MR0 0x00   // Device Type; Most Significant Byte
-#define MR1 0x01   // Device Type; Least Significant Byte
-#define MR2 0x02   // Device Revision
-#define MR3 0x03   // Vendor ID Byte 0
-#define MR4 0x04   // Vendor ID Byte 1
-#define MR5 0x05   // Device Capability
-#define MR6 0x06   // Device Write Recovery Time Capability
+#define MR0  0x00  // Device Type; Most Significant Byte
+#define MR1  0x01  // Device Type; Least Significant Byte
+#define MR2  0x02  // Device Revision
+#define MR3  0x03  // Vendor ID Byte 0
+#define MR4  0x04  // Vendor ID Byte 1
+#define MR5  0x05  // Device Capability
+#define MR6  0x06  // Device Write Recovery Time Capability
 #define MR11 0x0B  // I2C Legacy Mode Device Configuration
 #define MR12 0x0C  // Write Protection For NVM Blocks [7:0]
 #define MR13 0x0D  // Write Protection for NVM Blocks [15:8]
@@ -48,7 +48,7 @@
 // EEPROM page commands
 #define SPA0 0x6C  // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
 #define SPA1 0x6E  // Set EE Page Address to 1 (addresses 100h to 1FFh) (256-511) (DDR4)
-#define RPA  0x6D   // Read EE Page Address                                       (DDR4)
+#define RPA  0x6D  // Read EE Page Address                                        (DDR4)
 
 // EEPROM RSWP commands
 #define RPS0 0x63  // Read SWP0 status         (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
@@ -94,6 +94,7 @@
 #define FEATURES     'f' // Supported RAM bitmask report
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
+#define RETEST       'e' // TODO: Reevaluate RSWP capabilities
 
 // Device control pins
 #define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
@@ -111,12 +112,12 @@
 #define OFF     LOW
 #define ENABLE  1
 #define DISABLE 0
-#define DEFAULT 0
+//#define DEFAULT 0
 #define GET    '?'  // Suffix added to commands to return current state
 
 // Device name settings
 #define NAMELENGTH 16
-char deviceName[NAMELENGTH] = { ZERO };
+char deviceName[NAMELENGTH];
 
 // Global variables
 uint8_t ramSupport;                     // Bitmask representing supported RAM
@@ -138,54 +139,60 @@ void setup() {
   Wire.begin();
   // Set I2C clock frequency
   Wire.setClock(I2C_CLOCK);
-  
+
   // Perform device features test
-  selfTest();
+  ramSupport = selfTest();
 
   // Reset EEPROM page address
   setPageAddress(0);
 
   // Start serial data transmission
   PORT.begin(BAUD_RATE);
-  PORT.setTimeout(100);  // Input timeout in ms  
+  PORT.setTimeout(100);  // Input timeout in ms
 
   // Wait for serial port connection
   while (!PORT);
-  
+
   // Send a welcome byte when the device is ready
   PORT.write(WELCOME);
 }
 
 // Perform basic device feature test and report capabilities
 byte selfTest() {
+
+  // Reset supported RAM value
+  ramSupport = 0;
+
   // Reset config pins and HV state
   resetPins();
-  
+
   // Scan i2c bus
   if (!scanBus()) {
-    // No devices 
-    return;
+    // No I2C devices
+    return ZERO;
   }
-  
+
   // RSWP DDR5 test
   ddr5SetOfflineMode(ON);
   if (ddr5GetOfflineMode()) {
-      ramSupport |= DDR5;
+    ramSupport |= DDR5;
   }
-  
+
   // RSWP VHV test
   setHighVoltage(ON);
   if (getHighVoltage() == ON) {
-      ramSupport |= DDR4;      
-  } 
-  
-  // RSWP SA1 test
-  byte _i2c = scanBus();
-  if (setConfigPin(SA1_SW, ON) && scanBus() != _i2c) {
-      ramSupport |= DDR3|DDR2;
-  }  
-  
+    ramSupport |= DDR4;
+
+    // RSWP SA1 test
+    byte _i2c = scanBus();
+    if (setConfigPin(SA1_SW, ON) && scanBus() != _i2c) {
+      ramSupport |= DDR3 | DDR2;
+    }
+  }
+
   resetPins();
+
+  return ramSupport;
 }
 
 void loop() {
@@ -249,6 +256,10 @@ void parseCommand() {
     case FEATURES: cmdFeaturesReport();
       break;
 
+    // Re-evaluate device's RSWP capabilities
+    case RETEST: cmdRetest();
+      break;
+
     // DDR4 detection test
     case DDR4DETECT: cmdDdr4Detect();
       break;
@@ -268,7 +279,7 @@ void parseCommand() {
 void cmdRead() {
 
   // Data buffer
-  byte buffer[4] = { ZERO };
+  byte buffer[4];
   PORT.readBytes(buffer, sizeof(buffer));
 
   // EEPROM address
@@ -291,7 +302,7 @@ void cmdRead() {
 void cmdWrite() {
 
   // Data buffer
-  byte buffer[4] = { ZERO };
+  byte buffer[4];
   PORT.readBytes(buffer, sizeof(buffer));
 
   // EEPROM address
@@ -320,20 +331,24 @@ void cmdFeaturesReport() {
   PORT.write(ramSupport);
 }
 
+void cmdRetest() {
+  PORT.write(selfTest());
+}
+
 void cmdDdr4Detect() {
   // Data buffer for address
-  byte buffer[1] = { ZERO };
+  byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
-  
+
   uint8_t address = buffer[0]; // i2c address
   PORT.write(ddr4Detect(address) ? SUCCESS : ERROR);
 }
 
 void cmdDdr5Detect() {
   // Data buffer for address
-  byte buffer[1] = { ZERO };
+  byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
-  
+
   uint8_t address = buffer[0]; // i2c address
   PORT.write(ddr5Detect(address) ? SUCCESS : ERROR);
 }
@@ -345,7 +360,7 @@ void cmdVersion() {
 void cmdName() {
 
   // Data buffer for command byte
-  byte buffer[1] = { ZERO };
+  byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
   // Get name
@@ -362,7 +377,7 @@ void cmdName() {
   // Set name
   else if (buffer[0] > 0 && buffer[0] <= NAMELENGTH) {
     // prepare name buffer, set last byte to \0 where the string ends
-    byte name[buffer[0] + 1] = { ZERO };
+    byte name[buffer[0] + 1];
     // read name and put it into buffer
     PORT.readBytes(name, buffer[0]);
 
@@ -377,7 +392,7 @@ void cmdName() {
 void cmdProbeBusAddress() {
 
   // Data buffer for address
-  byte buffer[1] = { ZERO };
+  byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
   uint8_t address = buffer[0]; // i2c address
@@ -514,9 +529,11 @@ void readByte(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *data
   Wire.write((uint8_t)(offset));
   Wire.endTransmission();
   Wire.requestFrom(deviceAddress, length);
-  
-  if (Wire.available() < 0) {
-    data = { ERROR };
+
+  if (Wire.available() < length) {
+    for (uint8_t i = 0; i < length; i++) {
+      data[i] = ERROR;
+    }
     return;
   }
 
@@ -587,7 +604,7 @@ bool clearWriteProtection() {
 // Controls HV source (set state to ON to turn on, or OFF to turn off)
 bool setHighVoltage(bool state) {
 
-  digitalWrite(HV_SW, state);  
+  digitalWrite(HV_SW, state);
   delay(25); // immediate state checking results in error
 
   // Return operation result
@@ -762,7 +779,7 @@ bool setName(String name) {
 // Get device's name
 String getName() {
 
-  char deviceNameChar[NAMELENGTH + 1] = { ZERO };
+  char deviceNameChar[NAMELENGTH + 1];
 
   for (uint8_t i = 0; i < NAMELENGTH; i++) {
     deviceNameChar[i] = EEPROM.read(i);
@@ -816,7 +833,7 @@ bool ddr5SetOfflineMode(bool state) {
 }
 
 bool ddr5GetOfflineMode() {
-  
+
   // TODO: read MR48:2
   return false;
 }
@@ -848,7 +865,7 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
   if (writeBit) {
     return status == 0;
   }
-  
+
   return Wire.requestFrom(cmd, (uint8_t)1) > 0; // true when ACK is received after control byte
 }
 
@@ -897,18 +914,18 @@ bool ddr4Detect(uint8_t address) {
   }
 
   // Read data from 2 pages, if contents don't match, return true.
-  byte page0[16] = { ZERO };
-  byte page1[16] = { ZERO };
-  
-  for (uint16_t i = 0; i <= 256; i += 16) {        
+  byte page0[16];
+  byte page1[16];
+
+  for (uint16_t i = 0; i <= 256; i += 16) {
 
     readByte(address, i,       16, page0); // Read page 0
     readByte(address, i + 256, 16, page1); // Read page 1
-    
+
     for (uint8_t j = 0; j < 16; j++) {
       if (page0[j] != page1[j]) {
         return true;
-      }               
+      }
     }
   }
 
