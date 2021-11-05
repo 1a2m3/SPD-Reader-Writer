@@ -306,7 +306,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
         public static bool GetPermanentWriteProtection(Device device) {
             try {
-                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, ON }) == Response.ACK;
+                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, GET }) == Response.ACK;
             }
             catch {
                 throw new Exception($"Unable to get PSWP status on {device.PortName}");
