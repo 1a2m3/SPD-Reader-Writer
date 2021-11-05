@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211103  // Version number (YYYYMMDD)
+#define VERSION 20211105  // Version number (YYYYMMDD)
 
 // RAM types
 #define DDR2 (1 << 2)
@@ -123,7 +123,7 @@ char deviceName[NAMELENGTH];
 // Global variables
 uint8_t ramSupport;                     // Bitmask representing supported RAM
 uint8_t eepromPageAddress = 0;          // Initial EEPROM page address
-const int pins[] = { OFF_SW, SA1_SW, HV_SW }; // Configuration pins array
+const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
 
 void setup() {
 
@@ -133,7 +133,7 @@ void setup() {
   }
 
   // HV controls
-  pinMode(HV_SW, OUTPUT);
+  pinMode(HV_EN, OUTPUT);
   pinMode(HV_FB, INPUT);
 
   // Initiate and join the I2C bus as a master
@@ -295,6 +295,11 @@ void cmdWritePage() {
   // Bytes count
   uint8_t length = buffer[3];
   
+  if (length == 0) {
+    PORT.write(ERROR);
+    return;
+  }
+  
   // Data buffer
   byte data[length];
   PORT.readBytes(data, sizeof(data));
@@ -365,10 +370,12 @@ void cmdName() {
   }
   // Set name
   else if (buffer[0] > 0 && buffer[0] <= NAMELENGTH) {
-    // prepare name buffer, set last byte to \0 where the string ends
+    // prepare name buffer
     byte name[buffer[0] + 1];
     // read name and put it into buffer
     PORT.readBytes(name, buffer[0]);
+    // set last byte to \0 where the string ends
+    name[buffer[0]] = ZERO;
 
     PORT.write(setName(name) ? SUCCESS : ERROR);
   }
@@ -612,16 +619,16 @@ bool clearWriteProtection() {
 // Controls HV source (set state to ON to turn on, or OFF to turn off)
 bool setHighVoltage(bool state) {
 
-  digitalWrite(HV_SW, state);
-  delay(25); // immediate state checking results in error
+  digitalWrite(HV_EN, state);
+  delay(25);
 
   // Return operation result
   return getHighVoltage() == state;
 }
 
-// Returns HV status by reading HVDET
+// Returns HV status by reading HV_FB
 bool getHighVoltage() {
-  return digitalRead(HV_FB);
+  return digitalRead(HV_EN) && digitalRead(HV_FB);
 }
 
 
@@ -836,7 +843,7 @@ void resetPins() {
 
 // Toggle DDR5 offline mode
 bool ddr5SetOfflineMode(bool state) {
-  digitalWrite(OFF_SW, state);
+  digitalWrite(OFF_EN, state);
   return ddr5GetOfflineMode() == state;
 }
 
@@ -970,19 +977,16 @@ byte selfTest() {
   }
 
   // RSWP DDR5 test
-  ddr5SetOfflineMode(ON);
-  if (ddr5GetOfflineMode()) {
+  if (ddr5SetOfflineMode(ON)) {
     ramSupport |= DDR5;
   }
 
   // RSWP VHV test
-  setHighVoltage(ON);
-  if (getHighVoltage() == ON) {
+  if (setHighVoltage(ON)) {
     ramSupport |= DDR4;
 
     // RSWP SA1 test
-    byte _i2c = scanBus();
-    if (setConfigPin(SA1_SW, ON) && scanBus() != _i2c) {
+    if ((setConfigPin(SA1_EN, ON) ^ scanBus()) != (setConfigPin(SA1_EN, OFF) ^ scanBus())) {
       ramSupport |= DDR3 | DDR2;
     }
   }
