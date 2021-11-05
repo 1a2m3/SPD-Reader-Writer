@@ -1,10 +1,10 @@
 using System;
 using System.IO;
+using static SpdReaderWriterDll.Ram;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
     
-
     /// <summary>
     /// SPD class to deal with SPD data
     /// </summary>
@@ -18,7 +18,7 @@ namespace SpdReaderWriterDll {
         public static Ram.Type GetRamType(Device device) {
 
             if (device == null ) {
-                throw new NullReferenceException($"Invalid device ({device.PortName})");
+                throw new NullReferenceException($"Invalid device");
             }
 
             if (!device.IsConnected) {
@@ -35,16 +35,11 @@ namespace SpdReaderWriterDll {
             
             // Byte at offset 0x02 in SPD indicates RAM type
             try {
-                byte _rt = Eeprom.ReadByte(device, 0x02);
-                if (Enum.IsDefined(typeof(Ram.Type), (Ram.Type) _rt)) {
-                    return (Ram.Type) _rt;
-                }
+                return GetRamType(Eeprom.ReadByte(device, 0, 3));
             }
             catch {
                 throw new Exception($"Unable to detect RAM type at {device.I2CAddress} on {device.PortName}");
             }
-
-            return Ram.Type.UNKNOWN;
         }
 
         /// <summary>
@@ -69,7 +64,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
-        public static Ram.SpdSize GetSpdSize(Device device) {
+        public static SpdSize GetSpdSize(Device device) {
             return GetSpdSize(GetRamType(device));
         }
 
@@ -78,20 +73,21 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="ramType">Ram Type</param>
         /// <returns>SPD size</returns>
-        public static Ram.SpdSize GetSpdSize(Ram.Type ramType) {
+        public static SpdSize GetSpdSize(Ram.Type ramType) {
+
             switch (ramType) {
                 case Ram.Type.SDRAM:
                 case Ram.Type.DDR:
                 case Ram.Type.DDR2:
                 case Ram.Type.DDR2_FB_DIMM:
                 case Ram.Type.DDR3:
-                    return Ram.SpdSize.DDR3;
+                    return SpdSize.DDR3;
                 case Ram.Type.DDR4:
-                    return Ram.SpdSize.DDR4;
+                    return SpdSize.DDR4;
                 case Ram.Type.DDR5:
-                    return Ram.SpdSize.DDR5;
+                    return SpdSize.DDR5;
                 default:
-                    return Ram.SpdSize.UNKNOWN;
+                    return SpdSize.UNKNOWN;
             }
         }
 
@@ -222,7 +218,9 @@ namespace SpdReaderWriterDll {
                 case 0x85D6: return "Walton Chaintech";
                 case 0x075D: return "Wilk Elektronik";
                 case 0x0161: return "Wintec Industries";
-                
+
+                // 1-byte ID
+                //TODO
 
                 default: return "";
             }
