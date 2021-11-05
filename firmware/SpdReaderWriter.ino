@@ -83,7 +83,7 @@
 // Device commands
 #define READBYTE     'r' // Read
 #define WRITEBYTE    'w' // Write byte
-#define WRITEPAGE    'g' // Write page (16 bytes)
+#define WRITEPAGE    'g' // Write page
 #define SCANBUS      's' // Scan I2C bus
 #define PROBEADDRESS 'a' // Address test
 #define PINCONTROL   'p' // Pin control
@@ -121,8 +121,8 @@
 char deviceName[NAMELENGTH];
 
 // Global variables
-uint8_t ramSupport;                     // Bitmask representing supported RAM
-uint8_t eepromPageAddress = 0;          // Initial EEPROM page address
+uint8_t rswpSupport;                           // Bitmask representing RSWP RAM support
+uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
 const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
 
 void setup() {
@@ -142,7 +142,7 @@ void setup() {
   Wire.setClock(I2C_CLOCK);
 
   // Perform device features test
-  ramSupport = selfTest();
+  rswpSupport = rswpSupportTest();
 
   // Reset EEPROM page address
   setPageAddress(0);
@@ -220,7 +220,7 @@ void parseCommand() {
       break;
 
     // Report supported RAM RSWP capabilities
-    case FEATURES: cmdFeaturesReport();
+    case FEATURES: cmdRswpReport();
       break;
 
     // Re-evaluate device's RSWP capabilities
@@ -321,12 +321,12 @@ void cmdTest() {
   PORT.write(WELCOME);
 }
 
-void cmdFeaturesReport() {
-  PORT.write(ramSupport);
+void cmdRswpReport() {
+  PORT.write(rswpSupport);
 }
 
 void cmdRetest() {
-  PORT.write(selfTest());
+  PORT.write(rswpSupportTest());
 }
 
 void cmdDdr4Detect() {
@@ -408,15 +408,15 @@ void cmdRSWP() {
 
   // enable RSWP
   if (state == ENABLE) {
-    PORT.write(setWriteProtection(block) ? SUCCESS : ERROR);
+    PORT.write(setRswp(block) ? SUCCESS : ERROR);
   }
   // clear RSWP (block number is ignored)
   else if (state == DISABLE) {
-    PORT.write(clearWriteProtection() ? SUCCESS : ERROR);
+    PORT.write(clearRswp() ? SUCCESS : ERROR);
   }
   // get RSWP status
   else if (state == GET) {
-    PORT.write(getWriteProtection(block) ? SUCCESS : ERROR);
+    PORT.write(getRswp(block) ? SUCCESS : ERROR);
   }
   // unrecognized RSWP command
   else {
@@ -437,11 +437,11 @@ void cmdPSWP() {
 
   // enable PSWP
   if (state == ENABLE) {
-    PORT.write(setPermanentWriteProtection(address) ? SUCCESS : ERROR);
+    PORT.write(setPswp(address) ? SUCCESS : ERROR);
   }
   // read PSWP
   else if (state == GET) {
-    PORT.write(readPermanentWriteProtection(address) ? SUCCESS : ERROR);
+    PORT.write(getPswp(address) ? SUCCESS : ERROR);
   }
   // unknown state
   else {
@@ -557,8 +557,8 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
   return status == 0;  // TODO: writing to PSWP-protected area returns true
 }
 
-// Writes a page (16 bytes)
-bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte * data) {
+// Writes a page
+bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *data) {
   
   if (deviceAddress >= 80 || deviceAddress <= 87) {
     adjustPageAddress(deviceAddress, offset);
@@ -580,7 +580,7 @@ bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte * da
 /*  -=  RSWP functions  =-  */
 
 // Sets reversible write protection on specified block
-bool setWriteProtection(uint8_t block) {
+bool setRswp(uint8_t block) {
 
   byte commands[] = { SWP0, SWP1, SWP2, SWP3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
@@ -593,7 +593,7 @@ bool setWriteProtection(uint8_t block) {
 }
 
 // Reads reversible write protection status
-bool getWriteProtection(uint8_t block) {
+bool getRswp(uint8_t block) {
 
   byte commands[] = { RPS0, RPS1, RPS2, RPS3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
@@ -604,13 +604,50 @@ bool getWriteProtection(uint8_t block) {
 }
 
 // Clears reversible software write protection
-bool clearWriteProtection() {
+bool clearRswp() {
 
   setHighVoltage(ON);
   bool result = probeDeviceTypeId(CWP);
   setHighVoltage(OFF);
 
   return result;
+}
+
+// Test RSWP support capabilities
+byte rswpSupportTest() {
+
+  // Reset supported RAM value
+  rswpSupport = 0;
+
+  // Reset config pins and HV state
+  resetPins();
+
+  // Scan i2c bus
+  if (!scanBus()) {
+    // No I2C devices
+    return ZERO;
+  }
+
+  // RSWP DDR5 test
+  if (ddr5SetOfflineMode(ON)) {
+    rswpSupport |= DDR5;
+  }
+
+  // RSWP VHV test
+  if (setHighVoltage(ON)) {
+    rswpSupport |= DDR4;
+
+    // RSWP SA1 test
+    if ((setConfigPin(SA1_EN, ON) && setConfigPin(SA1_EN, OFF)) && 
+        (setConfigPin(SA1_EN, ON)  ^ scanBus()) != 
+        (setConfigPin(SA1_EN, OFF) ^ scanBus())) {
+      rswpSupport |= DDR3 | DDR2;
+    }
+  }
+
+  resetPins();
+
+  return rswpSupport;
 }
 
 
@@ -635,7 +672,7 @@ bool getHighVoltage() {
 /*  -=  PSWP functions  =-  */
 
 // Sets permanent write protection on supported EEPROMs
-bool setPermanentWriteProtection(uint8_t deviceAddress) {
+bool setPswp(uint8_t deviceAddress) {
 
   if (ddr4Detect(deviceAddress) || ddr5Detect(deviceAddress)) {
     return ERROR;
@@ -658,7 +695,7 @@ bool setPermanentWriteProtection(uint8_t deviceAddress) {
 }
 
 // Read permanent write protection status
-bool readPermanentWriteProtection(uint8_t deviceAddress) {
+bool getPswp(uint8_t deviceAddress) {
 
   // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
   uint8_t cmd = (deviceAddress & 0b111) | (PWPB << 3);
@@ -822,7 +859,7 @@ byte scanBus() {
   return response;
 }
 
-// Control slave address pins
+// Control config pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
   return digitalRead(pin) == state;
@@ -833,7 +870,7 @@ bool getConfigPin(uint8_t pin) {
   return digitalRead(pin);
 }
 
-// Reset SA and HV pins
+// Reset config pins
 void resetPins() {
   for (int i = 0; i <= sizeof(pins[0]); i++) {
     setConfigPin(pins[i], OFF);
@@ -918,7 +955,7 @@ bool ddr4Detect(uint8_t address) {
 
   // Read protection status of blocks 1-3, if at least one is unprotected, return true.
   for (uint8_t i = 1; i <= 3; i++) {
-    if (getWriteProtection(i)) {
+    if (getRswp(i)) {
       return true;
     }
   }
@@ -929,15 +966,16 @@ bool ddr4Detect(uint8_t address) {
   }
 
   // Read data from 2 pages, if contents don't match, return true.
-  byte page0[16];
-  byte page1[16];
+  uint8_t pageSize = 16;
+  byte page0[pageSize];
+  byte page1[pageSize];
 
-  for (uint16_t i = 0; i <= 256; i += 16) {
+  for (uint16_t i = 0; i <= 256; i += pageSize) {
 
-    readByte(address, i,       16, page0); // Read page 0
-    readByte(address, i + 256, 16, page1); // Read page 1
+    readByte(address, i,       pageSize, page0); // Read page 0
+    readByte(address, i + 256, pageSize, page1); // Read page 1
 
-    for (uint8_t j = 0; j < 16; j++) {
+    for (uint8_t j = 0; j < pageSize; j++) {
       if (page0[j] != page1[j]) {
         return true;
       }
@@ -959,39 +997,4 @@ bool ddr5Detect(uint8_t address) {
   // TODO: return true if MR0 is 0x51 or 0x52
 
   return result;
-}
-
-// Perform basic device feature test and report capabilities
-byte selfTest() {
-
-  // Reset supported RAM value
-  ramSupport = 0;
-
-  // Reset config pins and HV state
-  resetPins();
-
-  // Scan i2c bus
-  if (!scanBus()) {
-    // No I2C devices
-    return ZERO;
-  }
-
-  // RSWP DDR5 test
-  if (ddr5SetOfflineMode(ON)) {
-    ramSupport |= DDR5;
-  }
-
-  // RSWP VHV test
-  if (setHighVoltage(ON)) {
-    ramSupport |= DDR4;
-
-    // RSWP SA1 test
-    if ((setConfigPin(SA1_EN, ON) ^ scanBus()) != (setConfigPin(SA1_EN, OFF) ^ scanBus())) {
-      ramSupport |= DDR3 | DDR2;
-    }
-  }
-
-  resetPins();
-
-  return ramSupport;
 }
