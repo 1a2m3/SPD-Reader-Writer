@@ -3,7 +3,6 @@ using static SpdReaderWriterDll.Command;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
-
     /// <summary>
     /// Defines EEPROM class, properties, and methods to handle EEPROM operations
     /// </summary>
@@ -16,6 +15,10 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Device device, UInt16 offset) {
+            if (offset > (int)Ram.SpdSize.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+
             try {
                 //return ReadByte(device, offset, 1)[0];
                 return device.ExecuteCommand(new[] { 
@@ -38,14 +41,21 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset" /> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Device device, UInt16 offset, UInt8 count) {
+            if (offset > (int)Ram.SpdSize.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+            if (count == 0) {
+                throw new Exception($"No bytes to read");
+            }
+
             try {
-                return device.ExecuteCommand(new[] { 
-                        READBYTE, 
-                        device.I2CAddress,
-                        (byte)(offset >> 8),   // MSB
-                        (byte)(offset & 0xFF), // LSB
-                        count }, 
-                    count);
+                return device.ExecuteCommand(new[] {
+                    READBYTE, 
+                    device.I2CAddress, 
+                    (byte)(offset >> 8),   // MSB
+                    (byte)(offset & 0xFF), // LSB
+                    count
+                }, count);
             }
             catch {
                 throw new Exception($"Unable to read byte # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
@@ -60,10 +70,13 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Device device, UInt16 offset, byte value) {
+            if (offset > (int)Ram.SpdSize.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
             try {
                 return device.ExecuteCommand(new[] {
                     WRITEBYTE, 
-                    device.I2CAddress,
+                    device.I2CAddress, 
                     (byte)(offset >> 8),   // MSB
                     (byte)(offset & 0xFF), // LSB
                     value
@@ -82,18 +95,21 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Device device, UInt16 offset, byte[] value) {
-            if (value.Length > 16) {
-                throw new Exception($"Page size limit exceeded");
+            if (offset > (int)Ram.SpdSize.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+            if (value.Length > 16 || value.Length == 0) {
+                throw new Exception($"Invalid page size ({value.Length})");
             }
 
             // Prepare command + data
             byte[] command = new byte[5 + value.Length];
             command[0] = WRITEPAGE;
             command[1] = device.I2CAddress;
-            command[2] = (byte) (offset >> 8);   // MSB
-            command[3] = (byte) (offset & 0xFF); // LSB
-            command[4] = (byte) value.Length;
-            
+            command[2] = (byte)(offset >> 8);   // MSB
+            command[3] = (byte)(offset & 0xFF); // LSB
+            command[4] = (byte)value.Length;
+
             Array.Copy(value, 0, command, 5, value.Length);
 
             try {
@@ -113,7 +129,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool UpdateByte(Device device, UInt16 offset, byte value) {
             try {
-                return VerifyByte(device, offset, value) || 
+                return VerifyByte(device, offset, value) ||
                        WriteByte(device, offset, value);
             }
             catch {
@@ -129,12 +145,15 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true" /> if page read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool UpdateByte(Device device, UInt16 offset, byte[] value) {
-            if (value.Length > 16) {
-                throw new Exception($"Page size limit exceeded");
+            if (offset > (int)Ram.SpdSize.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+            if (value.Length > 16 || value.Length == 0) {
+                throw new Exception($"Invalid page size ({value.Length})");
             }
 
             try {
-                return VerifyByte(device, offset, value) || 
+                return VerifyByte(device, offset, value) ||
                        WriteByte(device, offset, value);
             }
             catch {
@@ -190,11 +209,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
         public static bool SetWriteProtection(Device device, UInt8 block) {
             try {
-                return device.ExecuteCommand(new[] {
-                    RSWP, 
-                    block, 
-                    ON
-                }) == Response.SUCCESS;
+                return device.ExecuteCommand(new[] { RSWP, block, ON }) == Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set RSWP on {device.PortName}");
@@ -229,13 +244,9 @@ namespace SpdReaderWriterDll {
         public static bool GetReversibleWriteProtection(Device device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
-                    if (device.ExecuteCommand(new[] {
-                        RSWP,
-                        i,
-                        GET
-                    }) == Response.NACK) {
+                    if (device.ExecuteCommand(new[] { RSWP, i, GET }) == Response.NACK) {
                         return true;
-                    } 
+                    }
                 }
 
                 return false;
@@ -253,10 +264,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="false" /> when the block is writable, or <see langword="true" /> if the block is write protected or if RSWP is not supported</returns>
         public static bool GetReversibleWriteProtection(Device device, UInt8 block) {
             try {
-                return device.ExecuteCommand(new[] { 
-                    RSWP, 
-                    block, 
-                    GET }) == Response.NACK;
+                return device.ExecuteCommand(new[] { RSWP, block, GET }) == Response.NACK;
             }
             catch {
                 throw new Exception($"Unable to get block {block} RSWP status on {device.PortName}");
@@ -270,10 +278,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the write protection has been disabled</returns>
         public static bool ClearReversibleWriteProtection(Device device) {
             try {
-                return device.ExecuteCommand(new[] { 
-                    RSWP, 
-                    DNC, 
-                    OFF }) == Response.SUCCESS;
+                return device.ExecuteCommand(new[] { RSWP, DNC, OFF }) == Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to clear RSWP on {device.PortName}");
@@ -287,11 +292,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
         public static bool SetPermanentWriteProtection(Device device) {
             try {
-                return device.ExecuteCommand(new[] {
-                    PSWP, 
-                    device.I2CAddress, 
-                    ON
-                }) == Response.SUCCESS;
+                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, ON }) == Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set PSWP on {device.PortName}");
@@ -305,10 +306,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
         public static bool GetPermanentWriteProtection(Device device) {
             try {
-                return device.ExecuteCommand(new[] { 
-                    PSWP, 
-                    device.I2CAddress, 
-                    ON }) == Response.NACK;
+                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, ON }) == Response.ACK;
             }
             catch {
                 throw new Exception($"Unable to get PSWP status on {device.PortName}");
