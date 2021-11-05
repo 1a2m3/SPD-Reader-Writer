@@ -78,35 +78,37 @@ namespace SpdReaderWriterDll {
             public StopBits StopBits;
 
             // Response settings
-            public bool RaiseEvent;
             public int ResponseTimeout;
 
             public SerialPortSettings(
-                int baudRate = 115200,
-                bool dtrEnable = true,
-                bool rtsEnable = true,
-                int dataBits = 8,
+                int baudRate        = 115200,
+                bool dtrEnable      = true,
+                bool rtsEnable      = true,
+                int dataBits        = 8,
                 Handshake handshake = Handshake.None,
-                string newLine = "\n",
-                Parity parity = Parity.None,
-                StopBits stopBits = StopBits.One,
-                bool raiseEvent = false,
+                string newLine      = "\n",
+                Parity parity       = Parity.None,
+                StopBits stopBits   = StopBits.One,
+                bool raiseEvent     = false,
                 int responseTimeout = 10) {
-                BaudRate = baudRate;
-                DtrEnable = dtrEnable;
-                RtsEnable = rtsEnable;
-                DataBits = dataBits;
-                Handshake = handshake;
-                NewLine = newLine.Replace("\\n", "\n").Replace("\\r", "\r");
-                Parity = parity;
-                StopBits = stopBits;
-                RaiseEvent = raiseEvent;
-                ResponseTimeout = responseTimeout;
+                        BaudRate        = baudRate;
+                        DtrEnable       = dtrEnable;
+                        RtsEnable       = rtsEnable;
+                        DataBits        = dataBits;
+                        Handshake       = handshake;
+                        NewLine         = newLine.Replace("\\n", "\n").Replace("\\r", "\r");
+                        Parity          = parity;
+                        StopBits        = stopBits;
+                        ResponseTimeout = responseTimeout;
             }
 
+            /// <summary>
+            /// Serial port settings string
+            /// </summary>
+            /// <returns>Serial port settings string</returns>
             public override string ToString() {
                 string _stopBits = (int)StopBits == 3 ? "1.5" : ((int)StopBits).ToString();
-                string _parity = Parity.ToString().Substring(0, 1);
+                string _parity   = Parity.ToString().Substring(0, 1);
 
                 return $"{BaudRate}-{_parity}-{DataBits}-{_stopBits}";
             }
@@ -275,8 +277,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when all config pins are reset</returns>
         public bool ResetAddressPins() {
 
-            PIN_SA1 = State.DEFAULT;
-            PIN_VHV = State.DEFAULT;
+            PIN_SA1     = State.DEFAULT;
+            PIN_VHV     = State.DEFAULT;
             PIN_OFFLINE = State.DEFAULT;
 
             return !PIN_SA1 && !PIN_VHV && !PIN_OFFLINE;
@@ -599,9 +601,7 @@ namespace SpdReaderWriterDll {
                     };
 
                     // Event to handle Data Reception
-                    if (device.PortSettings.RaiseEvent) {
-                        device._sp.DataReceived += DataReceivedHandler;
-                    }
+                    device._sp.DataReceived += DataReceivedHandler;
 
                     // Event to handle Errors
                     device._sp.ErrorReceived += ErrorReceivedHandler;
@@ -611,12 +611,9 @@ namespace SpdReaderWriterDll {
                         // Establish a connection
                         device._sp.Open();
 
-                        // Reset 'valid' state to allow Test() run
+                        // Set valid state to true to allow Test to execute
                         device._IsValid = true;
-
-                        if (!device.Test()) {
-                            device._IsValid = false;
-                        }
+                        device._IsValid = device.Test();
 
                         if (!device._IsValid) {
                             throw new Exception("Invalid device");
@@ -640,11 +637,12 @@ namespace SpdReaderWriterDll {
             lock (device.PortLock) {
                 if (device.IsConnected) {
                     try {
-                        if (device.PortSettings.RaiseEvent) {
-                            device._sp.DataReceived -= DataReceivedHandler;
-                        }
+                        // Remove handlers
+                        device._sp.DataReceived -= DataReceivedHandler;
                         device._sp.ErrorReceived -= ErrorReceivedHandler;
+                        // Close connection
                         device._sp.Close();
+                        // Reset valid state
                         device.IsValid = false;
                     }
                     catch (Exception ex) {
@@ -680,8 +678,9 @@ namespace SpdReaderWriterDll {
         private static bool Test(Device device) {
             lock (device.PortLock) {
                 try {
-                    return device.IsConnected &&
-                           device.ExecuteCommand(new[] {TESTCOMM}) == Response.WELCOME;
+
+                    return device.IsConnected && 
+                           device.ExecuteCommand(new[] { TESTCOMM }) == Response.WELCOME;
                 }
                 catch {
                     throw new Exception($"Unable to test {device.PortName}");
@@ -697,7 +696,7 @@ namespace SpdReaderWriterDll {
         private static byte GetRamTypeSupport(Device device) {
             lock (device.PortLock) {
                 try {
-                    return device.ExecuteCommand(new[] { RAMSUPPORT});
+                    return device.ExecuteCommand(new[] { RAMSUPPORT });
                 }
                 catch {
                     throw new Exception($"Unable to get {device.PortName} supported RAM");
@@ -935,6 +934,7 @@ namespace SpdReaderWriterDll {
         private bool SetName(Device device, string name) {
             if (name == null) throw new ArgumentNullException("Name can't be null");
             if (name == "") throw new ArgumentException("Name can't be blank");
+            if (name.Length > 16) throw new ArgumentException("Name can't be longer than 16 characters");
 
             lock (device.PortLock) {
                 try {
@@ -945,7 +945,7 @@ namespace SpdReaderWriterDll {
                             return false;
                         }
 
-                        // byte array containing cmd byte + name length + name
+                        // Prepare a byte array containing cmd byte + name length + name
                         byte[] _nameCommand = new byte[1 + 1 + _name.Length];
                         // command byte at position 0
                         _nameCommand[0] = NAME;
@@ -1061,7 +1061,7 @@ namespace SpdReaderWriterDll {
                 try {
                     if (device.IsConnected) {
                         // Clear response data
-                        if (device.PortSettings.RaiseEvent && ResponseData.Count > 0) {
+                        if (ResponseData.Count > 0) {
                             ResponseData.Clear();
                         }
 
@@ -1134,19 +1134,9 @@ namespace SpdReaderWriterDll {
                         }
 
                         // Wait for data
-                        if (device.PortSettings.RaiseEvent) {
-                            if (ResponseData != null && ResponseData.Count >= length && !DataReceiving) {
-                                _response = ResponseData;
-                                break;
-                            }
-                        }
-                        else {
-                            if (device.BytesToRead >= length) {
-                                while (device.BytesToRead != 0 && _response.Count < length) {
-                                    _response.Enqueue(device.ReadByte());
-                                }
-                                break;
-                            }
+                        if (ResponseData != null && ResponseData.Count >= length && !DataReceiving) {
+                            _response = ResponseData;
+                            break;
                         }
 
                         if (command[0] == READBYTE ||
