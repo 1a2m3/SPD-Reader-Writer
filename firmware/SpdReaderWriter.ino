@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211104  // Version number (YYYYMMDD)
+#define VERSION 20211105  // Version number (YYYYMMDD)
 
 // RAM types
 #define DDR2 (1 << 2)
