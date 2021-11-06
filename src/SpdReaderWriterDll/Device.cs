@@ -71,11 +71,7 @@ namespace SpdReaderWriterDll {
             public bool RtsEnable;
 
             // Data settings
-            public int DataBits;
             public Handshake Handshake;
-            public string NewLine;
-            public Parity Parity;
-            public StopBits StopBits;
 
             // Response settings
             public int ResponseTimeout;
@@ -84,21 +80,12 @@ namespace SpdReaderWriterDll {
                 int baudRate        = 115200,
                 bool dtrEnable      = true,
                 bool rtsEnable      = true,
-                int dataBits        = 8,
                 Handshake handshake = Handshake.None,
-                string newLine      = "\n",
-                Parity parity       = Parity.None,
-                StopBits stopBits   = StopBits.One,
-                bool raiseEvent     = false,
                 int responseTimeout = 10) {
                         BaudRate        = baudRate;
                         DtrEnable       = dtrEnable;
                         RtsEnable       = rtsEnable;
-                        DataBits        = dataBits;
                         Handshake       = handshake;
-                        NewLine         = newLine.Replace("\\n", "\n").Replace("\\r", "\r");
-                        Parity          = parity;
-                        StopBits        = stopBits;
                         ResponseTimeout = responseTimeout;
             }
 
@@ -107,10 +94,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <returns>Serial port settings string</returns>
             public override string ToString() {
-                string _stopBits = (int)StopBits == 3 ? "1.5" : ((int)StopBits).ToString();
-                string _parity   = Parity.ToString().Substring(0, 1);
-
-                return $"{BaudRate}-{_parity}-{DataBits}-{_stopBits}";
+                return $"{BaudRate}";
             }
         }
 
@@ -586,18 +570,11 @@ namespace SpdReaderWriterDll {
                 if (!device.IsConnected) {
                     // New connection settings
                     device._sp = new SerialPort {
-                        // Port settings
                         PortName  = device.PortName,
                         BaudRate  = device.PortSettings.BaudRate,
                         DtrEnable = device.PortSettings.DtrEnable,
                         RtsEnable = device.PortSettings.RtsEnable,
                         Handshake = device.PortSettings.Handshake,
-
-                        // Data settings
-                        DataBits  = device.PortSettings.DataBits,
-                        NewLine   = device.PortSettings.NewLine,
-                        Parity    = device.PortSettings.Parity,
-                        StopBits  = device.PortSettings.StopBits,
                     };
 
                     // Event to handle Data Reception
@@ -678,7 +655,6 @@ namespace SpdReaderWriterDll {
         private static bool Test(Device device) {
             lock (device.PortLock) {
                 try {
-
                     return device.IsConnected && 
                            device.ExecuteCommand(new[] { TESTCOMM }) == Response.WELCOME;
                 }
@@ -1146,6 +1122,10 @@ namespace SpdReaderWriterDll {
                         else {
                             Wait();
                         }
+                    }
+
+                    if (_response.Count == 0 || _response.Count < length) {
+                        throw new TimeoutException("Response timeout");
                     }
 
                     return _response.ToArray();
