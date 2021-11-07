@@ -97,7 +97,7 @@
 #define DDR5DETECT   '5' // DDR5 detection test
 #define RETEST       'e' // Reevaluate RSWP capabilities
 
-// Device control pins
+// Device pin names
 #define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
 #define SA1_SWITCH          1 // Pin to toggle SA1 state
 #define HIGH_VOLTAGE_SWITCH 9 // Pin to toggle VHV on SA0 pin
@@ -113,7 +113,6 @@
 #define OFF     LOW
 #define ENABLE  1
 #define DISABLE 0
-//#define DEFAULT 0
 #define GET    '?'  // Suffix added to commands to return current state
 
 // Device name settings
@@ -121,7 +120,7 @@
 char deviceName[NAMELENGTH];
 
 // Global variables
-uint8_t rswpSupport;                           // Bitmask representing RSWP RAM support
+uint8_t rswpSupport;                          // Bitmask representing RSWP RAM support
 uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
 const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
 
@@ -152,7 +151,7 @@ void setup() {
   PORT.setTimeout(100);  // Input timeout in ms
 
   // Wait for serial port connection
-  while (!PORT);
+  while (!PORT) {}
 
   // Send a welcome byte when the device is ready
   PORT.write(WELCOME);
@@ -586,8 +585,9 @@ bool setRswp(uint8_t block) {
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
   setHighVoltage(ON);
+  setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
   bool result = probeDeviceTypeId(cmd);
-  setHighVoltage(OFF);
+  resetPins();
 
   return result;
 }
@@ -607,8 +607,9 @@ bool getRswp(uint8_t block) {
 bool clearRswp() {
 
   setHighVoltage(ON);
+  setConfigPin(SA1_EN, ON); // Required for pre-DDR4
   bool result = probeDeviceTypeId(CWP);
-  setHighVoltage(OFF);
+  resetPins();
 
   return result;
 }
@@ -748,6 +749,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
   status = (TWSR & 0xF8);
 
   // Write 2xDNC after ACK. If status is NACK (0x48), stop and return 1
+  /*
   if (status == 0x40) {
     for (int i = 0; i < 2; i++) {
       TWDR = DNC;
@@ -755,6 +757,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
       while (!(TWCR & (_BV(TWINT)))) {}
     }
   }
+  */
 
   // Send stop condition
   TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWEA) | _BV(TWSTO);
