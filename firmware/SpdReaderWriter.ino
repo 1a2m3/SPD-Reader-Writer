@@ -25,6 +25,7 @@
 #define DDR5 (1 << 5)
 
 // SPD5 hub registers
+#pragma region SPD5 hub registers
 #define MEMREG 0b11111 // SPD5 internal register bitmask
 #define MR0  0x00  // Device Type; Most Significant Byte
 #define MR1  0x01  // Device Type; Least Significant Byte
@@ -44,13 +45,17 @@
 #define MR48 0x30  // Device Status
 #define MR51 0x33  // TS Temperature Status
 #define MR52 0x34  // Hub, Thermal and NVM Error Status
+#pragma endregion
 
 // EEPROM page commands
+#pragma region EEPROM page commands
 #define SPA0 0x6C  // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
 #define SPA1 0x6E  // Set EE Page Address to 1 (addresses 100h to 1FFh) (256-511) (DDR4)
 #define RPA  0x6D  // Read EE Page Address                                        (DDR4)
+#pragma endregion
 
 // EEPROM RSWP commands
+#pragma region EEPROM RSWP commands
 #define RPS0 0x63  // Read SWP0 status         (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
 #define RPS1 0x69  // Read SWP1 status         (addresses  80h to  FFh) (128-255) (DDR4)
 #define RPS2 0x6B  // Read SWP2 status         (addresses 100h to 17Fh) (256-383) (DDR4)
@@ -62,11 +67,13 @@
 #define SWP3 0x60  // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)
 
 #define CWP  0x66  // Clear RSWP                                                  (DDR4/DDR3/DDR2)
+#pragma endregion
 
 // EEPROM PSWP commands
 #define PWPB 0b0110  // PSWP Device Type Identifier Control Code (bits 7-4)       (DDR3/DDR2)
 
 // EEPROM temperature sensor register commands
+#pragma region EEPROM temperature sensor register commands
 #define TSRB 0b0011 // Device select code to access Temperature Sensor registers (bits 7-4)
 #define TS00 0x00   // Capability Register [RO]
 #define TS01 0x01   // Configuration Register [R/W]
@@ -76,15 +83,18 @@
 #define TS05 0x05   // Temperature Data Register [RO]
 #define TS06 0x06   // Manufacturer ID Register [RO]
 #define TS07 0x07   // Device ID/Revision Register [RO]
+#pragma endregion
 
 // EEPROM data
 #define DNC 0x00  // "Do not care" byte
 
 // Device commands
+#pragma region Command
 #define READBYTE     'r' // Read
 #define WRITEBYTE    'w' // Write byte
 #define WRITEPAGE    'g' // Write page
 #define SCANBUS      's' // Scan I2C bus
+#define I2CSETCLOCK  'c' // I2C bus clock settings
 #define PROBEADDRESS 'a' // Address test
 #define PINCONTROL   'p' // Pin control
 #define RSWP         'b' // Reversible write protection control
@@ -96,6 +106,7 @@
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
 #define RETEST       'e' // Reevaluate RSWP capabilities
+#pragma endregion
 
 // Device pin names
 #define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
@@ -107,12 +118,15 @@
 #define ERROR   (byte) 0xFF
 #define ZERO    (byte) 0x00
 #define WELCOME (char) '!'
+#define UNKNOWN (char) '?'
 
 // Pin states
 #define ON      HIGH
 #define OFF     LOW
 #define ENABLE  1
+#define SET     1
 #define DISABLE 0
+#define RESET   0
 #define GET    '?'  // Suffix added to commands to return current state
 
 // Device name settings
@@ -120,6 +134,7 @@
 char deviceName[NAMELENGTH];
 
 // Global variables
+uint32_t i2cClock = 100000L;
 uint8_t rswpSupport;                          // Bitmask representing RSWP RAM support
 uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
 const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
@@ -137,9 +152,9 @@ void setup() {
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
-  // Set I2C clock frequency
-  Wire.setClock(I2C_CLOCK);
-
+  // Set standard mode clock frequency (100khz)
+  Wire.setClock(i2cClock);
+ 
   // Perform device features test
   rswpSupport = rswpSupportTest();
 
@@ -179,64 +194,83 @@ void parseCommand() {
   switch (cmd) {
 
     // Read byte
-    case READBYTE: cmdRead();
+    case READBYTE: 
+      cmdRead();
       break;
 
     // Write byte
-    case WRITEBYTE: cmdWrite();
+    case WRITEBYTE: 
+      cmdWrite();
       break;
       
     // Write page
-    case WRITEPAGE: cmdWritePage();
+    case WRITEPAGE:
+      cmdWritePage();
       break;
 
     // Scan i2c bus for addresses
-    case SCANBUS: cmdScanBus();
+    case SCANBUS: 
+      cmdScanBus();
       break;
 
     // Probe if i2c address is valid
-    case PROBEADDRESS: cmdProbeBusAddress();
+    case PROBEADDRESS: 
+      cmdProbeBusAddress();
+      break;
+
+    case I2CSETCLOCK: 
+      cmdI2CSetClock();
       break;
 
     // Control digital pins
-    case PINCONTROL: cmdPinControl();
+    case PINCONTROL: 
+      cmdPinControl();
       break;
 
     // RSWP controls
-    case RSWP: cmdRSWP();
+    case RSWP: 
+      cmdRSWP();
       break;
 
     // PSWP controls
-    case PSWP: cmdPSWP();
+    case PSWP: 
+      cmdPSWP();
       break;
 
     // Get Firmware version
-    case GETVERSION: cmdVersion();
+    case GETVERSION: 
+      cmdVersion();
       break;
 
     // Device Communication Test
-    case TEST: cmdTest();
+    case TEST: 
+      cmdTest();
       break;
 
     // Report supported RAM RSWP capabilities
-    case FEATURES: cmdRswpReport();
+    case FEATURES: 
+      cmdRswpReport();
       break;
 
     // Re-evaluate device's RSWP capabilities
-    case RETEST: cmdRetest();
+    case RETEST: 
+      cmdRetest();
       break;
 
     // DDR4 detection test
-    case DDR4DETECT: cmdDdr4Detect();
+    case DDR4DETECT: 
+      cmdDdr4Detect();
       break;
 
     // DDR5 detection test
-    case DDR5DETECT: cmdDdr5Detect();
+    case DDR5DETECT: 
+      cmdDdr5Detect();
       break;
 
     // Device name controls
-    case NAME: cmdName();
-      break;
+    case NAME: 
+      cmdName();
+      break;    
   }
 }
 
@@ -392,6 +426,41 @@ void cmdProbeBusAddress() {
 
   uint8_t address = buffer[0]; // i2c address
   PORT.write(probeBusAddress(address) ? SUCCESS : ERROR);
+}
+
+void cmdI2CSetClock() {
+
+  // Data buffer for clock index
+  byte buffer[1];
+  PORT.readBytes(buffer, sizeof(buffer));
+
+  // Clocks array
+  uint32_t clock[] = { 
+      100000L, // Standard mode
+      400000L, // Fast mode
+    };
+
+  // Set I2C clock
+  if (buffer[0] >= 0 && buffer[0] <= sizeof(buffer[0])) {
+    i2cClock = clock[buffer[0]];
+    Wire.setClock(i2cClock);
+    PORT.write(SUCCESS);
+    return;
+  }
+  // Get current I2C clock
+  else if (buffer[0] == GET) {        
+    for (uint8_t i = 0; i <= sizeof(clock[0]); i++) {
+      if (i2cClock == clock[i]) {
+        PORT.write(i);
+        return;
+      }
+    }
+  }
+  // Unrecognized command
+  else {
+    PORT.write(ERROR);
+    return;    
+  }  
 }
 
 void cmdRSWP() {
