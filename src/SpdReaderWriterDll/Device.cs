@@ -176,6 +176,15 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Sets clock frequency for I2C communication
+        /// </summary>
+        /// <param name="clock">Clock value index</param>
+        /// <returns><see langword="true" /> if the operation is complete</returns>
+        public bool SetI2CClock(byte clock) {
+            return SetI2CClockInternal(clock);
+        }
+
+        /// <summary>
         /// Gets or sets SA1 control pin
         /// </summary>
         public bool PIN_SA1 {
@@ -188,7 +197,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool PIN_OFFLINE {
             get => GetConfigPinInternal(OFFLINE_MODE_SWITCH);
-            set => SetOfflineMode(value);
+            set => SetOfflineModeInternal(value);
         }
 
         /// <summary>
@@ -315,6 +324,15 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Device's firmware version
+        /// </summary>
+        public int FirmwareVersion {
+            get {
+                return GetFirmwareVersionInternal();
+            }
+        }
+
+        /// <summary>
         /// Get device's firmware version 
         /// </summary>
         /// <returns>Firmware version number</returns>
@@ -427,11 +445,6 @@ namespace SpdReaderWriterDll {
         public string PortName;
 
         /// <summary>
-        /// Device's firmware version
-        /// </summary>
-        public int FirmwareVersion => GetFirmwareVersionInternal();
-
-        /// <summary>
         /// EEPROM address
         /// </summary>
         public UInt8 I2CAddress;
@@ -500,8 +513,7 @@ namespace SpdReaderWriterDll {
         public bool RswpPresent {
             get {
                 return IsConnected &&
-                       ((RamTypeSupport & Ram.BitMask.DDR2) == Ram.BitMask.DDR2 ||
-                        (RamTypeSupport & Ram.BitMask.DDR3) == Ram.BitMask.DDR3 ||
+                       ((RamTypeSupport & Ram.BitMask.DDR3) == Ram.BitMask.DDR3 ||
                         (RamTypeSupport & Ram.BitMask.DDR4) == Ram.BitMask.DDR4 ||
                         (RamTypeSupport & Ram.BitMask.DDR5) == Ram.BitMask.DDR5);
             }
@@ -601,7 +613,7 @@ namespace SpdReaderWriterDll {
                     }
                 }
             }
-            return IsConnected && _isValid;
+            return IsConnected;
         }
 
         /// <summary>
@@ -637,6 +649,7 @@ namespace SpdReaderWriterDll {
             lock (PortLock) {
                 if (_sp.IsOpen) {
                     _sp.Close();
+                    _sp = null;
                 }
             }
         }
@@ -743,7 +756,7 @@ namespace SpdReaderWriterDll {
                             return new byte[0];
                         }
 
-                        for (UInt8 i = 0; i < 8; i++) {
+                        for (UInt8 i = 0; i <= 7; i++) {
                             if (GetBit(_response, i) == 1) {
                                 addresses.Enqueue((byte)(80 + i));
                             }
@@ -781,6 +794,23 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Sets clock frequency for I2C communication
+        /// </summary>
+        /// <param name="clock">Clock value index</param>
+        /// <returns><see langword="true" /> if the operation is complete</returns>
+        private bool SetI2CClockInternal(byte clock) {
+            lock (PortLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { I2CSETCLOCK, clock }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to set I2C clock on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Sets specified configuration pin to desired state
         /// </summary>
         /// <param name="pin">Config pin</param>
@@ -793,7 +823,7 @@ namespace SpdReaderWriterDll {
                            ExecuteCommand(new[] { PINCONTROL, pin, BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
-                    throw new Exception($"Unable to set SA pin state on {PortName}");
+                    throw new Exception($"Unable to set config pin state on {PortName}");
                 }
             }
         }
@@ -810,7 +840,7 @@ namespace SpdReaderWriterDll {
                            ExecuteCommand(new[] { PINCONTROL, pin, GET }) == Response.ON;
                 }
                 catch {
-                    throw new Exception($"Unable to get address SA pin state on {PortName}");
+                    throw new Exception($"Unable to get config pin state on {PortName}");
                 }
             }
         }
