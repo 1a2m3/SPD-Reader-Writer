@@ -19,7 +19,6 @@ namespace SpdReaderWriterDll {
             }
 
             try {
-                //return ReadByte(device, offset, 1)[0];
                 return device.ExecuteCommand(new[] { 
                     READBYTE, 
                     device.I2CAddress, 
@@ -260,7 +259,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be checked</param>
-        /// <returns><see langword="false" /> when the block is writable, or <see langword="true" /> if the block is write protected or if RSWP is not supported</returns>
+        /// <returns><see langword="true" /> if the block is write protected (or RSWP is not supported) or <see langword="false" /> when the block is writable</returns>
         public static bool GetRswp(Device device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, block, GET }) == Response.NACK;
@@ -302,10 +301,10 @@ namespace SpdReaderWriterDll {
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
+        /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(Device device) {
             try {
-                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, GET }) == Response.ACK;
+                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, GET }) == Response.NACK;
             }
             catch {
                 throw new Exception($"Unable to get PSWP status on {device.PortName}");
