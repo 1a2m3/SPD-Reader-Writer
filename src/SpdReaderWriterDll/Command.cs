@@ -12,7 +12,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte WRITEBYTE    = (byte) 'w';
         /// <summary>
-        /// Write page (16 bytes)
+        /// Write page
         /// </summary>
         public const byte WRITEPAGE    = (byte) 'g';
         /// <summary>
@@ -20,11 +20,15 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte SCANBUS      = (byte) 's';
         /// <summary>
+        /// Set i2c clock 
+        /// </summary>
+        public const byte I2CSETCLOCK  = (byte) 'c';
+        /// <summary>
         /// Probe i2c address
         /// </summary>
         public const byte PROBEADDRESS = (byte) 'a';
         /// <summary>
-        /// Control pin state
+        /// Config pin state control
         /// </summary>
         public const byte PINCONTROL   = (byte) 'p';
         /// <summary>
@@ -32,7 +36,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte RSWP         = (byte) 'b';
         /// <summary>
-        /// Enable Permanent SWP
+        /// PSWP control
         /// </summary>
         public const byte PSWP         = (byte) 'l';
         /// <summary>
@@ -44,7 +48,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte TESTCOMM     = (byte) 't';
         /// <summary>
-        /// Report supported RAM type(s)
+        /// Report current RSWP RAM support
         /// </summary>
         public const byte RAMSUPPORT   = (byte) 'f';
         /// <summary>
