@@ -50,11 +50,11 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Report current RSWP RAM support
         /// </summary>
-        public const byte RAMSUPPORT   = (byte) 'f';
+        public const byte RSWPREPORT   = (byte) 'f';
         /// <summary>
         /// Re-evaluate RSWP capabilities
         /// </summary>
-        public const byte RETEST       = (byte) 'e';
+        public const byte RETESTRSWP   = (byte) 'e';
         /// <summary>
         /// Device name controls
         /// </summary>
@@ -72,11 +72,11 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte GET          = (byte) '?';
         /// <summary>
-        /// Suffix added to set state equivalent to true
+        /// Suffix added to set state equivalent to true/on/enable etc
         /// </summary>
         public const byte ON           = 1;
         /// <summary>
-        /// Suffix added to set state equivalent to false
+        /// Suffix added to set state equivalent to false/off/disable etc
         /// </summary>
         public const byte OFF          = 0;
         /// <summary>
