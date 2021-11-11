@@ -238,7 +238,7 @@ namespace SpdReaderWriterDll {
         /// Read software write protection status
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
-        /// <returns><see langword="false" /> when the EEPROM is writable, or <see langword="true" /> if the at least one block is write protected or if RSWP is not supported</returns>
+        /// <returns><see langword="true" /> if the at least one block is write protected (or RSWP is not supported), or <see langword="false" /> when the EEPROM is writable</returns>
         public static bool GetRswp(Device device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
