@@ -16,9 +16,9 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211105  // Version number (YYYYMMDD)
+#define VERSION 20211111  // Version number (YYYYMMDD)
 
-// RAM types
+// RSWP RAM support bitmask
 #define DDR2 (1 << 2)
 #define DDR3 (1 << 3)
 #define DDR4 (1 << 4)
@@ -94,18 +94,18 @@
 #define WRITEBYTE    'w' // Write byte
 #define WRITEPAGE    'g' // Write page
 #define SCANBUS      's' // Scan I2C bus
-#define I2CSETCLOCK  'c' // I2C bus clock settings
+#define I2CCLOCK     'c' // I2C bus clock control
 #define PROBEADDRESS 'a' // Address test
 #define PINCONTROL   'p' // Pin control
 #define RSWP         'b' // Reversible write protection control
 #define PSWP         'l' // Permanent write protection control
 #define NAME         'n' // Name control
 #define GETVERSION   'v' // Get FW version
-#define TEST         't' // Test communication
-#define FEATURES     'f' // Supported RAM bitmask report
+#define TESTCOMM     't' // Test communication
+#define RSWPREPORT   'f' // Initial supported RSWP capabilities
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
-#define RETEST       'e' // Reevaluate RSWP capabilities
+#define RETESTRSWP   'e' // Reevaluate RSWP capabilities
 #pragma endregion
 
 // Device pin names
@@ -134,8 +134,8 @@
 char deviceName[NAMELENGTH];
 
 // Global variables
-uint32_t i2cClock = 100000L;
-uint8_t rswpSupport;                          // Bitmask representing RSWP RAM support
+uint32_t i2cClock = 100000L;                  // Initial I2C clock
+uint8_t rswpSupport = 0;                      // Bitmask representing RSWP RAM support
 uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
 const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
 
@@ -165,9 +165,9 @@ void setup() {
   PORT.begin(BAUD_RATE);
   PORT.setTimeout(100);  // Input timeout in ms
 
-  // Wait for serial port connection
+  // Wait for serial port connection or initialization
   while (!PORT) {}
-
+  
   // Send a welcome byte when the device is ready
   PORT.write(WELCOME);
 }
@@ -218,8 +218,8 @@ void parseCommand() {
       cmdProbeBusAddress();
       break;
 
-    case I2CSETCLOCK: 
-      cmdI2CSetClock();
+    case I2CCLOCK: 
+      cmdI2CClock();
       break;
 
     // Control digital pins
@@ -243,18 +243,18 @@ void parseCommand() {
       break;
 
     // Device Communication Test
-    case TEST: 
+    case TESTCOMM: 
       cmdTest();
       break;
 
     // Report supported RAM RSWP capabilities
-    case FEATURES: 
+    case RSWPREPORT: 
       cmdRswpReport();
       break;
 
     // Re-evaluate device's RSWP capabilities
-    case RETEST: 
-      cmdRetest();
+    case RETESTRSWP: 
+      cmdRetestRswp();
       break;
 
     // DDR4 detection test
@@ -358,7 +358,7 @@ void cmdRswpReport() {
   PORT.write(rswpSupport);
 }
 
-void cmdRetest() {
+void cmdRetestRswp() {
   PORT.write(rswpSupportTest());
 }
 
@@ -414,7 +414,7 @@ void cmdName() {
   }
   // Invalid command
   else {
-    PORT.write(ERROR);
+    PORT.write(UNKNOWN);
   }
 }
 
@@ -428,21 +428,21 @@ void cmdProbeBusAddress() {
   PORT.write(probeBusAddress(address) ? SUCCESS : ERROR);
 }
 
-void cmdI2CSetClock() {
+void cmdI2CClock() {
 
   // Data buffer for clock index
   byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
   // Clocks array
-  uint32_t clock[] = { 
-      100000L, // Standard mode
-      400000L, // Fast mode
+  uint8_t clock[] = { 
+      1, // Standard mode
+      4, // Fast mode
     };
 
   // Set I2C clock
   if (buffer[0] >= 0 && buffer[0] <= sizeof(buffer[0])) {
-    i2cClock = clock[buffer[0]];
+    i2cClock = clock[buffer[0]] * 100000L;
     Wire.setClock(i2cClock);
     PORT.write(SUCCESS);
     return;
@@ -450,7 +450,7 @@ void cmdI2CSetClock() {
   // Get current I2C clock
   else if (buffer[0] == GET) {        
     for (uint8_t i = 0; i <= sizeof(clock[0]); i++) {
-      if (i2cClock == clock[i]) {
+      if (i2cClock == clock[i] * 100000L) {
         PORT.write(i);
         return;
       }
@@ -458,7 +458,7 @@ void cmdI2CSetClock() {
   }
   // Unrecognized command
   else {
-    PORT.write(ERROR);
+    PORT.write(UNKNOWN);
     return;    
   }  
 }
@@ -488,7 +488,7 @@ void cmdRSWP() {
   }
   // unrecognized RSWP command
   else {
-    PORT.write(ERROR);
+    PORT.write(UNKNOWN);
   }
 }
 
@@ -513,7 +513,7 @@ void cmdPSWP() {
   }
   // unknown state
   else {
-    PORT.write(ERROR);
+    PORT.write(UNKNOWN);
   }
 }
 
@@ -556,7 +556,7 @@ void cmdPinControl() {
     }
     // Unknown state
     else {
-      PORT.write(ERROR);
+      PORT.write(UNKNOWN);
     }
   }
   // VHV 9V controls
@@ -576,7 +576,7 @@ void cmdPinControl() {
   }
   // Unknown pin
   else {
-    PORT.write(ERROR);
+    PORT.write(UNKNOWN);
   }
 }
 
@@ -716,7 +716,7 @@ byte rswpSupportTest() {
   }
 
   resetPins();
-
+  
   return rswpSupport;
 }
 
@@ -937,7 +937,7 @@ bool setConfigPin(uint8_t pin, bool state) {
   return digitalRead(pin) == state;
 }
 
-// Get slave address pin state
+// Get config pin state
 bool getConfigPin(uint8_t pin) {
   return digitalRead(pin);
 }
@@ -946,8 +946,7 @@ bool getConfigPin(uint8_t pin) {
 void resetPins() {
   for (int i = 0; i <= sizeof(pins[0]); i++) {
     setConfigPin(pins[i], OFF);
-  }
-  setHighVoltage(OFF);
+  }  
 }
 
 // Toggle DDR5 offline mode
@@ -1020,7 +1019,7 @@ bool ddr4Detect(uint8_t address) {
   if (avrCpu) {
     return result;
   }
-
+  
   // Alternative methods for non-AVR controllers
 
   result = false; // presume DDR4 is not present
