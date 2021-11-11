@@ -63,6 +63,22 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Device instance string
+        /// </summary>
+        /// <returns>Device instance string</returns>
+        public override string ToString() {
+            string _string = "";
+            if (PortName != null) {
+                _string += $"{PortName}";
+                if (I2CAddress != 0) {
+                    _string += $":{I2CAddress}";
+                }
+            }            
+
+            return _string.Trim();
+        }
+
+        /// <summary>
         /// Serial Port Settings class
         /// </summary>
         public struct SerialPortSettings {
@@ -601,7 +617,7 @@ namespace SpdReaderWriterDll {
                         }
                         catch {
                             _isValid = false;
-                            Dispose();
+                            DisposeInternal();
                         }
 
                         if (!_isValid) {
@@ -671,13 +687,13 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Gets supported RAM type(s)
+        /// Gets initial supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
         private byte GetRamTypeSupportInternal() {
             lock (PortLock) {
                 try {
-                    return ExecuteCommand(new[] { RAMSUPPORT });
+                    return ExecuteCommand(new[] { RSWPREPORT });
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} supported RAM");
@@ -697,11 +713,11 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
         private byte RswpRetestInternal() {
             lock (PortLock) {
                 try {
-                    return ExecuteCommand(new[] { RETEST });
+                    return ExecuteCommand(new[] { RETESTRSWP });
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} supported RAM");
@@ -987,12 +1003,12 @@ namespace SpdReaderWriterDll {
 
             lock (FindLock) {
                 foreach (string _portName in SerialPort.GetPortNames().Distinct().ToArray()) {
-                    try {
-                        Device _device = new Device(PortSettings, _portName);
 
+                    Device _device = new Device(PortSettings, _portName);
+                    try {
                         lock (_device.PortLock) {
-                            if (_device.Connect()) {
-                                _device.Dispose();
+                            if (_device.ConnectInternal()) {
+                                _device.DisposeInternal();
                                 _result.Push(_portName);
                             }
                         }
@@ -1095,46 +1111,49 @@ namespace SpdReaderWriterDll {
 
             lock (PortLock) {
                 try {
-                    // Clear input and output buffers
-                    ClearBuffer();
+                    // Check connection
+                    if (IsConnected) {
+                        // Clear input and output buffers
+                        ClearBufferInternal();
 
-                    // Send the command to device
-                    _sp.Write(command, 0, command.Length);
+                        // Send the command to device
+                        _sp.Write(command, 0, command.Length);
 
-                    // Flush the buffer
-                    FlushBuffer();
+                        // Flush the buffer
+                        FlushBufferInternal();
 
-                    // Check response length
-                    if (responseLength == 0) {
-                        return new byte[0];
-                    }
-
-                    // Timeout monitoring start
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-                    while (PortSettings.ResponseTimeout * 1000 > sw.ElapsedMilliseconds) {
-                        // Check connection
-                        if (!IsConnected) {
-                            throw new IOException($"{PortName} not connected");
+                        // Check response length
+                        if (responseLength == 0) {
+                            return new byte[0];
                         }
 
-                        // Wait for data
-                        if (ResponseData != null && ResponseData.Count >= responseLength && !DataReceiving) {
-                            _response = ResponseData;
-                            break;
+                        // Timeout monitoring start
+                        Stopwatch sw = new Stopwatch();
+                        sw.Start();
+                        while (PortSettings.ResponseTimeout * 1000 > sw.ElapsedMilliseconds) {
+                            // Check connection
+                            if (!IsConnected) {
+                                throw new IOException($"{PortName} not connected");
+                            }
+
+                            // Wait for data
+                            if (ResponseData != null && ResponseData.Count >= responseLength && !DataReceiving) {
+                                _response = ResponseData;
+                                break;
+                            }
+
+                            if (command[0] == READBYTE ||
+                                command[0] == WRITEBYTE) {
+                                Wait(1);
+                            }
+                            else {
+                                Wait();
+                            }
                         }
 
-                        if (command[0] == READBYTE ||
-                            command[0] == WRITEBYTE) {
-                            Wait(1);
-                        }
-                        else {
-                            Wait();
-                        }
-                    }
-
-                    if (_response.Count == 0 || _response.Count < responseLength) {
-                        throw new TimeoutException("Response timeout");
+                        if (_response.Count == 0 || _response.Count < responseLength) {
+                            throw new TimeoutException("Response timeout");
+                        }                        
                     }
 
                     return _response.ToArray();
