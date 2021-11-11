@@ -1,22 +1,30 @@
 namespace SpdReaderWriterDll {
     /// <summary>
-    /// Class describing digital pin states
+    /// Class describing configuration pins
     /// </summary>
     public struct Pin {
 
         /// <summary>
-        /// DDR5 offline mode pin
+        /// Struct describing config pin names
         /// </summary>
-        public const byte OFFLINE_MODE_SWITCH = 0;
-        /// <summary>
-        /// Slave address 1 (SA1) control pin
-        /// </summary>
-        public const byte SA1_SWITCH          = 1;
-        /// <summary>
-        /// High voltage (9V) control pin
-        /// </summary>
-        public const byte HIGH_VOLTAGE_SWITCH = 9;
+        public struct Name {
+            /// <summary>
+            /// DDR5 offline mode control pin
+            /// </summary>
+            public const byte OFFLINE_MODE_SWITCH = 0;
+            /// <summary>
+            /// Slave address 1 (SA1) control pin
+            /// </summary>
+            public const byte SA1_SWITCH          = 1;
+            /// <summary>
+            /// High voltage (9V) control pin
+            /// </summary>
+            public const byte HIGH_VOLTAGE_SWITCH = 9;
+        }
 
+        /// <summary>
+        /// Struct describing config pin states
+        /// </summary>
         public struct State {
             /// <summary>
             /// Name state describing condition when pin is <b>HIGH</b>
@@ -33,6 +41,7 @@ namespace SpdReaderWriterDll {
             public const bool PULLUP   = HIGH;
             public const bool VCC      = HIGH;
             public const bool ON       = HIGH;
+            public const bool UP       = HIGH;
             public const bool ENABLE   = HIGH;
             public const bool ENABLED  = HIGH;
 
@@ -42,6 +51,7 @@ namespace SpdReaderWriterDll {
             public const bool VSS      = LOW;
             public const bool GND      = LOW;
             public const bool OFF      = LOW;
+            public const bool DOWN     = LOW;
             public const bool DISABLE  = LOW;
             public const bool DISABLED = LOW;
             public const bool DEFAULT  = LOW;
