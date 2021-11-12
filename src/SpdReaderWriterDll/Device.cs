@@ -90,6 +90,13 @@ namespace SpdReaderWriterDll {
             // Response settings
             public int ResponseTimeout;
 
+            /// <summary>
+            /// Default port settings
+            /// </summary>
+            /// <param name="baudRate">Baud rate</param>
+            /// <param name="dtrEnable">Enable DTR</param>
+            /// <param name="rtsEnable">Enable RTS</param>
+            /// <param name="responseTimeout">Response timeout in seconds</param>
             public SerialPortSettings(
                 int baudRate        = 115200,
                 bool dtrEnable      = true,
@@ -136,7 +143,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Tests if the device responds to a test command
         /// </summary>
-        /// <returns><see langword="true" /> if the device responds properly to test command</returns>
+        /// <returns><see langword="true" /> if the device responds properly to a test command</returns>
         public bool Test() {
             return TestInternal();
         }
@@ -194,10 +201,18 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Sets clock frequency for I2C communication
         /// </summary>
-        /// <param name="clock">Clock value index</param>
-        /// <returns><see langword="true" /> if the operation is complete</returns>
-        public bool SetI2CClock(byte clock) {
-            return SetI2CClockInternal(clock);
+        /// <param name="fastMode">Fast mode or standard mode</param>
+        /// <returns><see langword="true" /> if the operation is successful</returns>
+        public bool SetI2CClock(bool fastMode) {
+            return SetI2CClockInternal(fastMode);
+        }
+
+        /// <summary>
+        /// Get current device I2C clock mode
+        /// </summary>
+        /// <returns><see langword="true" /> if the device's I2C bus is running in fast mode, or <see langword="false" /> if it is in standard mode</returns>
+        public bool GetI2CClock() {
+            return GetI2CClockInternal();
         }
 
         /// <summary>
@@ -290,7 +305,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Probes specified EEPROM address
+        /// Probes default EEPROM address
         /// </summary>
         /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
@@ -323,7 +338,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Executes commands on the device.
         /// </summary>
-        /// <param name="command">Space separated commands to be executed on the device</param>
+        /// <param name="command">Bytes to be sent to the device</param>
         /// <returns>A byte received from the device in response</returns>
         public byte ExecuteCommand(byte[] command) {
             return ExecuteCommandInternal(command, 1)[0];
@@ -332,7 +347,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Executes commands on the device.
         /// </summary>
-        /// <param name="command">Space separated commands to be executed on the device</param>
+        /// <param name="command">Bytes to be sent to the device</param>
         /// <param name="length">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
         public byte[] ExecuteCommand(byte[] command, uint length) {
@@ -389,7 +404,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Finds devices connected to computer by sending a test command to every serial port device detected
         /// </summary>
-        /// <returns>An array of serial port names which have a device or devices connected to</returns>
+        /// <returns>An array of serial port names which have valid devices connected to</returns>
         public string[] Find() {
             return FindInternal();
         }
@@ -409,7 +424,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Describes if the device is a valid programmer
+        /// Describes if the device passed connection and communication tests
         /// </summary>
         public bool IsValid {
             get => _isValid;
@@ -610,7 +625,7 @@ namespace SpdReaderWriterDll {
                         // Establish a connection
                         _sp.Open();
 
-                        // Set valid state to true to allow Test to execute
+                        // Set valid state to true to allow Communication Test to execute
                         _isValid = true;
                         try {
                             _isValid = TestInternal();
@@ -812,16 +827,33 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Sets clock frequency for I2C communication
         /// </summary>
-        /// <param name="clock">Clock value index</param>
-        /// <returns><see langword="true" /> if the operation is complete</returns>
-        private bool SetI2CClockInternal(byte clock) {
+        /// <param name="fastMode">Fast mode or standard mode</param>
+        /// <returns><see langword="true" /> if the operation is successful</returns>
+        private bool SetI2CClockInternal(bool fastMode) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { I2CSETCLOCK, clock }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { I2CSETCLOCK, BoolToInt(fastMode) }) == Response.SUCCESS;
                 }
                 catch {
-                    throw new Exception($"Unable to set I2C clock on {PortName}");
+                    throw new Exception($"Unable to set I2C clock mode on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get current device I2C clock mode
+        /// </summary>
+        /// <returns><see langword="true" /> if the device's I2C bus is running in fast mode, or <see langword="false" /> if it is in standard mode</returns>
+        private bool GetI2CClockInternal() {
+
+            lock (PortLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { I2CSETCLOCK, GET }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to get I2C clock mode on {PortName}");
                 }
             }
         }
@@ -997,7 +1029,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Finds devices connected to computer 
         /// </summary>
-        /// <returns>An array of serial port names which have a device or devices connected to</returns>
+        /// <returns>An array of serial port names which have valid devices connected to</returns>
         public string[] FindInternal() {
             Stack<string> _result = new Stack<string>();
 
@@ -1142,19 +1174,13 @@ namespace SpdReaderWriterDll {
                                 break;
                             }
 
-                            if (command[0] == READBYTE ||
-                                command[0] == WRITEBYTE) {
-                                Wait(1);
-                            }
-                            else {
-                                Wait();
-                            }
+                            //Wait(1);
                         }
 
                         if (_response.Count == 0 || _response.Count < responseLength) {
                             throw new TimeoutException("Response timeout");
                         }                        
-                    }
+                    }                    
 
                     return _response.ToArray();
                 }
