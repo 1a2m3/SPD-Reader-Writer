@@ -17,7 +17,7 @@ namespace SpdReaderWriterDll {
         /// <returns>RAM Type</returns>
         public static Ram.Type GetRamType(Device device) {
 
-            if (device == null ) {
+            if (device == null) {
                 throw new NullReferenceException($"Invalid device");
             }
 
@@ -32,7 +32,7 @@ namespace SpdReaderWriterDll {
             if (device.DetectDdr4()) {
                 return Ram.Type.DDR4;
             }
-            
+
             // Byte at offset 0x02 in SPD indicates RAM type
             try {
                 return GetRamType(Eeprom.ReadByte(device, 0, 3));
