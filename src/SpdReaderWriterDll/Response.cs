@@ -12,6 +12,14 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte ERROR   = 0xFF;
         /// <summary>
+        /// Boolean True response
+        /// </summary>
+        public const byte TRUE    = 0x01;
+        /// <summary>
+        /// Boolean False response
+        /// </summary>
+        public const byte FALSE   = 0x00;
+        /// <summary>
         /// A response used to indicate an error when normally a numeric non-zero answer is expected if the operation was executed successfully
         /// </summary>
         public const byte NULL    = 0;
@@ -27,6 +35,10 @@ namespace SpdReaderWriterDll {
         /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
         /// </summary>
         public const char WELCOME = '!';
+        /// <summary>
+        /// A response indicating the command or syntax was not in a correct fromat
+        /// </summary>
+        public const char UNKNOWN = '?';
 
         // Aliases
         public const byte ACK   = SUCCESS;

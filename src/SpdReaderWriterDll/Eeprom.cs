@@ -7,7 +7,6 @@ namespace SpdReaderWriterDll {
     /// Defines EEPROM class, properties, and methods to handle EEPROM operations
     /// </summary>
     public class Eeprom {
-
         /// <summary>
         /// Reads a single byte from the EEPROM
         /// </summary>
@@ -20,7 +19,6 @@ namespace SpdReaderWriterDll {
             }
 
             try {
-                //return ReadByte(device, offset, 1)[0];
                 return device.ExecuteCommand(new[] { 
                     READBYTE, 
                     device.I2CAddress, 
@@ -207,7 +205,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be write protected</param>
         /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
-        public static bool SetWriteProtection(Device device, UInt8 block) {
+        public static bool SetRswp(Device device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, block, ON }) == Response.SUCCESS;
             }
@@ -221,10 +219,10 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <returns><see langword="true" /> when the write protection has been enabled on all available blocks</returns>
-        public static bool SetWriteProtection(Device device) {
+        public static bool SetRswp(Device device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
-                    if (!SetWriteProtection(device, i)) {
+                    if (!SetRswp(device, i)) {
                         return false;
                     }
                 }
@@ -240,8 +238,8 @@ namespace SpdReaderWriterDll {
         /// Read software write protection status
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
-        /// <returns><see langword="false" /> when the EEPROM is writable, or <see langword="true" /> if the at least one block is write protected or if RSWP is not supported</returns>
-        public static bool GetReversibleWriteProtection(Device device) {
+        /// <returns><see langword="true" /> if the at least one block is write protected (or RSWP is not supported), or <see langword="false" /> when the EEPROM is writable</returns>
+        public static bool GetRswp(Device device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
                     if (device.ExecuteCommand(new[] { RSWP, i, GET }) == Response.NACK) {
@@ -261,8 +259,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be checked</param>
-        /// <returns><see langword="false" /> when the block is writable, or <see langword="true" /> if the block is write protected or if RSWP is not supported</returns>
-        public static bool GetReversibleWriteProtection(Device device, UInt8 block) {
+        /// <returns><see langword="true" /> if the block is write protected (or RSWP is not supported) or <see langword="false" /> when the block is writable</returns>
+        public static bool GetRswp(Device device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, block, GET }) == Response.NACK;
             }
@@ -276,7 +274,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the write protection has been disabled</returns>
-        public static bool ClearReversibleWriteProtection(Device device) {
+        public static bool ClearRswp(Device device) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, DNC, OFF }) == Response.SUCCESS;
             }
@@ -290,7 +288,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
-        public static bool SetPermanentWriteProtection(Device device) {
+        public static bool SetPswp(Device device) {
             try {
                 return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, ON }) == Response.SUCCESS;
             }
@@ -303,10 +301,10 @@ namespace SpdReaderWriterDll {
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> if when PSWP has NOT been set and EEPROM is fully writable or <see langword="false" /> when PSWP is enabled</returns>
-        public static bool GetPermanentWriteProtection(Device device) {
+        /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
+        public static bool GetPswp(Device device) {
             try {
-                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, GET }) == Response.ACK;
+                return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, GET }) == Response.NACK;
             }
             catch {
                 throw new Exception($"Unable to get PSWP status on {device.PortName}");
