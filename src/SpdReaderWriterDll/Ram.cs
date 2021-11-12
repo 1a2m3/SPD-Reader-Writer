@@ -38,13 +38,9 @@ namespace SpdReaderWriterDll {
         /// Bitmask values describing specific RAM type RSWP support
         /// </summary>
         public struct BitMask {
-            /// <summary>
-            /// Value describing <value>DDR2</value> RSWP support
-            /// </summary>
-            public const byte DDR2 = 1 << 2;
 
             /// <summary>
-            /// Value describing <value>DDR3</value> RSWP support
+            /// Value describing <value>DDR3</value> and below RSWP support
             /// </summary>
             public const byte DDR3 = 1 << 3;
 
