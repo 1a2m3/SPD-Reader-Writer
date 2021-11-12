@@ -12,10 +12,12 @@ namespace SpdReaderWriterDll {
             /// DDR5 offline mode control pin
             /// </summary>
             public const byte OFFLINE_MODE_SWITCH = 0;
+
             /// <summary>
             /// Slave address 1 (SA1) control pin
             /// </summary>
             public const byte SA1_SWITCH          = 1;
+
             /// <summary>
             /// High voltage (9V) control pin
             /// </summary>
