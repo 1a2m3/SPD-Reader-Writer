@@ -133,9 +133,12 @@
 #define NAMELENGTH 16
 char deviceName[NAMELENGTH];
 
+// Device i2c clock settings
+uint8_t clockSettings = 0x20;    // EEPROM location to store I2C clock
+uint32_t i2cClock     = 100000L; // Initial I2C clock
+
 // Global variables
-uint32_t i2cClock = 100000L;                  // Initial I2C clock
-uint8_t rswpSupport = 0;                      // Bitmask representing RSWP RAM support
+uint8_t rswpSupport = 0;                      // Bitmask representing RAM RSWP support
 uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
 const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
 
@@ -152,11 +155,15 @@ void setup() {
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
-  // Set standard mode clock frequency (100khz)
-  Wire.setClock(i2cClock);
- 
+   
   // Perform device features test
   rswpSupport = rswpSupportTest();
+
+  // Check saved i2c clock and set mode accordingly
+  if (getI2cClockMode()) {
+    i2cClock = 400000;
+  }   
+  Wire.setClock(i2cClock);
 
   // Reset EEPROM page address
   setPageAddress(0);
@@ -430,36 +437,22 @@ void cmdProbeBusAddress() {
 
 void cmdI2CClock() {
 
-  // Data buffer for clock index
+  // Data buffer for clock mode
   byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
-  // Clocks array
-  uint8_t clock[] = { 
-      1, // Standard mode
-      4, // Fast mode
-    };
-
   // Set I2C clock
-  if (buffer[0] >= 0 && buffer[0] <= sizeof(buffer[0])) {
-    i2cClock = clock[buffer[0]] * 100000L;
-    Wire.setClock(i2cClock);
-    PORT.write(SUCCESS);
-    return;
+  if (buffer[0] == ENABLE || buffer[0] == DISABLE) {
+    setI2cClockMode(buffer[0]);
+    PORT.write(getI2cClockMode() == buffer[0] ? SUCCESS : ERROR);
   }
   // Get current I2C clock
   else if (buffer[0] == GET) {        
-    for (uint8_t i = 0; i <= sizeof(clock[0]); i++) {
-      if (i2cClock == clock[i] * 100000L) {
-        PORT.write(i);
-        return;
-      }
-    }
+    PORT.write(getI2cClockMode());
   }
   // Unrecognized command
   else {
     PORT.write(UNKNOWN);
-    return;    
   }  
 }
 
@@ -698,6 +691,11 @@ byte rswpSupportTest() {
     return ZERO;
   }
 
+  // Slow down I2C bus clock for accurate results 
+    if (getI2cClockMode()) {
+      Wire.setClock(100000);
+    }
+
   // RSWP DDR5 test
   if (ddr5SetOfflineMode(ON)) {
     rswpSupport |= DDR5;
@@ -716,6 +714,9 @@ byte rswpSupportTest() {
   }
 
   resetPins();
+
+  // Restore I2C clock
+  setI2cClockMode(getI2cClockMode());
   
   return rswpSupport;
 }
@@ -916,6 +917,19 @@ String getName() {
 
 
 /*  -=  I2C bus functions  =-  */
+
+// Set I2C bus clock mode
+bool setI2cClockMode(bool fastMode) {
+  EEPROM.update(clockSettings, (byte)(fastMode ? ENABLE : DISABLE));
+  i2cClock = fastMode ? 400000 : 100000;
+  Wire.setClock(i2cClock);
+  return getI2cClockMode() == fastMode;
+}
+
+// Gets saved I2C clock mode (true=fast mode, false=std mode)
+bool getI2cClockMode() {
+  return EEPROM.read(clockSettings) == ENABLE;
+}
 
 // Scans I2C bus range 80-87
 byte scanBus() {
