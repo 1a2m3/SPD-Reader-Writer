@@ -237,6 +237,11 @@ namespace SpdReaderWriterDll {
             int modelNameEnd;
 
             switch (GetRamType(input)) {
+                // Part number location for DDR5 SPDs
+                case Ram.Type.DDR5:
+                    modelNameStart = 0x209;
+                    modelNameEnd   = 0x226;
+                    break;
                 // Part number location for DDR4 SPDs
                 case Ram.Type.DDR4: 
                     modelNameStart = 0x149;
@@ -290,7 +295,7 @@ namespace SpdReaderWriterDll {
             }
 
             for (int i = 0; i < input.Length; ++i) {
-                crc = (UInt16)((crc << 8) ^ table[(crc >> 8) ^ (0xff & input[i])]);
+                crc = (UInt16)((crc << 8) ^ table[(crc >> 8) ^ (0xFF & input[i])]);
             }
 
             return crc;
@@ -364,7 +369,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentOutOfRangeException(nameof(position));
             }
 
-            return (byte)(value == 1 ? input | (1 << position) : input &~ (1 << position));
+            return (byte)(value == 1 ? input | (1 << position) : input & ~(1 << position));
         }
 
         /// <summary>
