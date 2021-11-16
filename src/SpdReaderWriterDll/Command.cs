@@ -22,7 +22,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Set i2c clock 
         /// </summary>
-        public const byte I2CSETCLOCK  = (byte) 'c';
+        public const byte I2CCLOCK     = (byte) 'c';
         /// <summary>
         /// Probe i2c address
         /// </summary>
@@ -67,6 +67,10 @@ namespace SpdReaderWriterDll {
         /// DDR5 detection
         /// </summary>
         public const byte DDR5DETECT   = (byte) '5';
+        /// <summary>
+        /// Restore device settings to default
+        /// </summary>
+        public const byte FACTORYRESET = (byte) '-';
         /// <summary>
         /// Suffix added to get current state
         /// </summary>
