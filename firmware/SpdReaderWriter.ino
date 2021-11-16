@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211111  // Version number (YYYYMMDD)
+#define VERSION 20211116  // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmask
 #define DDR2 (1 << 2)
@@ -106,6 +106,7 @@
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
 #define RETESTRSWP   'e' // Reevaluate RSWP capabilities
+#define FACTORYRESET '-' // Factory reset device settings
 #pragma endregion
 
 // Device pin names
@@ -121,24 +122,27 @@
 #define UNKNOWN (char) '?'
 
 // Pin states
-#define ON      HIGH
-#define OFF     LOW
-#define ENABLE  1
-#define SET     1
-#define DISABLE 0
-#define RESET   0
-#define GET    '?'  // Suffix added to commands to return current state
+#define ON             HIGH
+#define OFF            LOW
+#define ENABLE  (byte) 0x01
+#define SET     (byte) 0x01
+#define DISABLE (byte) 0x00
+#define RESET   (byte) 0x00
+#define GET     (char) '?'  // Suffix added to commands to return current state
 
 // Device name settings
 #define NAMELENGTH 16
 char deviceName[NAMELENGTH];
 
-// Device i2c clock settings
-uint8_t clockSettings = 0x20;    // EEPROM location to store I2C clock
-uint32_t i2cClock     = 100000L; // Initial I2C clock
+// Device settings
+#define DEVICESETTINGS 0x20 // EEPROM location to store device settings
+#define CLOCKMODE      0    // Bit position for I2C clock settings
+#define FASTMODE       true
+#define STDMODE        false
 
 // Global variables
-uint8_t rswpSupport = 0;                      // Bitmask representing RAM RSWP support
+uint32_t i2cClock         = 100000L;          // Initial I2C clock
+uint8_t rswpSupport       = 0;                // Bitmask representing RAM RSWP support
 uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
 const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
 
@@ -277,7 +281,12 @@ void parseCommand() {
     // Device name controls
     case NAME: 
       cmdName();
-      break;    
+      break;
+
+    // Factory defaults restore
+    case FACTORYRESET:
+      cmdFactoryReset();
+      break; 
   }
 }
 
@@ -442,7 +451,7 @@ void cmdI2CClock() {
   PORT.readBytes(buffer, sizeof(buffer));
 
   // Set I2C clock
-  if (buffer[0] == ENABLE || buffer[0] == DISABLE) {
+  if (buffer[0] == FASTMODE || buffer[0] == STDMODE) {
     setI2cClockMode(buffer[0]);
     PORT.write(getI2cClockMode() == buffer[0] ? SUCCESS : ERROR);
   }
@@ -454,6 +463,10 @@ void cmdI2CClock() {
   else {
     PORT.write(UNKNOWN);
   }  
+}
+
+bool cmdFactoryReset() {
+  PORT.write(factoryReset() ? SUCCESS : ERROR);
 }
 
 void cmdRSWP() {
@@ -888,7 +901,7 @@ void setLegacyModeAddress(uint8_t address, bool twoByteAddressing) {
 }
 
 
-/*  -=  Device name functions =-  */
+/*  -=  Device settings functions =-  */
 
 // Assign a new name
 bool setName(String name) {
@@ -915,20 +928,33 @@ String getName() {
   return deviceNameChar;
 }
 
+// Read device settings
+bool getSettings(byte settings) {
+  return bitRead(EEPROM.read(DEVICESETTINGS), settings);
+}
+
+// Save device settings
+bool saveSettings(byte settings, byte value) {
+
+  byte allSettings = EEPROM.read(DEVICESETTINGS);
+  EEPROM.update(DEVICESETTINGS, bitWrite(allSettings, settings, value));
+}
+
 
 /*  -=  I2C bus functions  =-  */
 
 // Set I2C bus clock mode
-bool setI2cClockMode(bool fastMode) {
-  EEPROM.update(clockSettings, (byte)(fastMode ? ENABLE : DISABLE));
-  i2cClock = fastMode ? 400000 : 100000;
+bool setI2cClockMode(bool mode) {
+  saveSettings(CLOCKMODE, mode ? FASTMODE : STDMODE);
+  i2cClock = mode ? 400000 : 100000;
   Wire.setClock(i2cClock);
-  return getI2cClockMode() == fastMode;
+
+  return getI2cClockMode();
 }
 
 // Gets saved I2C clock mode (true=fast mode, false=std mode)
 bool getI2cClockMode() {
-  return EEPROM.read(clockSettings) == ENABLE;
+  return getSettings(CLOCKMODE);
 }
 
 // Scans I2C bus range 80-87
@@ -1082,4 +1108,17 @@ bool ddr5Detect(uint8_t address) {
   // TODO: return true if MR0 is 0x51 or 0x52
 
   return result;
+}
+
+// Restores device's default settings
+bool factoryReset() {
+  for (uint8_t i = 0; i < 32; i++) {
+    EEPROM.update(i, ZERO);
+  }
+  for (uint8_t i = 0; i < 32; i++) {
+    if (EEPROM.read(i) != ZERO) {
+      return false;
+    }
+  }
+  return true;
 }
