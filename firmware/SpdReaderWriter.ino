@@ -19,10 +19,9 @@
 #define VERSION 20211116  // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmask
-#define DDR2 (1 << 2)
-#define DDR3 (1 << 3)
-#define DDR4 (1 << 4)
-#define DDR5 (1 << 5)
+#define DDR3 (1 << 3) // SA1+VHV controls
+#define DDR4 (1 << 4) // VHV control
+#define DDR5 (1 << 5) // Offline mode control
 
 // SPD5 hub registers
 #pragma region SPD5 hub registers
@@ -160,7 +159,7 @@ void setup() {
   // Initiate and join the I2C bus as a master
   Wire.begin();
    
-  // Perform device features test
+  // Perform initial device RSWP support test
   rswpSupport = rswpSupportTest();
 
   // Check saved i2c clock and set mode accordingly
@@ -200,7 +199,7 @@ void parseCommand() {
     return;
   }
 
-  char cmd = PORT.read();
+  char cmd = (char) PORT.read();
 
   switch (cmd) {
 
@@ -722,7 +721,7 @@ byte rswpSupportTest() {
     if ((setConfigPin(SA1_EN, ON) && setConfigPin(SA1_EN, OFF)) && 
         (setConfigPin(SA1_EN, ON)  ^ scanBus()) != 
         (setConfigPin(SA1_EN, OFF) ^ scanBus())) {
-      rswpSupport |= DDR3 | DDR2;
+      rswpSupport |= DDR3;
     }
   }
 
@@ -929,15 +928,15 @@ String getName() {
 }
 
 // Read device settings
-bool getSettings(byte settings) {
-  return bitRead(EEPROM.read(DEVICESETTINGS), settings);
+bool getSettings(byte name) {
+  return bitRead(EEPROM.read(DEVICESETTINGS), name);
 }
 
 // Save device settings
-bool saveSettings(byte settings, byte value) {
+bool saveSettings(byte name, byte value) {
 
-  byte allSettings = EEPROM.read(DEVICESETTINGS);
-  EEPROM.update(DEVICESETTINGS, bitWrite(allSettings, settings, value));
+  byte currentSettings = EEPROM.read(DEVICESETTINGS);
+  EEPROM.update(DEVICESETTINGS, bitWrite(currentSettings, name, value));
 }
 
 
