@@ -5,7 +5,6 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
-using System.Threading;
 using static SpdReaderWriterDll.Command;
 using static SpdReaderWriterDll.Pin;
 using static SpdReaderWriterDll.Pin.Name;
@@ -504,7 +503,7 @@ namespace SpdReaderWriterDll {
                     return _sp.BytesToRead;
                 }
                 catch {
-                    throw new IOException("No bytes to read");
+                    return 0;
                 }
             }
         }
@@ -518,7 +517,7 @@ namespace SpdReaderWriterDll {
                     return _sp.BytesToWrite;
                 }
                 catch {
-                    throw new IOException("No bytes to write");
+                    return 0;
                 }
             }
         }
@@ -592,18 +591,18 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Serial port instance
         /// </summary>
-        private SerialPort _sp = new SerialPort();
+        internal SerialPort _sp = new SerialPort();
 
         /// <summary>
         /// Describes whether the device is valid
         /// </summary>
-        private bool _isValid;
+        internal bool _isValid;
 
         /// <summary>
         /// Attempts to establish a connection with the device
         /// </summary>
         /// <returns><see langword="true" /> if the connection is established</returns>
-        private bool ConnectInternal() {
+        internal bool ConnectInternal() {
             lock (PortLock) {
                 if (!IsConnected) {
                     // New connection settings
@@ -651,7 +650,7 @@ namespace SpdReaderWriterDll {
         /// Disconnect from the device
         /// </summary>
         /// <returns><see langword="true" /> once the device is disconnected</returns>
-        private bool DisconnectInternal() {
+        internal bool DisconnectInternal() {
             lock (PortLock) {
                 if (IsConnected) {
                     try {
@@ -676,7 +675,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Disposes device instance
         /// </summary>
-        private void DisposeInternal() {
+        internal void DisposeInternal() {
             lock (PortLock) {
                 if (_sp.IsOpen) {
                     _sp.Close();
@@ -689,7 +688,7 @@ namespace SpdReaderWriterDll {
         /// Tests if the device is able to communicate
         /// </summary>
         /// <returns><see langword="true" /> if the device responds to a test command</returns>
-        private bool TestInternal() {
+        internal bool TestInternal() {
             lock (PortLock) {
                 try {
                     return IsConnected && 
@@ -705,7 +704,7 @@ namespace SpdReaderWriterDll {
         /// Gets initial supported RAM type(s)
         /// </summary>
         /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
-        private byte GetRamTypeSupportInternal() {
+        internal byte GetRamTypeSupportInternal() {
             lock (PortLock) {
                 try {
                     return ExecuteCommand(new[] { RSWPREPORT });
@@ -721,7 +720,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
         /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
-        private bool GetRamTypeSupportInternal(byte ramTypeBitmask) {
+        internal bool GetRamTypeSupportInternal(byte ramTypeBitmask) {
             return (GetRamTypeSupportInternal() & ramTypeBitmask) == ramTypeBitmask;
         }
 
@@ -729,7 +728,7 @@ namespace SpdReaderWriterDll {
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
         /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
-        private byte RswpRetestInternal() {
+        internal byte RswpRetestInternal() {
             lock (PortLock) {
                 try {
                     return ExecuteCommand(new[] { RETESTRSWP });
@@ -745,7 +744,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="state">Offline mode state</param>
         /// <returns><see langword="true" /> when operation is successful</returns>
-        private bool SetOfflineModeInternal(bool state) {
+        internal bool SetOfflineModeInternal(bool state) {
             lock (PortLock) {
                 try {
                     return ExecuteCommand(new[] { PINCONTROL, OFFLINE_MODE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
@@ -760,7 +759,7 @@ namespace SpdReaderWriterDll {
         /// Gets DDR5 offline mode status
         /// </summary>
         /// <returns><see langword="true" /> when DDR5 is in offline mode</returns>
-        private bool GetOfflineModeInternal() {
+        internal bool GetOfflineModeInternal() {
             lock (PortLock) {
                 try {
                     return ExecuteCommand(new[] { PINCONTROL, OFFLINE_MODE_SWITCH, GET }) == Response.SUCCESS;
@@ -775,7 +774,7 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <returns>An array of EEPROM addresses present on the device's I2C bus</returns>
-        private UInt8[] ScanInternal() {
+        internal UInt8[] ScanInternal() {
             Queue<UInt8> addresses = new Queue<UInt8>();
 
             lock (PortLock) {
@@ -807,7 +806,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="bitmask">Enable bitmask response</param>
         /// <returns>A bitmask representing available EEPROM addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
-        private UInt8 ScanInternal(bool bitmask) {
+        internal UInt8 ScanInternal(bool bitmask) {
             if (bitmask) {
                 lock (PortLock) {
                     try {
@@ -829,11 +828,11 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="fastMode">Fast mode or standard mode</param>
         /// <returns><see langword="true" /> if the operation is successful</returns>
-        private bool SetI2CClockInternal(bool fastMode) {
+        internal bool SetI2CClockInternal(bool fastMode) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { I2CSETCLOCK, BoolToInt(fastMode) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { I2CCLOCK, BoolToInt(fastMode) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set I2C clock mode on {PortName}");
@@ -845,12 +844,12 @@ namespace SpdReaderWriterDll {
         /// Get current device I2C clock mode
         /// </summary>
         /// <returns><see langword="true" /> if the device's I2C bus is running in fast mode, or <see langword="false" /> if it is in standard mode</returns>
-        private bool GetI2CClockInternal() {
+        internal bool GetI2CClockInternal() {
 
             lock (PortLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { I2CSETCLOCK, GET }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { I2CCLOCK, GET }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to get I2C clock mode on {PortName}");
@@ -864,7 +863,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pin">Config pin</param>
         /// <param name="state">Config pin state</param>
         /// <returns><see langword="true" /> if the config pin has been set</returns>
-        private bool SetConfigPinInternal(byte pin, bool state) {
+        internal bool SetConfigPinInternal(byte pin, bool state) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -881,7 +880,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="pin">Config pin</param>
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
-        private bool GetConfigPinInternal(byte pin) {
+        internal bool GetConfigPinInternal(byte pin) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -898,7 +897,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="state">High voltage supply state</param>
         /// <returns><see langword="true" /> if operation is completed</returns>
-        private bool SetHighVoltageInternal(bool state) {
+        internal bool SetHighVoltageInternal(bool state) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -914,7 +913,7 @@ namespace SpdReaderWriterDll {
         /// Gets high voltage state on pin SA0
         /// </summary>
         /// <returns><see langword="true" /> if high voltage is applied to pin SA0</returns>
-        private bool GetHighVoltageInternal() {
+        internal bool GetHighVoltageInternal() {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -931,7 +930,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">EEPROM address</param>
         /// <returns><see langword="true" /> if the address is accessible</returns>
-        private bool ProbeAddressInternal(UInt8 address) {
+        internal bool ProbeAddressInternal(UInt8 address) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -947,7 +946,7 @@ namespace SpdReaderWriterDll {
         /// Get Device's firmware version 
         /// </summary>
         /// <returns>Firmware version number</returns>
-        private int GetFirmwareVersionInternal() {
+        internal int GetFirmwareVersionInternal() {
             int _version = 0;
             lock (PortLock) {
                 try {
@@ -971,7 +970,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="name">Device name</param>
         /// <returns><see langword="true" /> when the device name is set</returns>
-        private bool SetNameInternal(string name) {
+        internal bool SetNameInternal(string name) {
             if (name == null) throw new ArgumentNullException("Name can't be null");
             if (name == "") throw new ArgumentException("Name can't be blank");
             if (name.Length > 16) throw new ArgumentException("Name can't be longer than 16 characters");
@@ -981,7 +980,7 @@ namespace SpdReaderWriterDll {
                     if (IsConnected) {
                         string _name = name.Trim();
 
-                        if (_name == GetName()) {
+                        if (_name == GetNameInternal()) {
                             return false;
                         }
 
@@ -1012,7 +1011,7 @@ namespace SpdReaderWriterDll {
         /// Gets Device's name
         /// </summary>
         /// <returns>Device's name</returns>
-        private string GetNameInternal() {
+        internal string GetNameInternal() {
             lock (PortLock) {
                 try {
                     if (CurrentName == null) {
@@ -1030,7 +1029,7 @@ namespace SpdReaderWriterDll {
         /// Finds devices connected to computer 
         /// </summary>
         /// <returns>An array of serial port names which have valid devices connected to</returns>
-        public string[] FindInternal() {
+        internal string[] FindInternal() {
             Stack<string> _result = new Stack<string>();
 
             lock (FindLock) {
@@ -1046,7 +1045,7 @@ namespace SpdReaderWriterDll {
                         }
                     }
                     catch {
-                        // Do nothing
+                        continue;
                     }
                 }
             }
@@ -1059,7 +1058,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true" /> if DDR4 is found</returns>
-        private bool DetectDdr4Internal(UInt8 address) {
+        internal bool DetectDdr4Internal(UInt8 address) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -1076,7 +1075,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true" /> if DDR5 is found</returns>
-        private bool DetectDdr5Internal(UInt8 address) {
+        internal bool DetectDdr5Internal(UInt8 address) {
             lock (PortLock) {
                 try {
                     return IsConnected &&
@@ -1091,7 +1090,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
         /// </summary>
-        private void ClearBufferInternal() {
+        internal void ClearBufferInternal() {
             lock (PortLock) {
                 try {
                     if (IsConnected) {
@@ -1120,7 +1119,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Clears serial port buffers and causes any buffered data to be written
         /// </summary>
-        private void FlushBufferInternal() {
+        internal void FlushBufferInternal() {
             lock (PortLock) {
                 if (IsConnected) {
                     _sp.BaseStream.Flush();
@@ -1134,12 +1133,12 @@ namespace SpdReaderWriterDll {
         /// <param name="command">Bytes to be sent to the device</param>
         /// <param name="responseLength">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
-        private byte[] ExecuteCommandInternal(byte[] command, uint responseLength) {
+        internal byte[] ExecuteCommandInternal(byte[] command, uint responseLength) {
             if (command.Length == 0) {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
 
-            Queue<byte> _response = new Queue<byte>();
+            byte[] _response = new byte[responseLength];
 
             lock (PortLock) {
                 try {
@@ -1160,6 +1159,7 @@ namespace SpdReaderWriterDll {
                         }
 
                         // Timeout monitoring start
+                        bool timeout = true;
                         Stopwatch sw = new Stopwatch();
                         sw.Start();
                         while (PortSettings.ResponseTimeout * 1000 > sw.ElapsedMilliseconds) {
@@ -1170,19 +1170,20 @@ namespace SpdReaderWriterDll {
 
                             // Wait for data
                             if (ResponseData != null && ResponseData.Count >= responseLength && !DataReceiving) {
-                                _response = ResponseData;
+                                for (int i = 0; i < _response.Length; i++) {
+                                    _response[i] = ResponseData.Dequeue();
+                                }
+                                timeout = false;
                                 break;
                             }
-
-                            //Wait(1);
                         }
 
-                        if (_response.Count == 0 || _response.Count < responseLength) {
+                        if (timeout) {
                             throw new TimeoutException("Response timeout");
-                        }                        
-                    }                    
+                        }
+                    }
 
-                    return _response.ToArray();
+                    return _response;
                 }
                 catch {
                     throw new IOException($"{PortName} failed to execute command {command}");
@@ -1191,21 +1192,13 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Delays execution 
-        /// </summary>
-        /// <param name="timeout">Delay in milliseconds</param>
-        private void Wait(int timeout = 10) {
-            Thread.Sleep(timeout);
-        }
-
-        /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private static readonly object _portLock = new object();
+        internal static readonly object _portLock = new object();
 
         /// <summary>
         /// FindLock object used to prevent other threads from acquiring the lock
         /// </summary>
-        private static readonly object _findLock = new object();
+        internal static readonly object _findLock = new object();
     }
 }
