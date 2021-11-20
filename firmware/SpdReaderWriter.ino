@@ -16,12 +16,12 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211116  // Version number (YYYYMMDD)
+#define VERSION 20211119  // Version number (YYYYMMDD)
 
-// RSWP RAM support bitmask
-#define DDR3 (1 << 3) // SA1+VHV controls
-#define DDR4 (1 << 4) // VHV control
+// RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
+#define DDR4 (1 << 4) // VHV control
+#define DDR3 (1 << 3) // VHV+SA1 controls
 
 // SPD5 hub registers
 #pragma region SPD5 hub registers
