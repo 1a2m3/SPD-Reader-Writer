@@ -15,8 +15,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
-    public class Device {
-        
+    public class Device {        
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
@@ -75,6 +74,13 @@ namespace SpdReaderWriterDll {
             }            
 
             return _string.Trim();
+        }
+
+        /// <summary>
+        /// Device class destructor
+        /// </summary>
+        ~Device() {
+            DisposeInternal();
         }
 
         /// <summary>
@@ -565,16 +571,14 @@ namespace SpdReaderWriterDll {
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
         public static void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
-            SerialPort __sp = (SerialPort)sender;
 
-            while (__sp != null && 
-                   __sp.IsOpen && 
-                   __sp.BytesToRead > 0) {
-                DataReceiving = true;
-                ResponseData.Enqueue((byte)__sp.ReadByte());
+            if (sender != null && sender.GetType() == typeof(SerialPort)) {
+                while (((SerialPort)sender).IsOpen && ((SerialPort)sender).BytesToRead > 0) {
+                    DataReceiving = true;
+                    ResponseData.Enqueue((byte)((SerialPort)sender).ReadByte());
+                }
+                DataReceiving = false;
             }
-
-            DataReceiving = false;
         }
 
         /// <summary>
@@ -583,9 +587,10 @@ namespace SpdReaderWriterDll {
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
         public static void ErrorReceivedHandler(object sender, SerialErrorReceivedEventArgs e) {
-            SerialPort __sp = (SerialPort)sender;
 
-            throw new Exception($"Error received: {__sp.PortName}");
+            if (sender != null && sender.GetType() == typeof(SerialPort)) {
+                throw new Exception($"Error received: {((SerialPort)sender).PortName}");
+            }
         }
 
         /// <summary>
@@ -606,12 +611,10 @@ namespace SpdReaderWriterDll {
             lock (PortLock) {
                 if (!IsConnected) {
                     // New connection settings
-                    _sp = new SerialPort {
-                        PortName  = PortName,
-                        BaudRate  = PortSettings.BaudRate,
-                        DtrEnable = PortSettings.DtrEnable,
-                        RtsEnable = PortSettings.RtsEnable,
-                    };
+                    _sp.PortName = PortName;
+                    _sp.BaudRate = PortSettings.BaudRate;
+                    _sp.DtrEnable = PortSettings.DtrEnable;
+                    _sp.RtsEnable = PortSettings.RtsEnable;
 
                     // Event to handle Data Reception
                     _sp.DataReceived += DataReceivedHandler;
@@ -677,10 +680,13 @@ namespace SpdReaderWriterDll {
         /// </summary>
         internal void DisposeInternal() {
             lock (PortLock) {
-                if (_sp.IsOpen) {
+                if (_sp != null && _sp.IsOpen) {
                     _sp.Close();
                     _sp = null;
                 }
+                DataReceiving = false;
+                IsValid = false;
+                ResponseData.Clear();
             }
         }
 
@@ -1159,7 +1165,6 @@ namespace SpdReaderWriterDll {
                         }
 
                         // Timeout monitoring start
-                        bool timeout = true;
                         Stopwatch sw = new Stopwatch();
                         sw.Start();
                         while (PortSettings.ResponseTimeout * 1000 > sw.ElapsedMilliseconds) {
@@ -1173,17 +1178,12 @@ namespace SpdReaderWriterDll {
                                 for (int i = 0; i < _response.Length; i++) {
                                     _response[i] = ResponseData.Dequeue();
                                 }
-                                timeout = false;
                                 break;
                             }
                         }
-
-                        if (timeout) {
-                            throw new TimeoutException("Response timeout");
-                        }
+                        return _response;
                     }
-
-                    return _response;
+                    throw new TimeoutException("Response timeout");
                 }
                 catch {
                     throw new IOException($"{PortName} failed to execute command {command}");
