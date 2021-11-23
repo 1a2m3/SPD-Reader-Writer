@@ -858,12 +858,14 @@ uint8_t getPageAddress(bool lowLevel = false) {
 }
 
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
-void setPageAddress(uint8_t pageNumber) {
+bool setPageAddress(uint8_t pageNumber) {
 
   if (pageNumber < 2) {
     probeDeviceTypeId((pageNumber == 0) ? SPA0 : SPA1);
     eepromPageAddress = pageNumber;
+    return true;
   }
+  return false;
 }
 
 // Adjusts page address according to byte offset specified
@@ -1038,6 +1040,14 @@ bool ddr4Detect(uint8_t address) {
     return false;
   }
 
+  if ((setPageAddress(0) ^ getPageAddress(true)) !=
+      (setPageAddress(1) ^ getPageAddress(true))) {
+    return true;
+  }
+
+  return false;
+
+  /*
   bool result = true;
   bool avrCpu = true;
   byte eePage = 128;
@@ -1093,6 +1103,7 @@ bool ddr4Detect(uint8_t address) {
   }
 
   return result;
+  */
 }
 
 // DDR5 detetion
