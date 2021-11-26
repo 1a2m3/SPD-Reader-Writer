@@ -1122,10 +1122,10 @@ bool ddr5Detect(uint8_t address) {
 
 // Restores device's default settings
 bool factoryReset() {
-  for (uint8_t i = 0; i < 32; i++) {
+  for (uint8_t i = 0; i <= 32; i++) {
     EEPROM.update(i, ZERO);
   }
-  for (uint8_t i = 0; i < 32; i++) {
+  for (uint8_t i = 0; i <= 32; i++) {
     if (EEPROM.read(i) != ZERO) {
       return false;
     }
