@@ -378,7 +378,7 @@ void cmdRetestRswp() {
 }
 
 void cmdDdr4Detect() {
-  // Data buffer for address
+  // Data buffer for i2c address
   byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
@@ -387,7 +387,7 @@ void cmdDdr4Detect() {
 }
 
 void cmdDdr5Detect() {
-  // Data buffer for address
+  // Data buffer for i2c address
   byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
@@ -807,7 +807,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
 
 #ifdef __AVR__
 
-  uint8_t status = 0;
+  uint8_t status = ERROR;
 
   // Send start condition
   TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWEA) | _BV(TWSTA);
@@ -848,7 +848,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
   switch (status) {
     case 0x40: return 0;
     case 0x48: return 1;
-    default: return ERROR;
+    default: return status;
   }
 
 #endif
@@ -1040,12 +1040,7 @@ bool ddr4Detect(uint8_t address) {
     return false;
   }
 
-  if ((setPageAddress(0) ^ getPageAddress(true)) !=
-      (setPageAddress(1) ^ getPageAddress(true))) {
-    return true;
-  }
-
-  return false;
+  return ((setPageAddress(0) ^ getPageAddress(true)) != (setPageAddress(1) ^ getPageAddress(true)));
 
   /*
   bool result = true;
