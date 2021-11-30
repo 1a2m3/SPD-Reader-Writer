@@ -830,8 +830,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
   // Check status (0x40 = ACK = page 0; 0x48 = NACK = page 1)
   status = (TWSR & 0xF8);
 
-  // Write 2xDNC after ACK. If status is NACK (0x48), stop and return 1
-  /*
+  // Write 2xDNC after control byte
   if (status == 0x40) {
     for (int i = 0; i < 2; i++) {
       TWDR = DNC;
@@ -839,7 +838,6 @@ uint8_t getPageAddress(bool lowLevel = false) {
       while (!(TWCR & (_BV(TWINT)))) {}
     }
   }
-  */
 
   // Send stop condition
   TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWEA) | _BV(TWSTO);
