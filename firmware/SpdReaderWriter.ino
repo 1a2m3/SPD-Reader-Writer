@@ -102,23 +102,16 @@
 #define GETVERSION   'v' // Get FW version
 #define TESTCOMM     't' // Test communication
 #define RSWPREPORT   'f' // Initial supported RSWP capabilities
+#define RETESTRSWP   'e' // Reevaluate supported RSWP capabilities
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
-#define RETESTRSWP   'e' // Reevaluate RSWP capabilities
 #define FACTORYRESET '-' // Factory reset device settings
 #pragma endregion
 
-// Device pin names
-#define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
-#define SA1_SWITCH          1 // Pin to toggle SA1 state
-#define HIGH_VOLTAGE_SWITCH 9 // Pin to toggle VHV on SA0 pin
-
-// Device responses
-#define SUCCESS (byte) 0x01
-#define ERROR   (byte) 0xFF
-#define ZERO    (byte) 0x00
-#define WELCOME (char) '!'
-#define UNKNOWN (char) '?'
+// Device pin names (SpdReaderWriterDll.Pin.Name class)
+#define OFFLINE_MODE_SWITCH (uint8_t) 0 // Pin to toggle SPD5 offline mode
+#define SA1_SWITCH          (uint8_t) 1 // Pin to toggle SA1 state
+#define HIGH_VOLTAGE_SWITCH (uint8_t) 9 // Pin to toggle VHV on SA0 pin
 
 // Pin states
 #define ON             HIGH
@@ -128,6 +121,13 @@
 #define DISABLE (byte) 0x00
 #define RESET   (byte) 0x00
 #define GET     (char) '?'  // Suffix added to commands to return current state
+
+// Device responses
+#define SUCCESS (byte) 0x01
+#define ERROR   (byte) 0xFF
+#define ZERO    (byte) 0x00
+#define WELCOME (char) '!'
+#define UNKNOWN (char) '?'
 
 // Device name settings
 #define NAMELENGTH 16
@@ -1040,65 +1040,8 @@ bool ddr4Detect(uint8_t address) {
     return false;
   }
 
-  return ((setPageAddress(0) ^ getPageAddress(true)) != (setPageAddress(1) ^ getPageAddress(true)));
-
-  /*
-  bool result = true;
-  bool avrCpu = true;
-  byte eePage = 128;
-
-  for (uint8_t i = 0; i <= 1; i++) {
-    setPageAddress(i);
-    eePage = getPageAddress(true);
-    if (eePage == ERROR) { // unsupported hardware, switch to alternative methods
-      avrCpu = false;
-      break;
-    }
-    if (eePage != i && eePage != ERROR ) {
-      result = false;
-      break;
-    }
-  }
-
-  if (avrCpu) {
-    return result;
-  }
-  
-  // Alternative methods for non-AVR controllers
-
-  result = false; // presume DDR4 is not present
-
-  // Read protection status of blocks 1-3, if at least one is unprotected, return true.
-  for (uint8_t i = 1; i <= 3; i++) {
-    if (getRswp(i)) {
-      return true;
-    }
-  }
-
-  // Check for TS registers, if present, return true.
-  if (probeBusAddress(TSRB << 3 | address & 0b111)) {
-    return true;
-  }
-
-  // Read data from 2 pages, if contents don't match, return true.
-  uint8_t pageSize = 16;
-  byte page0[pageSize];
-  byte page1[pageSize];
-
-  for (uint16_t i = 0; i <= 256; i += pageSize) {
-
-    readByte(address, i,       pageSize, page0); // Read page 0
-    readByte(address, i + 256, pageSize, page1); // Read page 1
-
-    for (uint8_t j = 0; j < pageSize; j++) {
-      if (page0[j] != page1[j]) {
-        return true;
-      }
-    }
-  }
-
-  return result;
-  */
+  return ((setPageAddress(0) ^ getPageAddress(true)) !=
+          (setPageAddress(1) ^ getPageAddress(true)));
 }
 
 // DDR5 detetion
