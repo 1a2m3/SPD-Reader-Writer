@@ -104,17 +104,17 @@ namespace SpdReaderWriterDll {
 
             switch (GetRamType(input)) {
                 case Ram.Type.DDR4:
-                    manufacturerId = input[0x140] << 8 | input[0x141]; 
+                    manufacturerId = input[0x140] << 8 | input[0x141];
                     break;
                 case Ram.Type.DDR3:
                 case Ram.Type.DDR2_FB_DIMM:
                     manufacturerId = input[0x75] << 8 | input[0x76];
                     break;
-                
+
                 // Vendor ID location for DDR2 and older RAM SPDs
                 default:
                     vendorIdOffsetStart = 0x40;
-                    vendorIdOffsetEnd   = 0x47;
+                    vendorIdOffsetEnd = 0x47;
                     break;
             }
 
@@ -243,24 +243,24 @@ namespace SpdReaderWriterDll {
                     modelNameEnd   = 0x226;
                     break;
                 // Part number location for DDR4 SPDs
-                case Ram.Type.DDR4: 
+                case Ram.Type.DDR4:
                     modelNameStart = 0x149;
                     modelNameEnd   = 0x15C;
                     break;
                 // Part number location for DDR3 SPDs
-                case Ram.Type.DDR3: 
+                case Ram.Type.DDR3:
                     modelNameStart = 0x80;
                     modelNameEnd   = 0x91;
                     break;
                 // Part number location for DDR2 and older RAM SPDs
-                default:		   
+                default:
                     modelNameStart = 0x49;
                     modelNameEnd   = 0x5A;
                     break;
             }
 
             if (input.Length < modelNameEnd) {
-                throw new InvalidDataException("Incomplete Data");
+                throw new InvalidDataException("Incomplete SPD Data");
             }
 
             char[] _chars = new char[modelNameEnd - modelNameStart + 1];
@@ -401,7 +401,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Boolean input</param>
         /// <returns>1 if the input is <see langword="true" />, or 0, when the input is <see langword="false" /></returns>
         public static UInt8 BoolToInt(bool input) {
-            return (UInt8) (input ? 1 : 0);
+            return (UInt8)(input ? 1 : 0);
         }
     }
 }
