@@ -671,13 +671,20 @@ bool setRswp(uint8_t block) {
 
 // Reads reversible write protection status
 bool getRswp(uint8_t block) {
-
+  
   byte commands[] = { RPS0, RPS1, RPS2, RPS3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
-  setHighVoltage(OFF);
+  // Jedec EE1002(A) compliance
+  if (block == 0 && !ddr4Detect()) {
+    setHighVoltage(ON);
+  }
 
-  return probeDeviceTypeId(cmd);  // true = unprotected; false = protected or rswp not supported
+  bool status = probeDeviceTypeId(cmd);  // true = unprotected; false = protected or rswp not supported
+
+  resetPins();
+
+  return status;
 }
 
 // Clears reversible software write protection
@@ -1037,18 +1044,18 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
   return Wire.requestFrom(cmd, (uint8_t)1) > 0; // true when ACK is received after control byte
 }
 
-// DDR4 detection test
+// DDR4 detection test (address)
 bool ddr4Detect(uint8_t address) {
+  return probeBusAddress(address) && ddr4Detect();
+}
 
-  if (!probeBusAddress(address) || !scanBus()) {
-    return false;
-  }
-
+// DDR4 detection test (generic)
+bool ddr4Detect() {
   return ((setPageAddress(0) ^ getPageAddress(true)) !=
           (setPageAddress(1) ^ getPageAddress(true)));
 }
 
-// DDR5 detetion
+// DDR5 detetion test
 bool ddr5Detect(uint8_t address) {
 
   if (!probeBusAddress(address) || !scanBus()) {
