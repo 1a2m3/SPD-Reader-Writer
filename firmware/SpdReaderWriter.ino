@@ -567,7 +567,7 @@ void cmdPinControl() {
   // VHV 9V controls
   else if (pin == HIGH_VOLTAGE_SWITCH) {
     // Toggle HV state
-    if (state == 0 || state == 1) {
+    if (state == ENABLE || state == DISABLE) {
       PORT.write(setHighVoltage(state) ? SUCCESS : ERROR);
     }
     // Get HV state
@@ -658,12 +658,15 @@ bool setRswp(uint8_t block) {
   byte commands[] = { SWP0, SWP1, SWP2, SWP3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
-  setHighVoltage(ON);
-  setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
-  bool result = probeDeviceTypeId(cmd);
-  resetPins();
+  if (setHighVoltage(ON)) {
+    setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
+    bool result = probeDeviceTypeId(cmd);
+    resetPins();
 
-  return result;
+    return result;
+  }
+  
+  return false;
 }
 
 // Reads reversible write protection status
@@ -680,12 +683,15 @@ bool getRswp(uint8_t block) {
 // Clears reversible software write protection
 bool clearRswp() {
 
-  setHighVoltage(ON);
-  setConfigPin(SA1_EN, ON); // Required for pre-DDR4
-  bool result = probeDeviceTypeId(CWP);
-  resetPins();
+  if (setHighVoltage(ON)) {
+    setConfigPin(SA1_EN, ON); // Required for pre-DDR4
+    bool result = probeDeviceTypeId(CWP);
+    resetPins();
 
-  return result;
+    return result;
+  }
+
+  return false;
 }
 
 // Test RSWP support capabilities
@@ -948,7 +954,7 @@ bool setI2cClockMode(bool mode) {
   i2cClock = mode ? 400000 : 100000;
   Wire.setClock(i2cClock);
 
-  return getI2cClockMode();
+  return getI2cClockMode() == mode;
 }
 
 // Gets saved I2C clock mode (true=fast mode, false=std mode)
