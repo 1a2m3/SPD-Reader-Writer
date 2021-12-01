@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211119  // Version number (YYYYMMDD)
+#define VERSION 20211201 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
