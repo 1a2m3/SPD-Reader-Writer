@@ -15,7 +15,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
-    public class Device {        
+    public class Device {
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
@@ -600,12 +600,13 @@ namespace SpdReaderWriterDll {
         private bool ConnectPrivate() {
             lock (PortLock) {
                 if (!IsConnected) {
-                    _sp = new SerialPort();
-                    // New connection settings
-                    _sp.PortName  = PortName;
-                    _sp.BaudRate  = PortSettings.BaudRate;
-                    _sp.DtrEnable = PortSettings.DtrEnable;
-                    _sp.RtsEnable = PortSettings.RtsEnable;
+                    _sp = new SerialPort {
+                        // New connection settings
+                        PortName = PortName,
+                        BaudRate = PortSettings.BaudRate,
+                        DtrEnable = PortSettings.DtrEnable,
+                        RtsEnable = PortSettings.RtsEnable
+                    };
 
                     // Event to handle Data Reception
                     _sp.DataReceived += DataReceivedHandler;
@@ -1158,6 +1159,8 @@ namespace SpdReaderWriterDll {
                         // Timeout monitoring start
                         Stopwatch sw = new Stopwatch();
                         sw.Start();
+
+                        // Get response
                         while (PortSettings.ResponseTimeout * 1000 > sw.ElapsedMilliseconds) {
                             // Check connection
                             if (!IsConnected) {
