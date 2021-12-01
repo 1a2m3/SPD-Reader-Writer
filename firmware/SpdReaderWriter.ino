@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211119  // Version number (YYYYMMDD)
+#define VERSION 20211201 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -102,23 +102,16 @@
 #define GETVERSION   'v' // Get FW version
 #define TESTCOMM     't' // Test communication
 #define RSWPREPORT   'f' // Initial supported RSWP capabilities
+#define RETESTRSWP   'e' // Reevaluate supported RSWP capabilities
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
-#define RETESTRSWP   'e' // Reevaluate RSWP capabilities
 #define FACTORYRESET '-' // Factory reset device settings
 #pragma endregion
 
-// Device pin names
-#define OFFLINE_MODE_SWITCH 0 // Pin to toggle SPD5 offline mode
-#define SA1_SWITCH          1 // Pin to toggle SA1 state
-#define HIGH_VOLTAGE_SWITCH 9 // Pin to toggle VHV on SA0 pin
-
-// Device responses
-#define SUCCESS (byte) 0x01
-#define ERROR   (byte) 0xFF
-#define ZERO    (byte) 0x00
-#define WELCOME (char) '!'
-#define UNKNOWN (char) '?'
+// Device pin names (SpdReaderWriterDll.Pin.Name class)
+#define OFFLINE_MODE_SWITCH (uint8_t) 0 // Pin to toggle SPD5 offline mode
+#define SA1_SWITCH          (uint8_t) 1 // Pin to toggle SA1 state
+#define HIGH_VOLTAGE_SWITCH (uint8_t) 9 // Pin to toggle VHV on SA0 pin
 
 // Pin states
 #define ON             HIGH
@@ -128,6 +121,13 @@
 #define DISABLE (byte) 0x00
 #define RESET   (byte) 0x00
 #define GET     (char) '?'  // Suffix added to commands to return current state
+
+// Device responses
+#define SUCCESS (byte) 0x01
+#define ERROR   (byte) 0xFF
+#define ZERO    (byte) 0x00
+#define WELCOME (char) '!'
+#define UNKNOWN (char) '?'
 
 // Device name settings
 #define NAMELENGTH 16
@@ -378,7 +378,7 @@ void cmdRetestRswp() {
 }
 
 void cmdDdr4Detect() {
-  // Data buffer for address
+  // Data buffer for i2c address
   byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
@@ -387,7 +387,7 @@ void cmdDdr4Detect() {
 }
 
 void cmdDdr5Detect() {
-  // Data buffer for address
+  // Data buffer for i2c address
   byte buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
@@ -567,7 +567,7 @@ void cmdPinControl() {
   // VHV 9V controls
   else if (pin == HIGH_VOLTAGE_SWITCH) {
     // Toggle HV state
-    if (state == 0 || state == 1) {
+    if (state == ENABLE || state == DISABLE) {
       PORT.write(setHighVoltage(state) ? SUCCESS : ERROR);
     }
     // Get HV state
@@ -658,12 +658,15 @@ bool setRswp(uint8_t block) {
   byte commands[] = { SWP0, SWP1, SWP2, SWP3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
-  setHighVoltage(ON);
-  setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
-  bool result = probeDeviceTypeId(cmd);
-  resetPins();
+  if (setHighVoltage(ON)) {
+    setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
+    bool result = probeDeviceTypeId(cmd);
+    resetPins();
 
-  return result;
+    return result;
+  }
+  
+  return false;
 }
 
 // Reads reversible write protection status
@@ -680,12 +683,15 @@ bool getRswp(uint8_t block) {
 // Clears reversible software write protection
 bool clearRswp() {
 
-  setHighVoltage(ON);
-  setConfigPin(SA1_EN, ON); // Required for pre-DDR4
-  bool result = probeDeviceTypeId(CWP);
-  resetPins();
+  if (setHighVoltage(ON)) {
+    setConfigPin(SA1_EN, ON); // Required for pre-DDR4
+    bool result = probeDeviceTypeId(CWP);
+    resetPins();
 
-  return result;
+    return result;
+  }
+
+  return false;
 }
 
 // Test RSWP support capabilities
@@ -807,7 +813,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
 
 #ifdef __AVR__
 
-  uint8_t status = 0;
+  uint8_t status = ERROR;
 
   // Send start condition
   TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWEA) | _BV(TWSTA);
@@ -830,8 +836,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
   // Check status (0x40 = ACK = page 0; 0x48 = NACK = page 1)
   status = (TWSR & 0xF8);
 
-  // Write 2xDNC after ACK. If status is NACK (0x48), stop and return 1
-  /*
+  // Write 2xDNC after control byte
   if (status == 0x40) {
     for (int i = 0; i < 2; i++) {
       TWDR = DNC;
@@ -839,7 +844,6 @@ uint8_t getPageAddress(bool lowLevel = false) {
       while (!(TWCR & (_BV(TWINT)))) {}
     }
   }
-  */
 
   // Send stop condition
   TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWEA) | _BV(TWSTO);
@@ -848,7 +852,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
   switch (status) {
     case 0x40: return 0;
     case 0x48: return 1;
-    default: return ERROR;
+    default: return status;
   }
 
 #endif
@@ -858,12 +862,14 @@ uint8_t getPageAddress(bool lowLevel = false) {
 }
 
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
-void setPageAddress(uint8_t pageNumber) {
+bool setPageAddress(uint8_t pageNumber) {
 
   if (pageNumber < 2) {
     probeDeviceTypeId((pageNumber == 0) ? SPA0 : SPA1);
     eepromPageAddress = pageNumber;
+    return true;
   }
+  return false;
 }
 
 // Adjusts page address according to byte offset specified
@@ -948,7 +954,7 @@ bool setI2cClockMode(bool mode) {
   i2cClock = mode ? 400000 : 100000;
   Wire.setClock(i2cClock);
 
-  return getI2cClockMode();
+  return getI2cClockMode() == mode;
 }
 
 // Gets saved I2C clock mode (true=fast mode, false=std mode)
@@ -1038,61 +1044,8 @@ bool ddr4Detect(uint8_t address) {
     return false;
   }
 
-  bool result = true;
-  bool avrCpu = true;
-  byte eePage = 128;
-
-  for (uint8_t i = 0; i <= 1; i++) {
-    setPageAddress(i);
-    eePage = getPageAddress(true);
-    if (eePage == ERROR) { // unsupported hardware, switch to alternative methods
-      avrCpu = false;
-      break;
-    }
-    if (eePage != i && eePage != ERROR ) {
-      result = false;
-      break;
-    }
-  }
-
-  if (avrCpu) {
-    return result;
-  }
-  
-  // Alternative methods for non-AVR controllers
-
-  result = false; // presume DDR4 is not present
-
-  // Read protection status of blocks 1-3, if at least one is unprotected, return true.
-  for (uint8_t i = 1; i <= 3; i++) {
-    if (getRswp(i)) {
-      return true;
-    }
-  }
-
-  // Check for TS registers, if present, return true.
-  if (probeBusAddress(TSRB << 3 | address & 0b111)) {
-    return true;
-  }
-
-  // Read data from 2 pages, if contents don't match, return true.
-  uint8_t pageSize = 16;
-  byte page0[pageSize];
-  byte page1[pageSize];
-
-  for (uint16_t i = 0; i <= 256; i += pageSize) {
-
-    readByte(address, i,       pageSize, page0); // Read page 0
-    readByte(address, i + 256, pageSize, page1); // Read page 1
-
-    for (uint8_t j = 0; j < pageSize; j++) {
-      if (page0[j] != page1[j]) {
-        return true;
-      }
-    }
-  }
-
-  return result;
+  return ((setPageAddress(0) ^ getPageAddress(true)) !=
+          (setPageAddress(1) ^ getPageAddress(true)));
 }
 
 // DDR5 detetion
@@ -1111,10 +1064,10 @@ bool ddr5Detect(uint8_t address) {
 
 // Restores device's default settings
 bool factoryReset() {
-  for (uint8_t i = 0; i < 32; i++) {
+  for (uint8_t i = 0; i <= 32; i++) {
     EEPROM.update(i, ZERO);
   }
-  for (uint8_t i = 0; i < 32; i++) {
+  for (uint8_t i = 0; i <= 32; i++) {
     if (EEPROM.read(i) != ZERO) {
       return false;
     }
