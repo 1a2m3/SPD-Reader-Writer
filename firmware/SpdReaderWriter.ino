@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211201 // Version number (YYYYMMDD)
+#define VERSION 20211202 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -675,7 +675,7 @@ bool getRswp(uint8_t block) {
   byte commands[] = { RPS0, RPS1, RPS2, RPS3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
-  // Jedec EE1002(A), TSE2002av compliance
+  // Jedec EE1002(A), TSE2002av compliance  
   if (block == 0 && !ddr4Detect()) {
     setHighVoltage(ON);
   }
