@@ -179,7 +179,7 @@ void setup() {
   while (!PORT) {}
   
   // Send a welcome byte when the device is ready
-  PORT.write(WELCOME);
+  cmdTest();
 }
 
 void loop() {
@@ -366,7 +366,11 @@ void cmdScanBus() {
 }
 
 void cmdTest() {
+  #ifdef __AVR__
   PORT.write(WELCOME);
+  #else
+  PORT.write(UNKNOWN);
+  #endif
 }
 
 void cmdRswpReport() {
@@ -658,9 +662,17 @@ bool setRswp(uint8_t block) {
   byte commands[] = { SWP0, SWP1, SWP2, SWP3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
+  bool ddr4 = ddr4Detect();
+  bool result;
+
   if (setHighVoltage(ON)) {
     setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
-    bool result = probeDeviceTypeId(cmd);
+    if (block > 0 && !ddr4) {      
+      result = false;
+    }
+    else {
+      result = probeDeviceTypeId(cmd);
+    }
     resetPins();
 
     return result;
@@ -782,7 +794,6 @@ bool setPswp(uint8_t deviceAddress) {
   Wire.write(DNC);
   Wire.write(DNC);
   int status = Wire.endTransmission();
-  delay(10);
 
   return status == 0;
 
@@ -800,8 +811,7 @@ bool getPswp(uint8_t deviceAddress) {
   // Write 1 DNC byte to force LSB to set to 1
   Wire.write(DNC);
   int status = Wire.endTransmission();
-  delay(10);
-
+  
   return status == 0;  // returns true if PSWP is not set
 
   //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
@@ -882,11 +892,12 @@ bool setPageAddress(uint8_t pageNumber) {
 // Adjusts page address according to byte offset specified
 void adjustPageAddress(uint8_t address, uint16_t offset) {
 
-  // Assume DDR4 is present, do not call ddr4Detect() for performance reasons
-  if (offset < 512) {
-    // Get offset MSB to see if it is below 0x100 or above 0xFF
-    uint8_t page = offset >> 8;  // DDR4 page
-    if (getPageAddress() != page) {
+  uint8_t page;
+
+  // Assume DDR4 is present
+  if (offset <= 256) {
+    page = offset >> 8;  // DDR4 page
+    if (getPageAddress() != page && ddr4Detect(address)) {
       setPageAddress(page);
     }
   }
@@ -897,7 +908,7 @@ void adjustPageAddress(uint8_t address, uint16_t offset) {
     setLegacyModeAddress(address, false);
 
     // Write page address to MR11[2:0]
-    uint8_t page = offset >> 7;  // DDR5 page
+    page = offset >> 7;  // DDR5 page
 
     writeByte((MEMREG & address), (uint8_t)(MR11), (byte)(page));
     // TODO: TBT
@@ -986,7 +997,8 @@ byte scanBus() {
 // Control config pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
-  return digitalRead(pin) == state;
+  delay(10);
+  return getConfigPin(pin) == state;
 }
 
 // Get config pin state
