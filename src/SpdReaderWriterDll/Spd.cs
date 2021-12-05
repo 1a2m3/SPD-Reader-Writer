@@ -45,12 +45,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets RAM type from SPD data
         /// </summary>
-        /// <param name="spd">SPD dump</param>
+        /// <param name="input">SPD dump</param>
         /// <returns>RAM Type</returns>
-        public static Ram.Type GetRamType(byte[] spd) {
+        public static Ram.Type GetRamType(byte[] input) {
             // Byte at offset 0x02 in SPD indicates RAM type
-            if (spd.Length >= 3) {
-                byte _rt = spd[0x02];
+            if (input.Length >= 3) {
+                byte _rt = input[0x02];
                 if (Enum.IsDefined(typeof(Ram.Type), (Ram.Type)_rt)) {
                     return (Ram.Type)_rt;
                 }
@@ -65,7 +65,28 @@ namespace SpdReaderWriterDll {
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
         public static SpdSize GetSpdSize(Device device) {
-            return GetSpdSize(GetRamType(device));
+
+            if (device == null) {
+                throw new NullReferenceException($"Invalid device");
+            }
+
+            if (!device.IsConnected) {
+                throw new IOException($"Device not connected ({device.PortName})");
+            }
+
+            if (device.DetectDdr5()) {
+                return SpdSize.DDR5;
+            }
+
+            if (device.DetectDdr4()) { 
+                return (SpdSize.DDR4);
+            }
+
+            if (device.Scan().Length != 0) {
+                return SpdSize.DDR3;
+            }
+
+            return 0;            
         }
 
         /// <summary>
@@ -89,6 +110,26 @@ namespace SpdReaderWriterDll {
                 default:
                     return SpdSize.UNKNOWN;
             }
+        }
+
+        /// <summary>
+        /// Validates SPD data
+        /// </summary>
+        /// <param name="input">SPD contents</param>
+        /// <returns> <see langword="true" /> if <paramref name="input"/> data is a valid SPD dump</returns>
+        public static bool ValidateSpd(byte[] input) {
+
+            return (input.Length == (int)SpdSize.DDR5 || input.Length == (int)SpdSize.DDR4 || input.Length == (int)SpdSize.DDR3) &&
+                    (
+                        (input.Length == (int)SpdSize.DDR5 && GetRamType(input) == Ram.Type.DDR5) ||
+                        (input.Length == (int)SpdSize.DDR4 && GetRamType(input) == Ram.Type.DDR4) ||
+                        (input.Length == (int)SpdSize.DDR3 &&
+                            (GetRamType(input) == Ram.Type.DDR3 ||
+                             GetRamType(input) == Ram.Type.DDR2 ||
+                             GetRamType(input) == Ram.Type.DDR  ||
+                             GetRamType(input) == Ram.Type.SDRAM)
+                    )
+                );
         }
 
         /// <summary>
