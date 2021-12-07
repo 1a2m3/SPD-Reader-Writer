@@ -123,11 +123,15 @@
 #define GET     (char) '?'  // Suffix added to commands to return current state
 
 // Device responses
-#define SUCCESS (byte) 0x01
-#define ERROR   (byte) 0xFF
-#define ZERO    (byte) 0x00
-#define WELCOME (char) '!'
-#define UNKNOWN (char) '?'
+#define SUCCESS  (byte) 0x01
+#define ENABLED  (byte) 0x01
+#define ACK      (byte) 0x01
+#define ZERO     (byte) 0x00
+#define DISABLED (byte) 0x00
+#define NACK     (byte) 0xFF
+#define ERROR    (byte) 0xFF
+#define WELCOME  (char) '!'
+#define UNKNOWN  (char) '?'
 
 // Device name settings
 #define NAMELENGTH 16
@@ -487,13 +491,13 @@ void cmdRSWP() {
   if (state == ENABLE) {
     PORT.write(setRswp(block) ? SUCCESS : ERROR);
   }
-  // clear RSWP (block number is ignored)
+  // clear RSWP (all blocks)
   else if (state == DISABLE) {
     PORT.write(clearRswp() ? SUCCESS : ERROR);
   }
   // get RSWP status
   else if (state == GET) {
-    PORT.write(getRswp(block) ? SUCCESS : ERROR);
+    PORT.write(getRswp(block) ? ENABLED : DISABLED);
   }
   // unrecognized RSWP command
   else {
@@ -518,7 +522,7 @@ void cmdPSWP() {
   }
   // read PSWP
   else if (state == GET) {
-    PORT.write(getPswp(address) ? SUCCESS : ERROR);
+    PORT.write(getPswp(address) ? ENABLED : DISABLED);
   }
   // unknown state
   else {
@@ -692,11 +696,11 @@ bool getRswp(uint8_t block) {
     setHighVoltage(ON);
   }
 
-  bool status = probeDeviceTypeId(cmd);
+  bool status = probeDeviceTypeId(cmd); // true/ack = not protected
 
   resetPins();
 
-  return status; // true = unprotected; false = protected or rswp not supported
+  return !status; // true = protected or rswp not supported; false = unprotected
 }
 
 // Clears reversible software write protection
