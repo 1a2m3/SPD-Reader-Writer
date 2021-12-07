@@ -60,12 +60,12 @@
 #define RPS2 0x6B  // Read SWP2 status         (addresses 100h to 17Fh) (256-383) (DDR4)
 #define RPS3 0x61  // Read SWP3 status         (addresses 180h to 1FFh) (384-511) (DDR4)
 
-#define SWP0 0x62  // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
+#define SWP0 0x62  // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2) *
 #define SWP1 0x68  // Set RSWP for block 1     (addresses  80h to  FFh) (128-255) (DDR4)
 #define SWP2 0x6A  // Set RSWP for block 2     (addresses 100h to 17Fh) (256-383) (DDR4)
-#define SWP3 0x60  // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)
+#define SWP3 0x60  // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)           *
 
-#define CWP  0x66  // Clear RSWP                                                  (DDR4/DDR3/DDR2)
+#define CWP  0x66  // Clear RSWP                                                  (DDR4/DDR3/DDR2) *
 #pragma endregion
 
 // EEPROM PSWP commands
@@ -557,7 +557,7 @@ void cmdPinControl() {
     // Toggle SA1 state
     if (state == ENABLE || state == DISABLE) {
       setConfigPin(pins[pin], state);
-      PORT.write(digitalRead(pins[pin]) == state ? SUCCESS : ERROR);
+      PORT.write(getConfigPin(pins[pin]) == state ? SUCCESS : ERROR);
     }
     // Get SA1 state
     else if (state == GET) {
@@ -773,7 +773,7 @@ bool setHighVoltage(bool state) {
 
 // Returns HV status by reading HV_FB
 bool getHighVoltage() {
-  return digitalRead(HV_EN) && digitalRead(HV_FB);
+  return getConfigPin(HV_EN) && getConfigPin(HV_FB);
 }
 
 
@@ -783,7 +783,7 @@ bool getHighVoltage() {
 bool setPswp(uint8_t deviceAddress) {
 
   if (ddr4Detect(deviceAddress) || ddr5Detect(deviceAddress)) {
-    return ERROR;
+    return false;
   }
 
   // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
@@ -828,7 +828,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
     return eepromPageAddress;
   }
 
-#ifdef __AVR__
+//#ifdef __AVR__
 
   uint8_t status = ERROR;
 
@@ -872,7 +872,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
     default: return status;
   }
 
-#endif
+//#endif
 
   // Non-AVR response
   return ERROR;
@@ -897,7 +897,7 @@ void adjustPageAddress(uint8_t address, uint16_t offset) {
   // Assume DDR4 is present
   if (offset <= 256) {
     page = offset >> 8;  // DDR4 page
-    if (getPageAddress() != page && ddr4Detect(address)) {
+    if (getPageAddress() != page) {
       setPageAddress(page);
     }
   }
@@ -997,12 +997,21 @@ byte scanBus() {
 // Control config pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
-  delay(10);
+  if (pin == SA1_SWITCH) {
+    delay(5);
+  }
+
   return getConfigPin(pin) == state;
 }
 
 // Get config pin state
 bool getConfigPin(uint8_t pin) {
+  // SA1 state check
+  if (pin == SA1_SWITCH) {
+    byte _a1 = 0b11001100; // valid addresses bitmask when SA1 is high: 82-83, 86-87
+    return (digitalRead(pin) ? ((scanBus() & _a1)) : (scanBus() & ~_a1));
+  }
+
   return digitalRead(pin);
 }
 
@@ -1015,7 +1024,12 @@ void resetPins() {
 
 // Toggle DDR5 offline mode
 bool ddr5SetOfflineMode(bool state) {
-  digitalWrite(OFF_EN, state);
+  setConfigPin(OFF_EN, state);  
+  if (state) {
+    // Set SDR-DDR4 to address 82-83 to avoid conflicts
+    setConfigPin(SA1_EN, state);
+  }  
+
   return ddr5GetOfflineMode() == state;
 }
 
@@ -1058,13 +1072,17 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
 
 // DDR4 detection test (address)
 bool ddr4Detect(uint8_t address) {
+  if (address == 0) {
+    return ddr4Detect();
+  }
+  
   return probeBusAddress(address) && ddr4Detect();
 }
 
 // DDR4 detection test (generic)
 bool ddr4Detect() {
-  return ((setPageAddress(0) ^ getPageAddress(true)) !=
-          (setPageAddress(1) ^ getPageAddress(true)));
+  // Only SPA0 is tested, RPA returns NACK after SPA1 regardless of RAM type
+  return setPageAddress(0) && getPageAddress(true) == 0;
 }
 
 // DDR5 detection test
