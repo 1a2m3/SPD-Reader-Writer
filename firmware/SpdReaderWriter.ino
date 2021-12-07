@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211202 // Version number (YYYYMMDD)
+#define VERSION 20211206 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -60,12 +60,12 @@
 #define RPS2 0x6B  // Read SWP2 status         (addresses 100h to 17Fh) (256-383) (DDR4)
 #define RPS3 0x61  // Read SWP3 status         (addresses 180h to 1FFh) (384-511) (DDR4)
 
-#define SWP0 0x62  // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
+#define SWP0 0x62  // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2) *
 #define SWP1 0x68  // Set RSWP for block 1     (addresses  80h to  FFh) (128-255) (DDR4)
 #define SWP2 0x6A  // Set RSWP for block 2     (addresses 100h to 17Fh) (256-383) (DDR4)
-#define SWP3 0x60  // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)
+#define SWP3 0x60  // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)           *
 
-#define CWP  0x66  // Clear RSWP                                                  (DDR4/DDR3/DDR2)
+#define CWP  0x66  // Clear RSWP                                                  (DDR4/DDR3/DDR2) *
 #pragma endregion
 
 // EEPROM PSWP commands
@@ -123,11 +123,15 @@
 #define GET     (char) '?'  // Suffix added to commands to return current state
 
 // Device responses
-#define SUCCESS (byte) 0x01
-#define ERROR   (byte) 0xFF
-#define ZERO    (byte) 0x00
-#define WELCOME (char) '!'
-#define UNKNOWN (char) '?'
+#define SUCCESS  (byte) 0x01
+#define ENABLED  (byte) 0x01
+#define ACK      (byte) 0x01
+#define ZERO     (byte) 0x00
+#define DISABLED (byte) 0x00
+#define NACK     (byte) 0xFF
+#define ERROR    (byte) 0xFF
+#define WELCOME  (char) '!'
+#define UNKNOWN  (char) '?'
 
 // Device name settings
 #define NAMELENGTH 16
@@ -179,7 +183,7 @@ void setup() {
   while (!PORT) {}
   
   // Send a welcome byte when the device is ready
-  PORT.write(WELCOME);
+  cmdTest();
 }
 
 void loop() {
@@ -366,7 +370,11 @@ void cmdScanBus() {
 }
 
 void cmdTest() {
+  #ifdef __AVR__
   PORT.write(WELCOME);
+  #else
+  PORT.write(UNKNOWN);
+  #endif
 }
 
 void cmdRswpReport() {
@@ -483,13 +491,13 @@ void cmdRSWP() {
   if (state == ENABLE) {
     PORT.write(setRswp(block) ? SUCCESS : ERROR);
   }
-  // clear RSWP (block number is ignored)
+  // clear RSWP (all blocks)
   else if (state == DISABLE) {
     PORT.write(clearRswp() ? SUCCESS : ERROR);
   }
   // get RSWP status
   else if (state == GET) {
-    PORT.write(getRswp(block) ? SUCCESS : ERROR);
+    PORT.write(getRswp(block) ? ENABLED : DISABLED);
   }
   // unrecognized RSWP command
   else {
@@ -514,7 +522,7 @@ void cmdPSWP() {
   }
   // read PSWP
   else if (state == GET) {
-    PORT.write(getPswp(address) ? SUCCESS : ERROR);
+    PORT.write(getPswp(address) ? ENABLED : DISABLED);
   }
   // unknown state
   else {
@@ -553,7 +561,7 @@ void cmdPinControl() {
     // Toggle SA1 state
     if (state == ENABLE || state == DISABLE) {
       setConfigPin(pins[pin], state);
-      PORT.write(digitalRead(pins[pin]) == state ? SUCCESS : ERROR);
+      PORT.write(getConfigPin(pins[pin]) == state ? SUCCESS : ERROR);
     }
     // Get SA1 state
     else if (state == GET) {
@@ -658,9 +666,17 @@ bool setRswp(uint8_t block) {
   byte commands[] = { SWP0, SWP1, SWP2, SWP3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
+  bool ddr4 = ddr4Detect();
+  bool result;
+
   if (setHighVoltage(ON)) {
     setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
-    bool result = probeDeviceTypeId(cmd);
+    if (block > 0 && !ddr4) {      
+      result = false;
+    }
+    else {
+      result = probeDeviceTypeId(cmd);
+    }
     resetPins();
 
     return result;
@@ -680,18 +696,22 @@ bool getRswp(uint8_t block) {
     setHighVoltage(ON);
   }
 
-  bool status = probeDeviceTypeId(cmd);
+  bool status = probeDeviceTypeId(cmd); // true/ack = not protected
 
   resetPins();
 
-  return status; // true = unprotected; false = protected or rswp not supported
+  return !status; // true = protected or rswp not supported; false = unprotected
 }
 
 // Clears reversible software write protection
 bool clearRswp() {
 
-  if (setHighVoltage(ON)) {
-    setConfigPin(SA1_EN, ON); // Required for pre-DDR4
+  if (!ddr4Detect()) {
+    // Required for pre-DDR4
+    setConfigPin(SA1_EN, ON);
+  }
+  
+  if (setHighVoltage(ON)) {    
     bool result = probeDeviceTypeId(CWP);
     resetPins();
 
@@ -761,7 +781,7 @@ bool setHighVoltage(bool state) {
 
 // Returns HV status by reading HV_FB
 bool getHighVoltage() {
-  return digitalRead(HV_EN) && digitalRead(HV_FB);
+  return getConfigPin(HV_EN) && getConfigPin(HV_FB);
 }
 
 
@@ -771,7 +791,7 @@ bool getHighVoltage() {
 bool setPswp(uint8_t deviceAddress) {
 
   if (ddr4Detect(deviceAddress) || ddr5Detect(deviceAddress)) {
-    return ERROR;
+    return false;
   }
 
   // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
@@ -782,7 +802,6 @@ bool setPswp(uint8_t deviceAddress) {
   Wire.write(DNC);
   Wire.write(DNC);
   int status = Wire.endTransmission();
-  delay(10);
 
   return status == 0;
 
@@ -800,8 +819,7 @@ bool getPswp(uint8_t deviceAddress) {
   // Write 1 DNC byte to force LSB to set to 1
   Wire.write(DNC);
   int status = Wire.endTransmission();
-  delay(10);
-
+  
   return status == 0;  // returns true if PSWP is not set
 
   //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
@@ -818,7 +836,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
     return eepromPageAddress;
   }
 
-#ifdef __AVR__
+//#ifdef __AVR__
 
   uint8_t status = ERROR;
 
@@ -862,7 +880,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
     default: return status;
   }
 
-#endif
+//#endif
 
   // Non-AVR response
   return ERROR;
@@ -882,10 +900,11 @@ bool setPageAddress(uint8_t pageNumber) {
 // Adjusts page address according to byte offset specified
 void adjustPageAddress(uint8_t address, uint16_t offset) {
 
-  // Assume DDR4 is present, do not call ddr4Detect() for performance reasons
-  if (offset < 512) {
-    // Get offset MSB to see if it is below 0x100 or above 0xFF
-    uint8_t page = offset >> 8;  // DDR4 page
+  uint8_t page;
+
+  // Assume DDR4 is present
+  if (offset <= 256) {
+    page = offset >> 8;  // DDR4 page
     if (getPageAddress() != page) {
       setPageAddress(page);
     }
@@ -897,7 +916,7 @@ void adjustPageAddress(uint8_t address, uint16_t offset) {
     setLegacyModeAddress(address, false);
 
     // Write page address to MR11[2:0]
-    uint8_t page = offset >> 7;  // DDR5 page
+    page = offset >> 7;  // DDR5 page
 
     writeByte((MEMREG & address), (uint8_t)(MR11), (byte)(page));
     // TODO: TBT
@@ -986,11 +1005,21 @@ byte scanBus() {
 // Control config pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
-  return digitalRead(pin) == state;
+  if (pin == SA1_SWITCH) {
+    delay(5);
+  }
+
+  return getConfigPin(pin) == state;
 }
 
 // Get config pin state
 bool getConfigPin(uint8_t pin) {
+  // SA1 state check
+  if (pin == SA1_SWITCH) {
+    byte _a1 = 0b11001100; // valid addresses bitmask when SA1 is high: 82-83, 86-87
+    return (digitalRead(pin) ? ((scanBus() & _a1)) : (scanBus() & ~_a1));
+  }
+
   return digitalRead(pin);
 }
 
@@ -1003,7 +1032,12 @@ void resetPins() {
 
 // Toggle DDR5 offline mode
 bool ddr5SetOfflineMode(bool state) {
-  digitalWrite(OFF_EN, state);
+  setConfigPin(OFF_EN, state);  
+  if (state) {
+    // Set SDR-DDR4 to address 82-83 to avoid conflicts
+    setConfigPin(SA1_EN, state);
+  }  
+
   return ddr5GetOfflineMode() == state;
 }
 
@@ -1046,13 +1080,17 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
 
 // DDR4 detection test (address)
 bool ddr4Detect(uint8_t address) {
+  if (address == 0) {
+    return ddr4Detect();
+  }
+  
   return probeBusAddress(address) && ddr4Detect();
 }
 
 // DDR4 detection test (generic)
 bool ddr4Detect() {
-  return ((setPageAddress(0) ^ getPageAddress(true)) !=
-          (setPageAddress(1) ^ getPageAddress(true)));
+  // Only SPA0 is tested, RPA returns NACK after SPA1 regardless of RAM type
+  return setPageAddress(0) && getPageAddress(true) == 0;
 }
 
 // DDR5 detection test

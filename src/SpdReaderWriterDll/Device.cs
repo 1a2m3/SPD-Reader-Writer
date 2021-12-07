@@ -778,7 +778,7 @@ namespace SpdReaderWriterDll {
             lock (PortLock) {
                 try {
                     if (IsConnected) {
-                        byte _response = Scan(true);
+                        byte _response = ScanPrivate(true);
 
                         if (_response == Response.NULL) {
                             return new byte[0];
