@@ -706,8 +706,12 @@ bool getRswp(uint8_t block) {
 // Clears reversible software write protection
 bool clearRswp() {
 
-  if (setHighVoltage(ON)) {
-    setConfigPin(SA1_EN, ON); // Required for pre-DDR4
+  if (!ddr4Detect()) {
+    // Required for pre-DDR4
+    setConfigPin(SA1_EN, ON);
+  }
+  
+  if (setHighVoltage(ON)) {    
     bool result = probeDeviceTypeId(CWP);
     resetPins();
 
