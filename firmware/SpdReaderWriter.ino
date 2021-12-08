@@ -560,12 +560,11 @@ void cmdPinControl() {
   else if (pin == SA1_SWITCH) {
     // Toggle SA1 state
     if (state == ENABLE || state == DISABLE) {
-      setConfigPin(pins[pin], state);
-      PORT.write(getConfigPin(pins[pin]) == state ? SUCCESS : ERROR);
+      PORT.write(setConfigPin(SA1_EN, state) ? SUCCESS : ERROR);
     }
     // Get SA1 state
     else if (state == GET) {
-      PORT.write(getConfigPin(pins[pin]) == ON ? ON : OFF);
+      PORT.write(getConfigPin(SA1_EN));
     }
     // Unknown state
     else {
@@ -1003,8 +1002,12 @@ byte scanBus() {
 // Control config pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
+
   if (pin == SA1_EN) {
     delay(5);
+    // validate SA1 state against address bitmask when SA1 is high: 82-83, 86-87
+    byte _a1 = 0b11001100;
+    return scanBus() & (state ? _a1 : ~_a1);
   }
 
   return getConfigPin(pin) == state;
@@ -1012,13 +1015,8 @@ bool setConfigPin(uint8_t pin, bool state) {
 
 // Get config pin state
 bool getConfigPin(uint8_t pin) {
-  // SA1 state check
-  if (pin == SA1_EN) {
-    byte _a1 = 0b11001100; // valid addresses bitmask when SA1 is high: 82-83, 86-87
-    return (digitalRead(pin) ? scanBus() & _a1 : !(scanBus() & ~_a1));
-  }
-
-  return digitalRead(pin);
+  byte _a1 = 0b11001100; // addresses bitmask when SA1 is high: 82-83, 86-87
+  return digitalRead(pin) && (pin == SA1_EN ? scanBus() & _a1 : true);
 }
 
 // Reset config pins
