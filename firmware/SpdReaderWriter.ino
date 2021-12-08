@@ -751,9 +751,7 @@ byte rswpSupportTest() {
     rswpSupport |= DDR4;
 
     // RSWP SA1 test
-    if ((setConfigPin(SA1_EN, ON) && setConfigPin(SA1_EN, OFF)) && 
-        (setConfigPin(SA1_EN, ON)  ^ scanBus()) != 
-        (setConfigPin(SA1_EN, OFF) ^ scanBus())) {
+    if ((setConfigPin(SA1_EN, ON) && setConfigPin(SA1_EN, OFF))) {
       rswpSupport |= DDR3;
     }
   }
@@ -1005,7 +1003,7 @@ byte scanBus() {
 // Control config pins
 bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
-  if (pin == SA1_SWITCH) {
+  if (pin == SA1_EN) {
     delay(5);
   }
 
@@ -1015,9 +1013,9 @@ bool setConfigPin(uint8_t pin, bool state) {
 // Get config pin state
 bool getConfigPin(uint8_t pin) {
   // SA1 state check
-  if (pin == SA1_SWITCH) {
+  if (pin == SA1_EN) {
     byte _a1 = 0b11001100; // valid addresses bitmask when SA1 is high: 82-83, 86-87
-    return (digitalRead(pin) ? ((scanBus() & _a1)) : (scanBus() & ~_a1));
+    return (digitalRead(pin) ? scanBus() & _a1 : !(scanBus() & ~_a1));
   }
 
   return digitalRead(pin);
@@ -1044,7 +1042,7 @@ bool ddr5SetOfflineMode(bool state) {
 bool ddr5GetOfflineMode() {
 
   // TODO: read MR48:2
-  return false;
+  return getConfigPin(OFF_EN) && false;
 }
 
 // Tests if device address is present on I2C bus
