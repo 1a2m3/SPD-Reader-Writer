@@ -630,7 +630,12 @@ namespace SpdReaderWriterDll {
                         }
 
                         if (!_isValid) {
-                            throw new Exception("Invalid device");
+                            try {
+                                DisposePrivate();
+                            }
+                            finally {
+                                throw new Exception("Invalid device");
+                            }
                         }
                     }
                     catch (Exception ex) {
@@ -951,7 +956,7 @@ namespace SpdReaderWriterDll {
                     if (IsConnected) {
                         _version = Int32.Parse(
                             Encoding.Default.GetString(
-                                ExecuteCommand(new[] { GETVERSION }, (uint)Settings.MINVERSION.ToString().Length)
+                                ExecuteCommand(new[] { GETVERSION }, 8)
                             )
                         );
                     }
