@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211208 // Version number (YYYYMMDD)
+#define VERSION 20211228 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -166,12 +166,6 @@ void setup() {
   // Perform initial device RSWP support test
   rswpSupport = rswpSupportTest();
 
-  // Check saved i2c clock and set mode accordingly
-  if (getI2cClockMode()) {
-    i2cClock = 400000;
-  }   
-  Wire.setClock(i2cClock);
-
   // Reset EEPROM page address
   setPageAddress(0);
 
@@ -181,6 +175,12 @@ void setup() {
 
   // Wait for serial port connection or initialization
   while (!PORT) {}
+
+  // Check saved i2c clock and set mode accordingly
+  if (getI2cClockMode()) {
+    i2cClock = 400000;
+  }   
+  Wire.setClock(i2cClock);
   
   // Send a welcome byte when the device is ready
   cmdTest();
@@ -382,7 +382,13 @@ void cmdRswpReport() {
 }
 
 void cmdRetestRswp() {
+  // Slow down I2C bus clock for accurate results 
+  if (getI2cClockMode()) {
+    Wire.setClock(100000);
+  }
   PORT.write(rswpSupportTest());
+
+  Wire.setClock(getI2cClockMode() ? 400000 : 100000);
 }
 
 void cmdDdr4Detect() {
@@ -733,12 +739,7 @@ byte rswpSupportTest() {
   if (!scanBus()) {
     // No I2C devices
     return ZERO;
-  }
-
-  // Slow down I2C bus clock for accurate results 
-    if (getI2cClockMode()) {
-      Wire.setClock(100000);
-    }
+  }  
 
   // RSWP DDR5 test
   if (ddr5SetOfflineMode(ON)) {
@@ -755,10 +756,7 @@ byte rswpSupportTest() {
     }
   }
 
-  resetPins();
-
-  // Restore I2C clock
-  setI2cClockMode(getI2cClockMode());
+  resetPins();  
   
   return rswpSupport;
 }
@@ -833,8 +831,6 @@ uint8_t getPageAddress(bool lowLevel = false) {
     return eepromPageAddress;
   }
 
-//#ifdef __AVR__
-
   uint8_t status = ERROR;
 
   // Send start condition
@@ -876,11 +872,6 @@ uint8_t getPageAddress(bool lowLevel = false) {
     case 0x48: return 1;
     default: return status;
   }
-
-//#endif
-
-  // Non-AVR response
-  return ERROR;
 }
 
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
@@ -974,8 +965,7 @@ bool saveSettings(byte name, byte value) {
 // Set I2C bus clock mode
 bool setI2cClockMode(bool mode) {
   saveSettings(CLOCKMODE, mode ? FASTMODE : STDMODE);
-  i2cClock = mode ? 400000 : 100000;
-  Wire.setClock(i2cClock);
+  Wire.setClock(mode ? 400000 : 100000);
 
   return getI2cClockMode() == mode;
 }
