@@ -15,12 +15,12 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
-    public class Device {
+    public class SerialDevice {
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
-        public Device(SerialPortSettings portSettings) {
+        public SerialDevice(SerialPortSettings portSettings) {
             PortSettings = portSettings;
         }
 
@@ -29,7 +29,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
-        public Device(SerialPortSettings portSettings, string portName) {
+        public SerialDevice(SerialPortSettings portSettings, string portName) {
             PortSettings = portSettings;
             PortName     = portName;
         }
@@ -40,7 +40,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName" >Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        public Device(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
+        public SerialDevice(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -53,7 +53,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="spdSize">Total EEPROM size</param>
-        public Device(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
+        public SerialDevice(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -79,7 +79,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Device class destructor
         /// </summary>
-        ~Device() {
+        ~SerialDevice() {
             DisposePrivate();
         }
 
@@ -1038,7 +1038,7 @@ namespace SpdReaderWriterDll {
             lock (FindLock) {
                 foreach (string _portName in SerialPort.GetPortNames().Distinct().ToArray()) {
 
-                    Device _device = new Device(PortSettings, _portName);
+                    SerialDevice _device = new SerialDevice(PortSettings, _portName);
                     try {
                         lock (_device.PortLock) {
                             if (_device.ConnectPrivate()) {
