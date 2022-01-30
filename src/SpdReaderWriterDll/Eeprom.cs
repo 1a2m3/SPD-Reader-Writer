@@ -1,5 +1,7 @@
 using System;
+using System.Threading;
 using static SpdReaderWriterDll.Command;
+using static SpdReaderWriterDll.PciDevice;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -7,19 +9,259 @@ namespace SpdReaderWriterDll {
     /// Defines EEPROM class, properties, and methods to handle EEPROM operations
     /// </summary>
     public class Eeprom {
+
+        #region PciDevice
+
+        /// <summary>
+        /// Reads a single byte from the EEPROM
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte offset</param>
+        /// <returns>Byte value at <paramref name="offset"/></returns>
+        public static byte ReadByte(PciDevice device, UInt16 offset) {
+            if (offset > MaxSpdSize) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+
+            //Adjust EEPROM page address
+            AdjustPageAddress(device, offset);
+
+            // Prepare and store location information
+            device.WriteWord(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (UInt16)(((device.I2CAddress | SMBUS_COMMAND.READ) << 8) | (byte)(offset & 0xFF)));
+
+            // Execute command 
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+
+            // Wait
+            while (device.IsBusy(device)) { }
+
+            // Return output
+            return device.ReadByte(device, device.GetOffset(SMBUS_OFFSET.OUTPUT));
+        }
+
+        /// <summary>
+        /// Reads bytes from the EEPROM
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte offset</param>
+        /// <param name="count">Total number of bytes to read from <paramref name="offset" /></param>
+        /// <returns>A byte array containing byte values</returns>
+        public static byte[] ReadByte(PciDevice device, UInt16 offset, UInt8 count) {
+            if (offset > MaxSpdSize) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+            if (count == 0) {
+                throw new Exception($"No bytes to read");
+            }
+            
+            byte[] result = new byte[count+1];
+
+            for (UInt16 i = 0; i < count; i++) {
+                result[i] = ReadByte(device, (UInt16)(i + offset));
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte offset</param>
+        /// <param name="value">Byte value</param>
+        /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
+        public static bool WriteByte(PciDevice device, UInt16 offset, byte value) {
+            if (offset > MaxSpdSize) {
+                throw new IndexOutOfRangeException($"Invalid offset");
+            }
+
+            //Adjust EEPROM page address
+            AdjustPageAddress(device, offset);
+
+            // Prepare and store location information
+            device.WriteWord(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (UInt16)(((device.I2CAddress | SMBUS_COMMAND.WRITE) << 8) | (byte)(offset & 0xFF)));
+
+            // Store byte value to be written
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.INPUT), value);
+
+            // Execute command 
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+
+            // Wait
+            Thread.Sleep(1);
+            while (device.IsBusy(device)) { }
+
+            // Verify and return result
+            return VerifyByte(device, offset, value);
+        }
+
+        /// <summary>
+        /// Write a byte array to the EEPROM
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte position</param>
+        /// <param name="value">Byte array</param>
+        /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/></returns>
+        public static bool WriteByte(PciDevice device, UInt16 offset, byte[] value) {
+            for (UInt16 i = 0; i < value.Length; i++) {
+                if (!WriteByte(device, (UInt16)(i + offset), value[i])) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Write a byte to the EEPROM. The byte is written only if its value differs from the one already saved at the same address.
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte position</param>
+        /// <param name="value">Byte value</param>
+        /// <returns><see langword="true" /> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        public static bool UpdateByte(PciDevice device, UInt16 offset, byte value) {
+            return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
+        }
+
+        /// <summary>
+        /// Write a byte array to the EEPROM. The page is written only if its value differs from the one already saved at the same address.
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte position</param>
+        /// <param name="value">Byte array contents</param>
+        /// <returns></returns>
+        public static bool UpdateByte(PciDevice device, UInt16 offset, byte[] value) {
+            return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
+        }
+
+        /// <summary>
+        /// Verifies if the offset content matches the input specified
+        /// </summary>
+        /// <param name="device">SMB device instance</param>
+        /// <param name="offset">Byte offset</param>
+        /// <param name="value">Byte value</param>
+        /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        public static bool VerifyByte(PciDevice device, UInt16 offset, byte value) {
+            return ReadByte(device, offset) == value;
+        }
+
+        /// <summary>
+        /// Verifies if the offset content matches the input specified
+        /// </summary>
+        /// <param name="device">SMB device instance</param>
+        /// <param name="offset">Byte offset</param>
+        /// <param name="value">Byte array</param>
+        /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        public static bool VerifyByte(PciDevice device, UInt16 offset, byte[] value) {
+            byte[] source = ReadByte(device, offset, (UInt8)value.Length);
+
+            for (int i = 0; i < source.Length; i++) {
+                if (source[i] != value[i]) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Reset EEPROM page address
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        public static void ResetPageAddress(PciDevice device) {
+            SetPageAddress(device, 0);
+        }
+
+        /// <summary>
+        /// Adjust EEPROM page address to access lower or upper 256 bytes of the entire 512 byte EEPROM array
+        /// </summary>
+        /// <param name="device">System device instance</param>
+        /// <param name="eepromPageNumber">Page number</param>
+        private static void SetPageAddress(PciDevice device, UInt8 eepromPageNumber) {
+
+            if (eepromPageNumber > 1) {
+                throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
+            }
+
+            byte cmd = (byte)(((eepromPageNumber == 0 ? EEPROM_COMMAND.SPA0 : EEPROM_COMMAND.SPA1) >> 1) | SMBUS_COMMAND.WRITE);
+
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), cmd);
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+
+            while (device.IsBusy(device)) { }
+
+            device.EepromPageNumber = eepromPageNumber;
+        }
+
+        /// <summary>
+        /// Gets currently selected EEPROM page number
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <returns>Currently selected EEPROM page number</returns>
+        private static UInt8 GetPageAddress(PciDevice device) {
+
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), EEPROM_COMMAND.RPA >> 1 | SMBUS_COMMAND.READ);
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD | SMBUS_COMMAND.MOD_NEXT); // command 0x0E works too
+
+            while (device.IsBusy(device)) { }
+
+            device.EepromPageNumber = (byte)((byte)(device.ReadByte(device, device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK ? 1 : 0);
+
+            return device.EepromPageNumber;
+        }
+
+        /// <summary>
+        /// Adjust EEPROM page number according to specified offset
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="offset">Byte position</param>
+        private static void AdjustPageAddress(PciDevice device, UInt16 offset) {
+            var page = GetPageAddress(device);
+
+            if (offset > 0xFF && page == 0) {
+                SetPageAddress(device, 1);
+            }
+            else if (offset < 0x100 && page == 1) {
+                SetPageAddress(device, 0);
+            }
+        }
+
+        /// <summary>
+        /// Read software write protection status
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <param name="block">Block number to be checked</param>
+        /// <returns><see langword="true" /> if the block is write protected or <see langword="false" /> when the block is writable</returns>
+        public static bool GetRswp(PciDevice device, UInt8 block) {
+            byte[] eepromBlock = new[] { EEPROM_COMMAND.RPS0, EEPROM_COMMAND.RPS1, EEPROM_COMMAND.RPS2, EEPROM_COMMAND.RPS3 };
+
+            block = block > 3 ? (byte)0 : block;
+
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (byte)(eepromBlock[block] >> 1) );
+            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+
+            while (device.IsBusy(device)) { }
+
+            return (device.ReadByte(device, device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
+        }
+
+        #endregion
+
+        #region SerialDevice
+
         /// <summary>
         /// Reads a single byte from the EEPROM
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
-        public static byte ReadByte(Device device, UInt16 offset) {
+        public static byte ReadByte(SerialDevice device, UInt16 offset) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
 
             try {
-                return device.ExecuteCommand(new[] { 
+                return device.ExecuteCommand(new[] {
                     READBYTE, 
                     device.I2CAddress, 
                     (byte)(offset >> 8),   // MSB
@@ -38,7 +280,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position to start reading from</param>
         /// <param name="count">Total number of bytes to read from <paramref name="offset" /> </param>
         /// <returns>A byte array containing byte values</returns>
-        public static byte[] ReadByte(Device device, UInt16 offset, UInt8 count) {
+        public static byte[] ReadByte(SerialDevice device, UInt16 offset, UInt8 count) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
@@ -67,7 +309,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
-        public static bool WriteByte(Device device, UInt16 offset, byte value) {
+        public static bool WriteByte(SerialDevice device, UInt16 offset, byte value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
@@ -92,7 +334,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
-        public static bool WriteByte(Device device, UInt16 offset, byte[] value) {
+        public static bool WriteByte(SerialDevice device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
@@ -119,13 +361,13 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Write a byte to the EEPROM. The byte is written only if it's value differs from the one already saved at the same address.
+        /// Write a byte to the EEPROM. The byte is written only if its value differs from the one already saved at the same address.
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool UpdateByte(Device device, UInt16 offset, byte value) {
+        public static bool UpdateByte(SerialDevice device, UInt16 offset, byte value) {
             try {
                 return VerifyByte(device, offset, value) ||
                        WriteByte(device, offset, value);
@@ -136,13 +378,13 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Write a page to the EEPROM. The page is written only if it's value differs from the one already saved at the same address.
+        /// Write a page to the EEPROM. The page is written only if its value differs from the one already saved at the same address.
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true" /> if page read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool UpdateByte(Device device, UInt16 offset, byte[] value) {
+        public static bool UpdateByte(SerialDevice device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
@@ -166,7 +408,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if byte at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Device device, UInt16 offset, byte value) {
+        public static bool VerifyByte(SerialDevice device, UInt16 offset, byte value) {
             try {
                 return ReadByte(device, offset) == value;
             }
@@ -182,7 +424,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Device device, UInt16 offset, byte[] value) {
+        public static bool VerifyByte(SerialDevice device, UInt16 offset, byte[] value) {
             try {
                 byte[] source = ReadByte(device, offset, (UInt8)value.Length);
 
@@ -205,7 +447,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be write protected</param>
         /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
-        public static bool SetRswp(Device device, UInt8 block) {
+        public static bool SetRswp(SerialDevice device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, block, ON }) == Response.SUCCESS;
             }
@@ -219,7 +461,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <returns><see langword="true" /> when the write protection has been enabled on all available blocks</returns>
-        public static bool SetRswp(Device device) {
+        public static bool SetRswp(SerialDevice device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
                     if (!SetRswp(device, i)) {
@@ -239,7 +481,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <returns><see langword="true" /> if the at least one block is write protected (or RSWP is not supported), or <see langword="false" /> when the EEPROM is writable</returns>
-        public static bool GetRswp(Device device) {
+        public static bool GetRswp(SerialDevice device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
                     if (device.ExecuteCommand(new[] { RSWP, i, GET }) == Response.ENABLED) {
@@ -260,7 +502,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true" /> if the block is write protected (or RSWP is not supported) or <see langword="false" /> when the block is writable</returns>
-        public static bool GetRswp(Device device, UInt8 block) {
+        public static bool GetRswp(SerialDevice device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, block, GET }) == Response.ENABLED;
             }
@@ -274,7 +516,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the write protection has been disabled</returns>
-        public static bool ClearRswp(Device device) {
+        public static bool ClearRswp(SerialDevice device) {
             try {
                 return device.ExecuteCommand(new[] { RSWP, DNC, OFF }) == Response.SUCCESS;
             }
@@ -288,7 +530,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
-        public static bool SetPswp(Device device) {
+        public static bool SetPswp(SerialDevice device) {
             try {
                 return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, ON }) == Response.SUCCESS;
             }
@@ -302,7 +544,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
-        public static bool GetPswp(Device device) {
+        public static bool GetPswp(SerialDevice device) {
             try {
                 return device.ExecuteCommand(new[] { PSWP, device.I2CAddress, GET }) == Response.ENABLED;
             }
@@ -310,5 +552,7 @@ namespace SpdReaderWriterDll {
                 throw new Exception($"Unable to get PSWP status on {device.PortName}");
             }
         }
+
+        #endregion
     }
 }
