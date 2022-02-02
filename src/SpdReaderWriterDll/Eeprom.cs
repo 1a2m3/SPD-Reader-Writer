@@ -1,6 +1,6 @@
 using System;
 using System.Threading;
-using static SpdReaderWriterDll.Command;
+using static SpdReaderWriterDll.SerialDeviceCommand;
 using static SpdReaderWriterDll.PciDevice;
 using UInt8 = System.Byte;
 
@@ -19,7 +19,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(PciDevice device, UInt16 offset) {
-            if (offset > MaxSpdSize) {
+            if (offset > device.MaxSpdSize) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
 
@@ -47,14 +47,14 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset" /></param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(PciDevice device, UInt16 offset, UInt8 count) {
-            if (offset > MaxSpdSize) {
+            if (offset > device.MaxSpdSize) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
             if (count == 0) {
                 throw new Exception($"No bytes to read");
             }
             
-            byte[] result = new byte[count+1];
+            byte[] result = new byte[count];
 
             for (UInt16 i = 0; i < count; i++) {
                 result[i] = ReadByte(device, (UInt16)(i + offset));
@@ -71,7 +71,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(PciDevice device, UInt16 offset, byte value) {
-            if (offset > MaxSpdSize) {
+            if (offset > device.MaxSpdSize) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
 
@@ -88,7 +88,7 @@ namespace SpdReaderWriterDll {
             device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
 
             // Wait
-            Thread.Sleep(1);
+            Thread.Sleep(10);
             while (device.IsBusy(device)) { }
 
             // Verify and return result
@@ -205,7 +205,7 @@ namespace SpdReaderWriterDll {
 
             while (device.IsBusy(device)) { }
 
-            device.EepromPageNumber = (byte)((byte)(device.ReadByte(device, device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK ? 1 : 0);
+            device.EepromPageNumber = (byte)(device.GetError(device) ? 1 : 0);
 
             return device.EepromPageNumber;
         }
@@ -233,7 +233,7 @@ namespace SpdReaderWriterDll {
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true" /> if the block is write protected or <see langword="false" /> when the block is writable</returns>
         public static bool GetRswp(PciDevice device, UInt8 block) {
-            byte[] eepromBlock = new[] { EEPROM_COMMAND.RPS0, EEPROM_COMMAND.RPS1, EEPROM_COMMAND.RPS2, EEPROM_COMMAND.RPS3 };
+            byte[] eepromBlock = { EEPROM_COMMAND.RPS0, EEPROM_COMMAND.RPS1, EEPROM_COMMAND.RPS2, EEPROM_COMMAND.RPS3 };
 
             block = block > 3 ? (byte)0 : block;
 
