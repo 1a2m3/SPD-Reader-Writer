@@ -5,7 +5,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
-using static SpdReaderWriterDll.Command;
+using static SpdReaderWriterDll.SerialDeviceCommand;
 using static SpdReaderWriterDll.Pin;
 using static SpdReaderWriterDll.Pin.Name;
 using static SpdReaderWriterDll.Spd;
