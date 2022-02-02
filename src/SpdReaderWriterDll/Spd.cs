@@ -15,7 +15,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>RAM Type</returns>
-        public static Ram.Type GetRamType(Device device) {
+        public static Ram.Type GetRamType(SerialDevice device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -64,7 +64,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
-        public static SpdSize GetSpdSize(Device device) {
+        public static SpdSize GetSpdSize(SerialDevice device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
