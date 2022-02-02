@@ -216,26 +216,26 @@ namespace SpdReaderWriterDll {
                 return new uint[0];
             }
 
-            Stack<uint> result = new Stack<uint>();
+            Stack<uint> addresses = new Stack<uint>();
 
-            UInt32 busAddresses = new PciDevice(0x00, 0x08, 0x02).ReadDword(0xCC); // LGA2066 CPU SMBuses
+            UInt32 busAddresses = ols.ReadPciConfigDword(ols.PciBusDevFunc(0x00, 0x08, 0x02), 0xCC); // LGA2066 CPU SMBuses
 
             for (int i = 0; i < 4; i++) {
 
-                uint _memLoc = ols.PciBusDevFunc((busAddresses >> (i * 8)) & 0xFF, 0x1E, 0x05);
+                uint memLoc = ols.PciBusDevFunc((busAddresses >> (i * 8)) & 0xFF, 0x1E, 0x05);
 
-                UInt32 _devId = new PciDevice(_memLoc).GetDeviceId();
+                UInt32 devId = new PciDevice(memLoc).GetDeviceId();
 
-                if (_devId == DeivceId.CPU_SMBUS) {
+                if (devId == DeivceId.CPU_SMBUS) {
                     //result.Push((byte)((busAddresses >> (i * 8)) & 0xFF));
-                    result.Push(_memLoc);
+                    addresses.Push(memLoc);
                 }
             }
 
-            uint[] res = result.ToArray();
-            Array.Sort(res);
+            uint[] result = addresses.ToArray();
+            Array.Sort(result);
 
-            return res;
+            return result;
         }
 
         /// <summary>
