@@ -27,16 +27,16 @@ namespace SpdReaderWriterDll {
             AdjustPageAddress(device, offset);
 
             // Prepare and store location information
-            device.WriteWord(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (UInt16)(((device.I2CAddress | SMBUS_COMMAND.READ) << 8) | (byte)(offset & 0xFF)));
+            device.WriteWord(device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (UInt16)(((device.I2CAddress | SMBUS_COMMAND.READ) << 8) | (byte)(offset & 0xFF)));
 
             // Execute command 
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
 
             // Wait
             while (device.IsBusy(device)) { }
 
             // Return output
-            return device.ReadByte(device, device.GetOffset(SMBUS_OFFSET.OUTPUT));
+            return device.ReadByte(device.GetOffset(SMBUS_OFFSET.OUTPUT));
         }
 
         /// <summary>
@@ -53,7 +53,7 @@ namespace SpdReaderWriterDll {
             if (count == 0) {
                 throw new Exception($"No bytes to read");
             }
-            
+
             byte[] result = new byte[count];
 
             for (UInt16 i = 0; i < count; i++) {
@@ -79,20 +79,20 @@ namespace SpdReaderWriterDll {
             AdjustPageAddress(device, offset);
 
             // Prepare and store location information
-            device.WriteWord(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (UInt16)(((device.I2CAddress | SMBUS_COMMAND.WRITE) << 8) | (byte)(offset & 0xFF)));
+            device.WriteWord(device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (UInt16)(((device.I2CAddress | SMBUS_COMMAND.WRITE) << 8) | (byte)(offset & 0xFF)));
 
             // Store byte value to be written
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.INPUT), value);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.INPUT), value);
 
             // Execute command 
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
 
             // Wait
             Thread.Sleep(10);
             while (device.IsBusy(device)) { }
 
-            // Verify and return result
-            return VerifyByte(device, offset, value);
+            // Return result
+            return !device.GetError();
         }
 
         /// <summary>
@@ -185,8 +185,8 @@ namespace SpdReaderWriterDll {
 
             byte cmd = (byte)(((eepromPageNumber == 0 ? EEPROM_COMMAND.SPA0 : EEPROM_COMMAND.SPA1) >> 1) | SMBUS_COMMAND.WRITE);
 
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), cmd);
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.I2CADDRESS), cmd);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
 
             while (device.IsBusy(device)) { }
 
@@ -200,12 +200,12 @@ namespace SpdReaderWriterDll {
         /// <returns>Currently selected EEPROM page number</returns>
         private static UInt8 GetPageAddress(PciDevice device) {
 
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), EEPROM_COMMAND.RPA >> 1 | SMBUS_COMMAND.READ);
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD | SMBUS_COMMAND.MOD_NEXT); // command 0x0E works too
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.I2CADDRESS), EEPROM_COMMAND.RPA >> 1 | SMBUS_COMMAND.READ);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD | SMBUS_COMMAND.MOD_NEXT); // command 0x0E works too
 
             while (device.IsBusy(device)) { }
 
-            device.EepromPageNumber = (byte)(device.GetError(device) ? 1 : 0);
+            device.EepromPageNumber = (byte)(device.GetError() ? 1 : 0);
 
             return device.EepromPageNumber;
         }
@@ -237,12 +237,12 @@ namespace SpdReaderWriterDll {
 
             block = block > 3 ? (byte)0 : block;
 
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (byte)(eepromBlock[block] >> 1) );
-            device.WriteByte(device, device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.I2CADDRESS), (byte)(eepromBlock[block] >> 1));
+            device.WriteByte(device.GetOffset(SMBUS_OFFSET.COMMAND), SMBUS_COMMAND.EXEC_CMD);
 
             while (device.IsBusy(device)) { }
 
-            return (device.ReadByte(device, device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
+            return (device.ReadByte(device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
         }
 
         #endregion
