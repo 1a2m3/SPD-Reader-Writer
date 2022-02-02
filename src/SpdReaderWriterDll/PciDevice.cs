@@ -268,23 +268,12 @@ namespace SpdReaderWriterDll {
 
             Stack<byte> addresses = new Stack<byte>();
 
-            byte dimmConfig = ReadByte(GetOffset(SMBUS_OFFSET.DIMMCFG));
-
-            if (dimmConfig > 0) {
-                for (byte i = 0; i <= 7; i++) {
-                    if (((dimmConfig >> i) & 0x01) == 0x01) {
-                        addresses.Push((byte)(i + 0x50));
-                    }
-                }
-            }
-            else {
-                for (byte i = 0x50; i <= 0x57; i++) {
-                    I2CAddress = i;
-                    SmbusNumber = smbusNumber;
-                    Eeprom.ReadByte(this, 0);
-                    if (!GetError()) {
-                        addresses.Push(i);
-                    }
+            for (byte i = 0x50; i <= 0x57; i++) {
+                I2CAddress = i;
+                SmbusNumber = smbusNumber;
+                Eeprom.ReadByte(this, 0);
+                if (!GetError()) {
+                    addresses.Push(i);
                 }
             }
 
