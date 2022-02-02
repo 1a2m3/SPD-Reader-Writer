@@ -2,7 +2,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Device commands
     /// </summary>
-    public struct Command {
+    public struct SerialDeviceCommand {
         /// <summary>
         /// Read byte
         /// </summary>
