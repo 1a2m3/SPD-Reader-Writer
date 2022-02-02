@@ -32,7 +32,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public const byte OFF     = 0;
         /// <summary>
-        /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
+        /// A response expected from the device after executing SerialDeviceCommand.TESTCOMM command to identify the correct device
         /// </summary>
         public const char WELCOME = '!';
         /// <summary>
