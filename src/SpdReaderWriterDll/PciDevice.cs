@@ -247,7 +247,7 @@ namespace SpdReaderWriterDll {
             Stack<byte> busNumber = new Stack<byte>();
 
             for (byte i = 0; i <= 1; i++) {
-                if (ReadByte(GetOffset(SMBUS_OFFSET.DIMMCFG)) > 0 ||
+                if (ReadByte(SMBUS_OFFSET.DIMMCFG) > 0 ||
                     Scan(i).Length > 0) {
                     busNumber.Push(i);
                 }
@@ -314,7 +314,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Byte value at <paramref name="offset"/> location</returns>
         public UInt8 ReadByte(byte offset) {
             if (IsRunning) {
-                return ols.ReadPciConfigByte(_pciDeviceMemoryLocation, offset);
+                return ols.ReadPciConfigByte(_pciDeviceMemoryLocation, GetOffset(offset));
             }
 
             throw new Exception("Unable to read byte");
@@ -339,7 +339,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Dword value at <paramref name="offset"/> location</returns>
         public UInt32 ReadDword(byte offset) {
             if (IsRunning) {
-                return ols.ReadPciConfigDword(_pciDeviceMemoryLocation, (byte)(offset - 3));
+                return ols.ReadPciConfigDword(_pciDeviceMemoryLocation, GetOffset((byte)(offset - 3)));
             }
             throw new Exception("Unable to read dword");
         }
@@ -350,7 +350,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte location</param>
         /// <param name="value">Byte value</param>
         public void WriteByte(byte offset, UInt8 value) {
-            ols.WritePciConfigByte(_pciDeviceMemoryLocation, offset, value);
+            ols.WritePciConfigByte(_pciDeviceMemoryLocation, GetOffset(offset), value);
         }
 
         /// <summary>
@@ -359,7 +359,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Word location</param>
         /// <param name="value">Word value</param>
         public void WriteWord(byte offset, UInt16 value) {
-            ols.WritePciConfigWord(_pciDeviceMemoryLocation, (byte)(offset - 1), value);
+            ols.WritePciConfigWord(_pciDeviceMemoryLocation, GetOffset((byte)(offset - 1)), value);
         }
 
         /// <summary>
@@ -368,7 +368,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Dword location</param>
         /// <param name="value">Dword value</param>
         public void WriteDword(byte offset, UInt32 value) {
-            ols.WritePciConfigDword(_pciDeviceMemoryLocation, (byte)(offset - 3), value);
+            ols.WritePciConfigDword(_pciDeviceMemoryLocation, GetOffset((byte)(offset - 3)), value);
         }
 
         /// <summary>
@@ -376,7 +376,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if the last operation resulted in error or NACK</returns>
         public bool GetError() {
-            return (ReadByte(GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
+            return (ReadByte(SMBUS_OFFSET.STATUS) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
         }
 
         /// <summary>
@@ -384,8 +384,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the device is busy, or <see langword="false" /> when the device is ready</returns>
-        public bool IsBusy(PciDevice device) {
-            return (device.ReadByte(device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.BUSY) == SMBUS_STATUS.BUSY;
+        public bool IsBusy() {
+            return (ReadByte(SMBUS_OFFSET.STATUS) & SMBUS_STATUS.BUSY) == SMBUS_STATUS.BUSY;
         }
 
         /// <summary>
@@ -394,7 +394,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Offset location</param>
         /// <returns>New offset location</returns>
         public byte GetOffset(byte offset) {
-            return (byte)(offset + (4 * _smBusNumber));
+            return (byte)(offset + 4 * _smBusNumber);
         }
         
         public bool IsRunning   = false;
