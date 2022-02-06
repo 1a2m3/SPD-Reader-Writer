@@ -134,7 +134,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array contents</param>
-        /// <returns></returns>
+        /// <returns><see langword="true" /> if bytes read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
         public static bool UpdateByte(PciDevice device, UInt16 offset, byte[] value) {
             return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
         }
@@ -227,6 +227,21 @@ namespace SpdReaderWriterDll {
             if (targetPage != GetPageAddress(device)) {
                 SetPageAddress(device, targetPage);
             }
+        }
+
+        /// <summary>
+        /// Read software write protection status
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <returns><see langword="true" /> if some blocks are write protected or <see langword="false" /> when all blocks are writable</returns>
+        public static bool GetRswp(PciDevice device) {
+            for (UInt8 i = 0; i <= 3; i++) {
+                if (GetRswp(device, i)) {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -392,7 +407,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
-        /// <returns><see langword="true" /> if page read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if page read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
         public static bool UpdateByte(SerialDevice device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
