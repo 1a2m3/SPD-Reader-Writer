@@ -11,7 +11,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Platform Vendor ID
         /// </summary>
-        public struct VendorId {
+        public struct VENDOR_ID {
             public const UInt16 AMD                          = 0x1022;
             public const UInt16 INTEL                        = 0x8086;
         }
@@ -19,10 +19,10 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Intel SMBus Device ID
         /// </summary>
-        public struct DeivceId {
+        public struct DEVICE_ID {
             // LGA 2066
-            public const UInt16 X299                         = 0xA2A3; // X299
-            public const UInt16 CPU_SMBUS                    = 0x2085; // SKL-X & CLX-X
+            public const UInt16 X299                         = 0xA2A3; // X299 SMbus
+            public const UInt16 SKLX_SMBUS                   = 0x2085; // SKL-X & CLX-X
         }
 
         /// <summary>
@@ -77,6 +77,20 @@ namespace SpdReaderWriterDll {
             public const byte BUSY                           = 0b00000001;
             public const byte ACK                            = 0b00000000;
             public const byte NACK                           = 0b00000010;
+        }
+
+        /// <summary>
+        /// PCI Base Class codes
+        /// </summary>
+        public struct PCI_BASE_CLASS {
+            public const byte SERIAL                         = 0x0C;
+        }
+
+        /// <summary>
+        /// PCI sub class codes
+        /// </summary>
+        public struct PCI_SUB_CLASS {
+            public const byte SMBUS                          = 0x05;
         }
 
         /// <summary>
@@ -172,7 +186,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// OpenLibSys instance
         /// </summary>
-        Ols ols;
+        public Ols ols;
 
         /// <summary>
         /// Maximum SPD size in bytes
@@ -205,37 +219,92 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Finds PCI devices by Vendor and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <returns>An array of PCI devices locations matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref> </returns>
+        public UInt32[] FindDeviceById(UInt16 vendorId, UInt16 deviceId) {
+            return FindDeviceById(vendorId, deviceId, 1);
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Vendor and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <param name="maxCount">Maximum number of results</param>
+        /// <returns>An array of PCI devices locations matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref> </returns>
+        public UInt32[] FindDeviceById(UInt16 vendorId, UInt16 deviceId, byte maxCount) {
+
+            Queue<UInt32> results = new Queue<UInt32>();
+
+            for (int i = 0; i < byte.MaxValue; i++) {
+
+                UInt16 id = (UInt16)ols.FindPciDeviceById(vendorId, deviceId, (byte)i);
+
+                if (id != UInt16.MaxValue) {
+                    results.Enqueue(id);
+                }
+
+                if (results.Count == maxCount) {
+                    break;
+                }
+            }
+
+            return results.ToArray();
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <returns>An array of PCI devices locations matching Device Class</returns>
+        public UInt32[] FindDeviceByClass(byte baseClass, byte subClass, byte programIf) {
+            return FindDeviceByClass(baseClass, subClass, programIf, 1);
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <param name="maxCount">Maximum number of results</param>
+        /// <returns>An array of PCI devices locations matching Device Class</returns>
+        public UInt32[] FindDeviceByClass(byte baseClass, byte subClass, byte programIf, byte maxCount) {
+
+            Queue<UInt32> results = new Queue<UInt32>();
+
+            for (int i = 0; i < byte.MaxValue; i++) {
+
+                UInt16 id = (UInt16)ols.FindPciDeviceByClass(baseClass, subClass, programIf, (byte)i);
+
+                if (id != UInt16.MaxValue) {
+                    results.Enqueue(id);
+                }
+
+                if (results.Count == maxCount) {
+                    break;
+                }
+            }
+
+            return results.ToArray();
+        }
+
+        /// <summary>
         /// Find available SMBus memory locations in the PCI space
         /// </summary>
         /// <returns>An array of SMBus controllers PCI memory locations</returns>
         public uint[] FindDevice() {
+
             // Verify CPU and chipset model
-            PciDevice host = new PciDevice(0x00, 0x1F, 0x04);
-            if (host.GetVendorId() != VendorId.INTEL || 
-                host.GetDeviceId() != DeivceId.X299) {
-                return new uint[0];
-            }
-
-            Stack<uint> addresses = new Stack<uint>();
-
-            UInt32 busAddresses = ols.ReadPciConfigDword(ols.PciBusDevFunc(0x00, 0x08, 0x02), 0xCC); // LGA2066 CPU SMBuses
-
-            for (int i = 0; i < 4; i++) {
-
-                uint memLoc = ols.PciBusDevFunc((busAddresses >> (i * 8)) & 0xFF, 0x1E, 0x05);
-
-                UInt32 devId = new PciDevice(memLoc).GetDeviceId();
-
-                if (devId == DeivceId.CPU_SMBUS) {
-                    //result.Push((byte)((busAddresses >> (i * 8)) & 0xFF));
-                    addresses.Push(memLoc);
-                }
-            }
-
-            uint[] result = addresses.ToArray();
-            Array.Sort(result);
-
-            return result;
+            bool valid = FindDeviceByClass(PCI_BASE_CLASS.SERIAL, PCI_SUB_CLASS.SMBUS, 0x00).Length > 0 && 
+                         FindDeviceById(VENDOR_ID.INTEL, DEVICE_ID.X299).Length > 0;
+            
+            return valid ? FindDeviceById(VENDOR_ID.INTEL, DEVICE_ID.SKLX_SMBUS) : new uint[0];
         }
 
         /// <summary>
@@ -247,7 +316,9 @@ namespace SpdReaderWriterDll {
             Stack<byte> busNumber = new Stack<byte>();
 
             for (byte i = 0; i <= 1; i++) {
-                if (ReadByte(SMBUS_OFFSET.DIMMCFG) > 0 ||
+                if (// number of valid SPDs
+                    ReadByte(SMBUS_OFFSET.DIMMCFG) > 0 ||
+                    // number of I2C slave devices
                     Scan(i).Length > 0) {
                     busNumber.Push(i);
                 }
