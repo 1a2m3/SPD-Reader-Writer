@@ -252,16 +252,16 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the block is write protected or <see langword="false" /> when the block is writable</returns>
         public static bool GetRswp(PciDevice device, UInt8 block) {
 
-            byte[] eepromBlock = { 
-                EEPROM_COMMAND.RPS0, 
-                EEPROM_COMMAND.RPS1, 
-                EEPROM_COMMAND.RPS2, 
+            byte[] rswpCmd = {
+                EEPROM_COMMAND.RPS0,
+                EEPROM_COMMAND.RPS1,
+                EEPROM_COMMAND.RPS2,
                 EEPROM_COMMAND.RPS3,
             };
 
             block = block > 3 ? (byte)0 : block;
 
-            device.WriteByte(SMBUS_OFFSET.I2CADDRESS, (byte)(eepromBlock[block] >> 1));
+            device.WriteByte(SMBUS_OFFSET.I2CADDRESS, (byte)(rswpCmd[block] >> 1));
             device.WriteByte(SMBUS_OFFSET.COMMAND, SMBUS_COMMAND.EXEC_CMD);
 
             while (device.IsBusy()) { }
