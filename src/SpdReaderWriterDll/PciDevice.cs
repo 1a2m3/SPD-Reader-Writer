@@ -11,7 +11,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Platform Vendor ID
         /// </summary>
-        public struct VendorId {
+        public struct VENDOR_ID {
             public const UInt16 AMD                          = 0x1022;
             public const UInt16 INTEL                        = 0x8086;
         }
@@ -19,10 +19,10 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Intel SMBus Device ID
         /// </summary>
-        public struct DeivceId {
+        public struct DEVICE_ID {
             // LGA 2066
-            public const UInt16 X299                         = 0xA2A3; // X299
-            public const UInt16 CPU_SMBUS                    = 0x2085; // SKL-X & CLX-X
+            public const UInt16 X299                         = 0xA2A3; // X299 SMbus
+            public const UInt16 SKLX_SMBUS                   = 0x2085; // SKL-X & CLX-X
         }
 
         /// <summary>
@@ -80,10 +80,24 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// PCI Base Class codes
+        /// </summary>
+        public struct PCI_BASE_CLASS {
+            public const byte SERIAL                         = 0x0C;
+        }
+
+        /// <summary>
+        /// PCI sub class codes
+        /// </summary>
+        public struct PCI_SUB_CLASS {
+            public const byte SMBUS                          = 0x05;
+        }
+
+        /// <summary>
         /// Initializes default PciDevice instance
         /// </summary>
         public PciDevice() {
-            ols                = new Ols();
+            core                = new Ols();
             IsRunning          = Connect();
         }
 
@@ -92,12 +106,12 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="memoryAddress">PCI device memory location</param>
         public PciDevice(uint memoryAddress) {
-            ols                = new Ols();
+            core                = new Ols();
             IsRunning          = Connect();
 
-            _pciBusNumber      = ols.PciGetBus(memoryAddress);
-            _pciDeviceNumber   = ols.PciGetDev(memoryAddress);
-            _pciFunctionNumber = ols.PciGetFunc(memoryAddress);
+            _pciBusNumber      = core.PciGetBus(memoryAddress);
+            _pciDeviceNumber   = core.PciGetDev(memoryAddress);
+            _pciFunctionNumber = core.PciGetFunc(memoryAddress);
         }
 
         /// <summary>
@@ -106,12 +120,12 @@ namespace SpdReaderWriterDll {
         /// <param name="memoryAddress">PCI device memory location</param>
         /// <param name="SmbusNumber">SMBus number</param>
         public PciDevice(uint memoryAddress, byte SmbusNumber) {
-            ols                = new Ols();
+            core                = new Ols();
             IsRunning          = Connect();
 
-            _pciBusNumber      = ols.PciGetBus(memoryAddress);
-            _pciDeviceNumber   = ols.PciGetDev(memoryAddress);
-            _pciFunctionNumber = ols.PciGetFunc(memoryAddress);
+            _pciBusNumber      = core.PciGetBus(memoryAddress);
+            _pciDeviceNumber   = core.PciGetDev(memoryAddress);
+            _pciFunctionNumber = core.PciGetFunc(memoryAddress);
 
             _smBusNumber       = SmbusNumber;
 
@@ -126,7 +140,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciDeviceNumber">PCI device number</param>
         /// <param name="pciFunctionNumber">PCI function number</param>
         public PciDevice(byte pciBusNumber, byte pciDeviceNumber, byte pciFunctionNumber) {
-            ols                = new Ols();
+            core                = new Ols();
             IsRunning          = Connect();
 
             _pciBusNumber      = pciBusNumber;
@@ -142,7 +156,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciFunctionNumber">PCI function number</param>
         /// <param name="smbusNumber">SMBus number</param>
         public PciDevice(byte pciBusNumber, byte pciDeviceNumber, byte pciFunctionNumber, byte smbusNumber) {
-            ols                = new Ols();
+            core                = new Ols();
             IsRunning          = Connect();
 
             _pciBusNumber      = pciBusNumber;
@@ -172,7 +186,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// OpenLibSys instance
         /// </summary>
-        Ols ols;
+        public Ols core;
 
         /// <summary>
         /// Maximum SPD size in bytes
@@ -185,8 +199,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> once the driver is loaded and PCI device is ready</returns>
         public bool Connect() {
             if (!IsRunning) {
-                return ols.GetStatus() == (uint)Ols.Status.NO_ERROR &&
-                       ols.GetDllStatus() == (uint)Ols.OlsDllStatus.OLS_DLL_NO_ERROR;
+                return core.GetStatus() == (uint)Ols.Status.NO_ERROR &&
+                       core.GetDllStatus() == (uint)Ols.OlsDllStatus.OLS_DLL_NO_ERROR;
             }
 
             return IsRunning;
@@ -197,11 +211,87 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> once the PCI device values are reset</returns>
         public bool Disconnect() {
-            //ols.DeinitializeOls(); // this unloads driver
+            //core.DeinitializeOls(); // this unloads driver
             IsRunning = IsConnected = false;
             _pciBusNumber = _pciDeviceNumber = _pciFunctionNumber = _smBusNumber = 0xFF;
 
-            return ols.GetDllStatus() == (uint)Ols.OlsDllStatus.OLS_DLL_DRIVER_UNLOADED;
+            return core.GetDllStatus() == (uint)Ols.OlsDllStatus.OLS_DLL_DRIVER_UNLOADED;
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Vendor and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <returns>An array of PCI devices locations matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref> </returns>
+        public UInt32[] FindDeviceById(UInt16 vendorId, UInt16 deviceId) {
+            return FindDeviceById(vendorId, deviceId, 1);
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Vendor and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <param name="maxCount">Maximum number of results</param>
+        /// <returns>An array of PCI devices locations matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref> </returns>
+        public UInt32[] FindDeviceById(UInt16 vendorId, UInt16 deviceId, byte maxCount) {
+
+            Queue<UInt32> results = new Queue<UInt32>();
+
+            for (int i = 0; i < byte.MaxValue; i++) {
+
+                UInt16 id = (UInt16)core.FindPciDeviceById(vendorId, deviceId, (byte)i);
+
+                if (id != UInt16.MaxValue) {
+                    results.Enqueue(id);
+                }
+
+                if (results.Count == maxCount) {
+                    break;
+                }
+            }
+
+            return results.ToArray();
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <returns>An array of PCI devices locations matching Device Class</returns>
+        public UInt32[] FindDeviceByClass(byte baseClass, byte subClass, byte programIf) {
+            return FindDeviceByClass(baseClass, subClass, programIf, 1);
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <param name="maxCount">Maximum number of results</param>
+        /// <returns>An array of PCI devices locations matching Device Class</returns>
+        public UInt32[] FindDeviceByClass(byte baseClass, byte subClass, byte programIf, byte maxCount) {
+
+            Queue<UInt32> results = new Queue<UInt32>();
+
+            for (int i = 0; i < byte.MaxValue; i++) {
+
+                UInt16 id = (UInt16)core.FindPciDeviceByClass(baseClass, subClass, programIf, (byte)i);
+
+                if (id != UInt16.MaxValue) {
+                    results.Enqueue(id);
+                }
+
+                if (results.Count == maxCount) {
+                    break;
+                }
+            }
+
+            return results.ToArray();
         }
 
         /// <summary>
@@ -209,33 +299,12 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>An array of SMBus controllers PCI memory locations</returns>
         public uint[] FindDevice() {
+
             // Verify CPU and chipset model
-            PciDevice host = new PciDevice(0x00, 0x1F, 0x04);
-            if (host.GetVendorId() != VendorId.INTEL || 
-                host.GetDeviceId() != DeivceId.X299) {
-                return new uint[0];
-            }
-
-            Stack<uint> addresses = new Stack<uint>();
-
-            UInt32 busAddresses = ols.ReadPciConfigDword(ols.PciBusDevFunc(0x00, 0x08, 0x02), 0xCC); // LGA2066 CPU SMBuses
-
-            for (int i = 0; i < 4; i++) {
-
-                uint memLoc = ols.PciBusDevFunc((busAddresses >> (i * 8)) & 0xFF, 0x1E, 0x05);
-
-                UInt32 devId = new PciDevice(memLoc).GetDeviceId();
-
-                if (devId == DeivceId.CPU_SMBUS) {
-                    //result.Push((byte)((busAddresses >> (i * 8)) & 0xFF));
-                    addresses.Push(memLoc);
-                }
-            }
-
-            uint[] result = addresses.ToArray();
-            Array.Sort(result);
-
-            return result;
+            bool valid = FindDeviceByClass(PCI_BASE_CLASS.SERIAL, PCI_SUB_CLASS.SMBUS, 0x00).Length > 0 && 
+                         FindDeviceById(VENDOR_ID.INTEL, DEVICE_ID.X299).Length > 0;
+            
+            return valid ? FindDeviceById(VENDOR_ID.INTEL, DEVICE_ID.SKLX_SMBUS) : new uint[0];
         }
 
         /// <summary>
@@ -247,7 +316,9 @@ namespace SpdReaderWriterDll {
             Stack<byte> busNumber = new Stack<byte>();
 
             for (byte i = 0; i <= 1; i++) {
-                if (ReadByte(GetOffset(SMBUS_OFFSET.DIMMCFG)) > 0 ||
+                if (// number of valid SPDs
+                    ReadByte(SMBUS_OFFSET.DIMMCFG) > 0 ||
+                    // number of I2C slave devices
                     Scan(i).Length > 0) {
                     busNumber.Push(i);
                 }
@@ -314,7 +385,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Byte value at <paramref name="offset"/> location</returns>
         public UInt8 ReadByte(byte offset) {
             if (IsRunning) {
-                return ols.ReadPciConfigByte(_pciDeviceMemoryLocation, offset);
+                return core.ReadPciConfigByte(_pciDeviceMemoryLocation, GetOffset(offset));
             }
 
             throw new Exception("Unable to read byte");
@@ -327,7 +398,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Word value at <paramref name="offset"/> location</returns>
         public UInt16 ReadWord(byte offset) {
             if (IsRunning) {
-                return ols.ReadPciConfigWord(_pciDeviceMemoryLocation, (byte)(offset - 1));
+                return core.ReadPciConfigWord(_pciDeviceMemoryLocation, (byte)(offset - 1));
             }
             throw new Exception("Unable to read word");
         }
@@ -339,7 +410,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Dword value at <paramref name="offset"/> location</returns>
         public UInt32 ReadDword(byte offset) {
             if (IsRunning) {
-                return ols.ReadPciConfigDword(_pciDeviceMemoryLocation, (byte)(offset - 3));
+                return core.ReadPciConfigDword(_pciDeviceMemoryLocation, GetOffset((byte)(offset - 3)));
             }
             throw new Exception("Unable to read dword");
         }
@@ -350,7 +421,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte location</param>
         /// <param name="value">Byte value</param>
         public void WriteByte(byte offset, UInt8 value) {
-            ols.WritePciConfigByte(_pciDeviceMemoryLocation, offset, value);
+            core.WritePciConfigByte(_pciDeviceMemoryLocation, GetOffset(offset), value);
         }
 
         /// <summary>
@@ -359,7 +430,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Word location</param>
         /// <param name="value">Word value</param>
         public void WriteWord(byte offset, UInt16 value) {
-            ols.WritePciConfigWord(_pciDeviceMemoryLocation, (byte)(offset - 1), value);
+            core.WritePciConfigWord(_pciDeviceMemoryLocation, GetOffset((byte)(offset - 1)), value);
         }
 
         /// <summary>
@@ -368,7 +439,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Dword location</param>
         /// <param name="value">Dword value</param>
         public void WriteDword(byte offset, UInt32 value) {
-            ols.WritePciConfigDword(_pciDeviceMemoryLocation, (byte)(offset - 3), value);
+            core.WritePciConfigDword(_pciDeviceMemoryLocation, GetOffset((byte)(offset - 3)), value);
         }
 
         /// <summary>
@@ -376,7 +447,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if the last operation resulted in error or NACK</returns>
         public bool GetError() {
-            return (ReadByte(GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
+            return (ReadByte(SMBUS_OFFSET.STATUS) & SMBUS_STATUS.NACK) == SMBUS_STATUS.NACK;
         }
 
         /// <summary>
@@ -384,8 +455,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns><see langword="true" /> if the device is busy, or <see langword="false" /> when the device is ready</returns>
-        public bool IsBusy(PciDevice device) {
-            return (device.ReadByte(device.GetOffset(SMBUS_OFFSET.STATUS)) & SMBUS_STATUS.BUSY) == SMBUS_STATUS.BUSY;
+        public bool IsBusy() {
+            return (ReadByte(SMBUS_OFFSET.STATUS) & SMBUS_STATUS.BUSY) == SMBUS_STATUS.BUSY;
         }
 
         /// <summary>
@@ -394,7 +465,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Offset location</param>
         /// <returns>New offset location</returns>
         public byte GetOffset(byte offset) {
-            return (byte)(offset + (4 * _smBusNumber));
+            return (byte)(offset + 4 * _smBusNumber);
         }
         
         public bool IsRunning   = false;
@@ -434,7 +505,7 @@ namespace SpdReaderWriterDll {
         private uint _pciDeviceNumber;
         private uint _pciFunctionNumber;
         private uint _pciDeviceMemoryLocation {
-            get => ols.PciBusDevFunc(_pciBusNumber, _pciDeviceNumber, _pciFunctionNumber);
+            get => core.PciBusDevFunc(_pciBusNumber, _pciDeviceNumber, _pciFunctionNumber);
         }
         private byte _smBusNumber;
         private byte _i2cAddress;
