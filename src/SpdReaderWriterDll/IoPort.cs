@@ -22,8 +22,12 @@ namespace SpdReaderWriterDll {
             BaseAddress = address;
         }
 
+        /// <summary>
+        /// IO port instance description
+        /// </summary>
+        /// <returns>Readable IO port instance description</returns>
         public override string ToString() {
-            return $"{BaseAddress:X4}";
+            return $"IO port {BaseAddress:X4}h";
         }
 
         /// <summary>
