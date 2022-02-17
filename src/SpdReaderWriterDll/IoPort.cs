@@ -22,13 +22,14 @@ namespace SpdReaderWriterDll {
             BaseAddress = address;
         }
 
+        public override string ToString() {
+            return $"{BaseAddress:X4}";
+        }
+
         /// <summary>
         /// IO Port base address
         /// </summary>
-        public UInt16 BaseAddress {
-            get => _baseAddress;
-            set => _baseAddress = value;
-        }        
+        public UInt16 BaseAddress;
 
         /// <summary>
         /// Write IO port mapped register
@@ -47,7 +48,5 @@ namespace SpdReaderWriterDll {
         public byte ReadByte(UInt8 offset) {
             return Smbus.Driver.ReadIoPortByte((UInt16)(BaseAddress + offset));
         }
-
-        private UInt16 _baseAddress;
     }
 }
