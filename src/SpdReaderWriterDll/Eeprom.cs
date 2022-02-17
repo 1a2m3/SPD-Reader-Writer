@@ -161,6 +161,10 @@ namespace SpdReaderWriterDll {
         /// <param name="eepromPageNumber">Page number</param>
         private static void SetPageAddress(Smbus device, UInt8 eepromPageNumber) {
 
+            if (device.MaxSpdSize < (UInt16)Ram.SpdSize.DDR4) {
+                return;
+            }
+
             if (eepromPageNumber > 1) {
                 throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
             }
@@ -183,6 +187,11 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <returns>Currently selected EEPROM page number</returns>
         private static UInt8 GetPageAddress(Smbus device) {
+
+            if (device.MaxSpdSize < (UInt16)Ram.SpdSize.DDR4) {
+                return 0;
+            }
+
             return (byte)(Smbus.ReadByte(device, EepromCommand.RPA >> 1) ? 0 : 1);
         }
 
