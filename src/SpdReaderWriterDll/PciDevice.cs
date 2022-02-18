@@ -31,9 +31,6 @@ namespace SpdReaderWriterDll {
         /// Initializes default PciDevice instance
         /// </summary>
         public PciDevice() {
-            pciInfo._pciBusNumber      = 0;
-            pciInfo._pciDeviceNumber   = 0;
-            pciInfo._pciFunctionNumber = 0;
         }
 
         /// <summary>
@@ -64,24 +61,6 @@ namespace SpdReaderWriterDll {
         /// <returns>Readable PCI device instance string</returns>
         public override string ToString() {
             return $"PCI{pciInfo._pciBusNumber:D}/{pciInfo._pciDeviceNumber:D}/{pciInfo._pciFunctionNumber:D}";
-        }
-
-        /// <summary>
-        /// PCI device instance destructor
-        /// </summary>
-        ~PciDevice() {
-            Disconnect();
-        }
-
-        /// <summary>
-        /// Reset PCI device instance 
-        /// </summary>
-        /// <returns><see langword="true" /> once the PCI device values are reset</returns>
-        public bool Disconnect() {
-            //IsRunning = false;
-            pciInfo._pciBusNumber = pciInfo._pciDeviceNumber = pciInfo._pciFunctionNumber = pciInfo._smBusNumber = 0xFF;
-
-            return Smbus.Driver.GetDllStatus() != 0;
         }
 
         /// <summary>
@@ -127,7 +106,6 @@ namespace SpdReaderWriterDll {
 
             return results.ToArray();
         }
-
 
         /// <summary>
         /// Finds PCI devices by Device Class
@@ -262,7 +240,6 @@ namespace SpdReaderWriterDll {
         public byte GetOffset(byte offset) {
             return (byte)(offset + 4 * pciInfo._smBusNumber);
         }
-
 
         /// <summary>
         /// PCI device information
