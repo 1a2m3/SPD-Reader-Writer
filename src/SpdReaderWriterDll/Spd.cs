@@ -119,16 +119,16 @@ namespace SpdReaderWriterDll {
         /// <returns> <see langword="true" /> if <paramref name="input"/> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
-            return (input.Length == (int)SpdSize.DDR5 || input.Length == (int)SpdSize.DDR4 || input.Length == (int)SpdSize.DDR3) &&
-                    (
-                        (input.Length == (int)SpdSize.DDR5 && GetRamType(input) == Ram.Type.DDR5) ||
-                        (input.Length == (int)SpdSize.DDR4 && GetRamType(input) == Ram.Type.DDR4) ||
-                        (input.Length == (int)SpdSize.DDR3 &&
-                            (GetRamType(input) == Ram.Type.DDR3 ||
-                             GetRamType(input) == Ram.Type.DDR2 ||
-                             GetRamType(input) == Ram.Type.DDR  ||
-                             GetRamType(input) == Ram.Type.SDRAM)
-                    )
+            return (input.Length == (int)SpdSize.DDR5 ||
+                    input.Length == (int)SpdSize.DDR4 ||
+                    input.Length == (int)SpdSize.DDR3) &&
+                   (input.Length == (int)SpdSize.DDR5 && GetRamType(input) == Ram.Type.DDR5 ||
+                    input.Length == (int)SpdSize.DDR4 && GetRamType(input) == Ram.Type.DDR4 ||
+                    input.Length == (int)SpdSize.DDR3 &&
+                    (GetRamType(input) == Ram.Type.DDR3 ||
+                     GetRamType(input) == Ram.Type.DDR2 ||
+                     GetRamType(input) == Ram.Type.DDR ||
+                     GetRamType(input) == Ram.Type.SDRAM)
                 );
         }
 
@@ -139,11 +139,13 @@ namespace SpdReaderWriterDll {
         /// <returns>Manufacturer's name</returns>
         public static string GetModuleManufacturer(byte[] input) {
 
-            int vendorIdOffsetStart;
-            int vendorIdOffsetEnd;
+            int vendorIdOffsetStart, vendorIdOffsetEnd;
             long manufacturerId = 0;
 
             switch (GetRamType(input)) {
+                case Ram.Type.DDR5:
+                    manufacturerId = input[0x512] << 8 | input[0x513];
+                    break;
                 case Ram.Type.DDR4:
                     manufacturerId = input[0x140] << 8 | input[0x141];
                     break;
@@ -155,7 +157,7 @@ namespace SpdReaderWriterDll {
                 // Vendor ID location for DDR2 and older RAM SPDs
                 default:
                     vendorIdOffsetStart = 0x40;
-                    vendorIdOffsetEnd = 0x47;
+                    vendorIdOffsetEnd   = 0x47;
                     break;
             }
 
@@ -310,139 +312,6 @@ namespace SpdReaderWriterDll {
                 _chars[i] = (char)input[modelNameStart + i];
             }
             return new string(_chars).Trim();
-        }
-
-        /// <summary>
-        /// Calculates CRC16/XMODEM checksum
-        /// </summary>
-        /// <param name="input">A byte array to be checked</param>
-        /// <param name="poly">Polynomial value</param>
-        /// <returns>A calculated checksum</returns>
-        public static UInt16 Crc16(byte[] input, int poly) {
-            UInt16[] table = new UInt16[256];
-            UInt16 crc = 0;
-
-            for (int i = 0; i < table.Length; ++i) {
-
-                UInt16 temp = 0;
-                UInt16 a = (UInt16)(i << 8);
-
-                for (UInt8 j = 0; j < 8; ++j) {
-                    temp = (ushort)(((temp ^ a) & 0x8000) != 0 ? (temp << 1) ^ poly : temp << 1);
-                    a <<= 1;
-                }
-
-                table[i] = temp;
-            }
-
-            for (int i = 0; i < input.Length; ++i) {
-                crc = (UInt16)((crc << 8) ^ table[(crc >> 8) ^ (0xFF & input[i])]);
-            }
-
-            return crc;
-        }
-
-        /// <summary>
-        /// Calculates CRC8 checksum
-        /// </summary>
-        /// <param name="input">A byte array to be checked</param>
-        /// <returns>A calculated checksum</returns>
-        public static UInt16 Crc(byte[] input) {
-            UInt16 crc = 0;
-
-            for (int i = 0; i < input.Length; i++) {
-                crc += input[i];
-            }
-
-            return crc;
-        }
-
-        /// <summary>
-        /// Gets bit value specified at position from a byte
-        /// </summary>
-        /// <param name="input">Input byte to get bit value from</param>
-        /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
-        /// <returns>A bit value</returns>
-        public static byte GetBit(byte input, UInt8 position) {
-
-            if (position > 7) {
-                throw new ArgumentOutOfRangeException(nameof(position));
-            }
-
-            return (byte)((input >> position) & 1);
-        }
-
-        /// <summary>
-        /// Gets bit values from a byte at specified offset position
-        /// </summary>
-        /// <param name="input">Input byte to get a bit value from</param>
-        /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
-        /// <param name="count">The number of bits to read</param>
-        /// <returns>An array of bit values</returns>
-        public static byte[] GetBits(byte input, UInt8 position, UInt8 count) {
-
-            if (count < 1) {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
-
-            if (count > 8 || position > 7 || count > position + 1) {
-                return new byte[] { 0 };
-            }
-
-            byte[] bits = new byte[count];
-
-            for (int i = 0; i < bits.Length; i++) {
-                bits[i] = GetBit(input, (byte)(position - i));
-            }
-
-            return bits;
-        }
-
-        /// <summary>
-        /// Sets specified bit in a byte at specified offset position
-        /// </summary>
-        /// <param name="input">Input byte to set bit in</param>
-        /// <param name="position">Bit position to set</param>
-        /// <param name="value">Bit value to set</param>
-        public static byte SetBit(byte input, UInt8 position, byte value) {
-
-            if (position > 7) {
-                throw new ArgumentOutOfRangeException(nameof(position));
-            }
-
-            return (byte)(value == 1 ? input | (1 << position) : input & ~(1 << position));
-        }
-
-        /// <summary>
-        /// Gets number of bits from input byte at position and converts them to a new byte
-        /// </summary>
-        /// <param name="input">Input byte to get bits from</param>
-        /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
-        /// <param name="count">The number of bits to read</param>
-        /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
-        public static byte GetByteFromBits(byte input, UInt8 position, UInt8 count) {
-
-            if (count < 1) {
-                throw new ArgumentOutOfRangeException(nameof(count));
-            }
-
-            // Generate bit mask
-            byte mask = (byte)(Math.Pow(2, count) - 1);
-
-            // Calculate shift position for the input
-            byte shift = (byte)(position - count + 1);
-
-            // Bitwise AND shifted input and mask
-            return (byte)((input >> shift) & mask);
-        }
-
-        /// <summary>
-        /// Converts boolean type to UInt8
-        /// </summary>
-        /// <param name="input">Boolean input</param>
-        /// <returns>1 if the input is <see langword="true" />, or 0, when the input is <see langword="false" /></returns>
-        public static UInt8 BoolToInt(bool input) {
-            return (UInt8)(input ? 1 : 0);
         }
     }
 }
