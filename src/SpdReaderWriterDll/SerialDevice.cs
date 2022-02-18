@@ -195,7 +195,7 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <param name="bitmask">Enable bitmask response</param>
-        /// <returns>A bitmask representing available EEPROM devices on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        /// <returns>A bitmask representing available addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         public UInt8 Scan(bool bitmask) {
             return ScanPrivate(bitmask);
         }
@@ -747,7 +747,7 @@ namespace SpdReaderWriterDll {
         private bool SetOfflineModePrivate(bool state) {
             lock (PortLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set offline mode on {PortName}");
@@ -787,7 +787,7 @@ namespace SpdReaderWriterDll {
                         }
 
                         for (UInt8 i = 0; i <= 7; i++) {
-                            if (GetBit(_response, i) == 1) {
+                            if (Data.GetBit(_response, i)) {
                                 addresses.Enqueue((byte)(80 + i));
                             }
                         }
@@ -832,7 +832,7 @@ namespace SpdReaderWriterDll {
             lock (PortLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { Command.I2CCLOCK, BoolToInt(fastMode) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToInt(fastMode) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set I2C clock mode on {PortName}");
@@ -867,7 +867,7 @@ namespace SpdReaderWriterDll {
             lock (PortLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { Command.PINCONTROL, pin, BoolToInt(state) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set config pin state on {PortName}");
@@ -901,7 +901,7 @@ namespace SpdReaderWriterDll {
             lock (PortLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set High Voltage state on {PortName}");
@@ -1190,12 +1190,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private object PortLock = _portLock;
+        private object PortLock => _portLock;
 
         /// <summary>
         /// FindLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private object FindLock = _findLock;
+        private object FindLock => _findLock;
 
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
