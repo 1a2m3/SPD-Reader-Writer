@@ -248,6 +248,15 @@ namespace SpdReaderWriterDll {
             }
         }
 
+        /// <summary>
+        /// Tests if EEPROM is writable or permanently protected
+        /// </summary>
+        /// <param name="device">SMBus device instance</param>
+        /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
+        public static bool GetPswp(Smbus device) {
+            return !Smbus.ReadByte(device, (byte)((EepromCommand.PWPB << 3) | (device.I2CAddress & 0b111)));
+        }
+
         #endregion
 
         #region SerialDevice
@@ -265,7 +274,7 @@ namespace SpdReaderWriterDll {
 
             try {
                 return device.ExecuteCommand(new[] {
-                    Command.READBYTE, 
+                    SerialDevice.Command.READBYTE, 
                     device.I2CAddress, 
                     (byte)(offset >> 8),   // MSB
                     (byte)(offset & 0xFF), // LSB
@@ -293,7 +302,7 @@ namespace SpdReaderWriterDll {
 
             try {
                 return device.ExecuteCommand(new[] {
-                    Command.READBYTE, 
+                    SerialDevice.Command.READBYTE, 
                     device.I2CAddress, 
                     (byte)(offset >> 8),   // MSB
                     (byte)(offset & 0xFF), // LSB
@@ -318,12 +327,12 @@ namespace SpdReaderWriterDll {
             }
             try {
                 return device.ExecuteCommand(new[] {
-                    Command.WRITEBYTE, 
+                    SerialDevice.Command.WRITEBYTE, 
                     device.I2CAddress, 
                     (byte)(offset >> 8),   // MSB
                     (byte)(offset & 0xFF), // LSB
                     value
-                }) == Response.SUCCESS;
+                }) == SerialDevice.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to write \"0x{value:X2}\" to # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
@@ -347,7 +356,7 @@ namespace SpdReaderWriterDll {
 
             // Prepare command + data
             byte[] command = new byte[5 + value.Length];
-            command[0] = Command.WRITEPAGE;
+            command[0] = SerialDevice.Command.WRITEPAGE;
             command[1] = device.I2CAddress;
             command[2] = (byte)(offset >> 8);   // MSB
             command[3] = (byte)(offset & 0xFF); // LSB
@@ -356,7 +365,7 @@ namespace SpdReaderWriterDll {
             Array.Copy(value, 0, command, 5, value.Length);
 
             try {
-                return device.ExecuteCommand(command) == Response.SUCCESS;
+                return device.ExecuteCommand(command) == SerialDevice.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to write page of {value.Length} byte(s) to # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
@@ -452,7 +461,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
         public static bool SetRswp(SerialDevice device, UInt8 block) {
             try {
-                return device.ExecuteCommand(new[] { Command.RSWP, block, Command.ON }) == Response.SUCCESS;
+                return device.ExecuteCommand(new[] { SerialDevice.Command.RSWP, block, SerialDevice.Command.ON }) == SerialDevice.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set RSWP on {device.PortName}");
@@ -487,7 +496,7 @@ namespace SpdReaderWriterDll {
         public static bool GetRswp(SerialDevice device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
-                    if (device.ExecuteCommand(new[] { Command.RSWP, i, Command.GET }) == Response.ENABLED) {
+                    if (device.ExecuteCommand(new[] { SerialDevice.Command.RSWP, i, SerialDevice.Command.GET }) == SerialDevice.Response.ENABLED) {
                         return true;
                     }
                 }
@@ -507,7 +516,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the block is write protected (or RSWP is not supported) or <see langword="false" /> when the block is writable</returns>
         public static bool GetRswp(SerialDevice device, UInt8 block) {
             try {
-                return device.ExecuteCommand(new[] { Command.RSWP, block, Command.GET }) == Response.ENABLED;
+                return device.ExecuteCommand(new[] { SerialDevice.Command.RSWP, block, SerialDevice.Command.GET }) == SerialDevice.Response.ENABLED;
             }
             catch {
                 throw new Exception($"Unable to get block {block} RSWP status on {device.PortName}");
@@ -521,7 +530,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the write protection has been disabled</returns>
         public static bool ClearRswp(SerialDevice device) {
             try {
-                return device.ExecuteCommand(new[] { Command.RSWP, Command.DNC, Command.OFF }) == Response.SUCCESS;
+                return device.ExecuteCommand(new[] { SerialDevice.Command.RSWP, SerialDevice.Command.DNC, SerialDevice.Command.OFF }) == SerialDevice.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to clear RSWP on {device.PortName}");
@@ -535,7 +544,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
         public static bool SetPswp(SerialDevice device) {
             try {
-                return device.ExecuteCommand(new[] { Command.PSWP, device.I2CAddress, Command.ON }) == Response.SUCCESS;
+                return device.ExecuteCommand(new[] { SerialDevice.Command.PSWP, device.I2CAddress, SerialDevice.Command.ON }) == SerialDevice.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set PSWP on {device.PortName}");
@@ -549,7 +558,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(SerialDevice device) {
             try {
-                return device.ExecuteCommand(new[] { Command.PSWP, device.I2CAddress, Command.GET }) == Response.ENABLED;
+                return device.ExecuteCommand(new[] { SerialDevice.Command.PSWP, device.I2CAddress, SerialDevice.Command.GET }) == SerialDevice.Response.ENABLED;
             }
             catch {
                 throw new Exception($"Unable to get PSWP status on {device.PortName}");
@@ -572,6 +581,9 @@ namespace SpdReaderWriterDll {
             public const byte RPS1 = 0x69;
             public const byte RPS2 = 0x6B;
             public const byte RPS3 = 0x61;
+
+            // PSWP commands
+            public const byte PWPB = 0b0110;
         }
     }
 }
