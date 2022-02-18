@@ -1,9 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.IO.Ports;
 using SpdReaderWriterDll;
-using SerialPortSettings = SpdReaderWriterDll.Device.SerialPortSettings;
+using SerialPortSettings = SpdReaderWriterDll.SerialDevice.SerialPortSettings;
 
 namespace SpdReaderWriter {
     class Program {
@@ -94,30 +93,18 @@ namespace SpdReaderWriter {
                 // Setup
                 SerialPortSettings readerSettings = new SerialPortSettings(
                         // Baud rate
-                        115200,
+                        baudRate: 115200,
                         // Enable DTR
-                        true,
+                        dtrEnable: true,
                         // Enable RTS
-                        true,
-                        // Data bits
-                        8,
-                        // Handshake
-                        Handshake.None,
-                        // New line
-                        "\n",
-                        // Parity
-                        Parity.None,
-                        // Stop bits
-                        StopBits.One,
-                        // Use event handler
-                        true,
+                        rtsEnable: true,
                         // Response timeout (sec.)
-                        10);
+                        responseTimeout: 10);
 
                 // Find
                 if (mode == "/find") {
                     // Find 
-                    string[] devices = new Device(readerSettings).Find();
+                    string[] devices = new SerialDevice(readerSettings).Find();
                     if (devices.Length > 0) {
                         foreach (string portName in devices) {
                             Console.WriteLine($"Found Device on Serial Port: {portName}\n");
@@ -139,15 +126,15 @@ namespace SpdReaderWriter {
                         throw new Exception("Port name should start with \"COM\" followed by a number.");
                     }
 
-                    Device reader = new Device(readerSettings, portName);
+                    SerialDevice reader = new SerialDevice(readerSettings, portName);
 
                     if (!reader.Connect()) {
                         throw new Exception($"Could not connect to the device on port {portName}.");
                     }
 
-                    if (reader.GetFirmwareVersion() < SpdReaderWriterDll.Settings.MINVERSION) {
-                        throw new Exception($"The device on port {portName} requires its firmware to be updated.");
-                    }
+                    //if (reader.GetFirmwareVersion() < SpdReaderWriterDll.Settings.MINVERSION) {
+                    //    throw new Exception($"The device on port {portName} requires its firmware to be updated.");
+                    //}
 
                     //if (!reader.Test()) {
                     //	throw new Exception($"The device on port {portName} does not respond.");
@@ -172,7 +159,7 @@ namespace SpdReaderWriter {
                     // Test reversible write protection capabilities
                     if (mode.StartsWith("/") && mode.EndsWith("writeprotection")) {
 
-                        if (reader.GetRamTypeSupport() < Ram.BitMask.DDR2) {
+                        if (reader.GetRamTypeSupport() < Ram.BitMask.DDR3) {
                             throw new Exception("Your device does not support write protection features.");
                         }
 
@@ -202,7 +189,7 @@ namespace SpdReaderWriter {
                             reader.ResetAddressPins();
 
                             for (byte i = 0; i < block.Length; i++) {
-                                if (Eeprom.SetWriteProtection(reader, i)) {
+                                if (Eeprom.SetRswp(reader, i)) {
                                     Console.WriteLine($"Block {i} is now read-only");
                                 }
                                 else {
@@ -216,9 +203,9 @@ namespace SpdReaderWriter {
                         // Disable write protection
                         if (mode.StartsWith("/disable") || mode.StartsWith("/clear")) {
 
-                            reader.PIN_SA1 = Pin.State.ON;
+                            reader.PIN_SA1 = SerialDevice.Pin.State.ON;
 
-                            if (Eeprom.ClearReversibleWriteProtection(reader)) {
+                            if (Eeprom.ClearRswp(reader)) {
                                 Console.WriteLine("Write protection successfully disabled.");
                             }
                             else {
@@ -359,7 +346,7 @@ namespace SpdReaderWriter {
                     }
 
                     if (mode == "/enablepermanentwriteprotection") {
-                        if (Eeprom.SetPermanentWriteProtection(reader)) {
+                        if (Eeprom.SetPswp(reader)) {
                             Console.WriteLine($"Permanent write protection enabled on {reader.PortName}:{reader.I2CAddress}");
                         }
                         else {
