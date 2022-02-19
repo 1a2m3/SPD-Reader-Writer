@@ -71,13 +71,18 @@ namespace SpdReaderWriterDll {
         /// <returns>An array of PCI devices locations matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref> </returns>
         public static UInt32 FindDeviceById(UInt16 vendorId, UInt16 deviceId) {
 
-            UInt32[] _pciDevice = new PciDevice().FindDeviceById(vendorId, deviceId, 1);
+            try {
+                UInt32[] _pciDevice = new PciDevice().FindDeviceById(vendorId, deviceId, 1);
 
-            if (_pciDevice.Length > 0 && _pciDevice[0] != UInt16.MaxValue) {
-                return _pciDevice[0];
+                if (_pciDevice.Length > 0 && _pciDevice[0] != UInt16.MaxValue) {
+                    return _pciDevice[0];
+                }
+
+                return 0;
             }
-
-            throw new IOException("PCI device not found");
+            catch {
+                throw new IOException("PCI device not found");
+            }
         }
 
         /// <summary>
@@ -165,7 +170,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Returns PCI device's vendor ID
         /// </summary>
-        /// <returns>System VendorID</returns>
+        /// <returns>Vendor ID</returns>
         public UInt16 GetVendorId() {
             return ReadWord(0x00);
         }
@@ -173,7 +178,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Returns PCI device's ID
         /// </summary>
-        /// <returns></returns>
+        /// <returns>Device ID</returns>
         public UInt16 GetDeviceId() {
             return ReadWord(0x02);
         }
@@ -184,7 +189,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte location</param>
         /// <returns>Byte value at <paramref name="offset"/> location</returns>
         public UInt8 ReadByte(byte offset) {
-            return Smbus.Driver.ReadPciConfigByte(pciInfo._pciDeviceMemoryLocation, GetOffset(offset));
+            return Smbus.Driver.ReadPciConfigByte(pciInfo.pciDeviceMemoryLocation, offset);
         }
 
         /// <summary>
@@ -193,7 +198,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Word location</param>
         /// <returns>Word value at <paramref name="offset"/> location</returns>
         public UInt16 ReadWord(byte offset) {
-            return Smbus.Driver.ReadPciConfigWord(pciInfo._pciDeviceMemoryLocation, offset);
+            return Smbus.Driver.ReadPciConfigWord(pciInfo.pciDeviceMemoryLocation, offset);
         }
 
         /// <summary>
@@ -202,7 +207,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Dword location</param>
         /// <returns>Dword value at <paramref name="offset"/> location</returns>
         public UInt32 ReadDword(byte offset) {
-            return Smbus.Driver.ReadPciConfigDword(pciInfo._pciDeviceMemoryLocation, GetOffset(offset));
+            return Smbus.Driver.ReadPciConfigDword(pciInfo.pciDeviceMemoryLocation, offset);
         }
 
         /// <summary>
@@ -211,7 +216,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte location</param>
         /// <param name="value">Byte value</param>
         public void WriteByte(byte offset, UInt8 value) {
-            Smbus.Driver.WritePciConfigByte(pciInfo._pciDeviceMemoryLocation, offset, value);
+            Smbus.Driver.WritePciConfigByte(pciInfo.pciDeviceMemoryLocation, offset, value);
         }
 
         /// <summary>
@@ -220,7 +225,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Word location</param>
         /// <param name="value">Word value</param>
         public void WriteWord(byte offset, UInt16 value) {
-            Smbus.Driver.WritePciConfigWord(pciInfo._pciDeviceMemoryLocation, GetOffset((byte)(offset - 1)), value);
+            Smbus.Driver.WritePciConfigWord(pciInfo.pciDeviceMemoryLocation, offset, value);
         }
 
         /// <summary>
@@ -229,16 +234,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Dword location</param>
         /// <param name="value">Dword value</param>
         public void WriteDword(byte offset, UInt32 value) {
-            Smbus.Driver.WritePciConfigDword(pciInfo._pciDeviceMemoryLocation, GetOffset((byte)(offset - 3)), value);
-        }
-
-        /// <summary>
-        /// Adjust register offset location according to SMBus number
-        /// </summary>
-        /// <param name="offset">Offset location</param>
-        /// <returns>New offset location</returns>
-        public byte GetOffset(byte offset) {
-            return (byte)(offset + 4 * pciInfo._smBusNumber);
+            Smbus.Driver.WritePciConfigDword(pciInfo.pciDeviceMemoryLocation, offset, value);
         }
 
         /// <summary>
@@ -251,12 +247,11 @@ namespace SpdReaderWriterDll {
             public static uint _pciFunctionNumber;
 
             // PCI device memory location
-            public static uint _pciDeviceMemoryLocation {
-                get => Smbus.Driver.PciBusDevFunc(_pciBusNumber, _pciDeviceNumber, _pciFunctionNumber);
+            public static uint pciDeviceMemoryLocation {
+                get {
+                    return Smbus.Driver.PciBusDevFunc(_pciBusNumber, _pciDeviceNumber, _pciFunctionNumber);
+                }
             }
-
-            // SMBus bus number
-            public static byte _smBusNumber;
         }
     }
 }
