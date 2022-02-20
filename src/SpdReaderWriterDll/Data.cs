@@ -151,5 +151,15 @@ namespace SpdReaderWriterDll {
         public static UInt8 BoolToInt(bool input) {
             return (UInt8)(input ? 1 : 0);
         }
+
+        /// <summary>
+        /// Determine if a string contains a case insensitive given substring
+        /// </summary>
+        /// <param name="inputString">The string to search in</param>
+        /// <param name="substring">The substring to search for in the <paramref name="inputString"/></param>
+        /// <returns><see langword="true" /> if <paramref name="substring"/> is part of <paramref name="inputString"/></returns>
+        public static bool StringContains(string inputString, string substring) {
+            return inputString.IndexOf(substring, 0, StringComparison.CurrentCultureIgnoreCase) != -1;
+        }
     }
 }
