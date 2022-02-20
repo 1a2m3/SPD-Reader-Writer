@@ -5,7 +5,6 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
-using static SpdReaderWriterDll.Spd;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
