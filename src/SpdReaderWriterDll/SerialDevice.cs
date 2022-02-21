@@ -5,17 +5,15 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
-using static SpdReaderWriterDll.SerialDeviceCommand;
-using static SpdReaderWriterDll.Pin;
-using static SpdReaderWriterDll.Pin.Name;
-using static SpdReaderWriterDll.Spd;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
+
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
     public class SerialDevice {
+
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
@@ -162,10 +160,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Test if the device supports RAM type at firmware level
+        /// Test if the device supports RAM type RSWP at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
+        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> RSWP at firmware level</returns>
         public bool GetRamTypeSupport(byte ramTypeBitmask) {
             return GetRamTypeSupportPrivate(ramTypeBitmask);
         }
@@ -198,7 +196,7 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <param name="bitmask">Enable bitmask response</param>
-        /// <returns>A bitmask representing available EEPROM devices on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        /// <returns>A bitmask representing available addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         public UInt8 Scan(bool bitmask) {
             return ScanPrivate(bitmask);
         }
@@ -224,15 +222,15 @@ namespace SpdReaderWriterDll {
         /// Gets or sets SA1 control pin
         /// </summary>
         public bool PIN_SA1 {
-            get => GetConfigPinPrivate(SA1_SWITCH);
-            set => SetConfigPinPrivate(SA1_SWITCH, value);
+            get => GetConfigPinPrivate(Pin.Name.SA1_SWITCH);
+            set => SetConfigPinPrivate(Pin.Name.SA1_SWITCH, value);
         }
 
         /// <summary>
         /// Gets or sets DDR5 offline mode control pin
         /// </summary>
         public bool PIN_OFFLINE {
-            get => GetConfigPinPrivate(OFFLINE_MODE_SWITCH);
+            get => GetConfigPinPrivate(Pin.Name.OFFLINE_MODE_SWITCH);
             set => SetOfflineModePrivate(value);
         }
 
@@ -276,7 +274,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
         public bool GetConfigPin(byte pin) {
-            return GetConfigPinPrivate(pin) == State.ON;
+            return GetConfigPinPrivate(pin) == Pin.State.ON;
         }
 
         /// <summary>
@@ -302,9 +300,9 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> when all config pins are reset</returns>
         public bool ResetAddressPins() {
 
-            PIN_SA1     = State.DEFAULT;
-            PIN_VHV     = State.DEFAULT;
-            PIN_OFFLINE = State.DEFAULT;
+            PIN_SA1     = Pin.State.DEFAULT;
+            PIN_VHV     = Pin.State.DEFAULT;
+            PIN_OFFLINE = Pin.State.DEFAULT;
 
             return !PIN_SA1 && !PIN_VHV && !PIN_OFFLINE;
         }
@@ -341,7 +339,16 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Executes commands on the device.
+        /// Executes a single byte command on the device and expects a single byte response
+        /// </summary>
+        /// <param name="command">Byte to be sent to the device</param>
+        /// <returns>A byte received from the device in response</returns>
+        public byte ExecuteCommand(byte command) {
+            return ExecuteCommandPrivate(new []{ command }, 1)[0];
+        }
+
+        /// <summary>
+        /// Executes a multi byte command on the device and expects a single byte response
         /// </summary>
         /// <param name="command">Bytes to be sent to the device</param>
         /// <returns>A byte received from the device in response</returns>
@@ -350,7 +357,17 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Executes commands on the device.
+        /// Executes a single byte command on the device and expects a multi byte response
+        /// </summary>
+        /// <param name="command">Byte to be sent to the device</param>
+        /// <param name="length">Number of bytes to receive in response</param>
+        /// <returns>A byte array received from the device in response</returns>
+        public byte[] ExecuteCommand(byte command, uint length) {
+            return ExecuteCommandPrivate(new[] { command }, length);
+        }
+
+        /// <summary>
+        /// Executes a multi byte command on the device and expects a multi byte response
         /// </summary>
         /// <param name="command">Bytes to be sent to the device</param>
         /// <param name="length">Number of bytes to receive in response</param>
@@ -531,8 +548,7 @@ namespace SpdReaderWriterDll {
                 }
             }
         }
-
-
+        
         /// <summary>
         /// Value representing whether the device supports RSWP capabilities based on RAM type supported reported by the device
         /// </summary>
@@ -598,7 +614,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if the connection is established</returns>
         private bool ConnectPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 if (!IsConnected) {
                     _sp = new SerialPort {
                         // New connection settings
@@ -651,7 +667,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> once the device is disconnected</returns>
         private bool DisconnectPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 if (IsConnected) {
                     try {
                         // Remove handlers
@@ -676,13 +692,13 @@ namespace SpdReaderWriterDll {
         /// Disposes device instance
         /// </summary>
         private void DisposePrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 if (_sp != null && _sp.IsOpen) {
                     _sp.Close();
                     _sp = null;
                 }
                 DataReceiving = false;
-                IsValid = false;
+                IsValid       = false;
                 ResponseData.Clear();
             }
         }
@@ -692,10 +708,10 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if the device responds to a test command</returns>
         private bool TestPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected && 
-                           ExecuteCommand(new[] { TESTCOMM }) == Response.WELCOME;
+                           ExecuteCommand(Command.TESTCOMM) == Response.WELCOME;
                 }
                 catch {
                     throw new Exception($"Unable to test {PortName}");
@@ -708,9 +724,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
         private byte GetRamTypeSupportPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { RSWPREPORT });
+                    return ExecuteCommand(Command.RSWPREPORT);
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} supported RAM");
@@ -732,9 +748,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
         private byte RswpRetestPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { RETESTRSWP });
+                    return ExecuteCommand(Command.RETESTRSWP);
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} supported RAM");
@@ -748,9 +764,9 @@ namespace SpdReaderWriterDll {
         /// <param name="state">Offline mode state</param>
         /// <returns><see langword="true" /> when operation is successful</returns>
         private bool SetOfflineModePrivate(bool state) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { PINCONTROL, OFFLINE_MODE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set offline mode on {PortName}");
@@ -763,9 +779,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> when DDR5 is in offline mode</returns>
         private bool GetOfflineModePrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { PINCONTROL, OFFLINE_MODE_SWITCH, GET }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Command.GET }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to get offline mode status on {PortName}");
@@ -780,7 +796,7 @@ namespace SpdReaderWriterDll {
         private UInt8[] ScanPrivate() {
             Queue<UInt8> addresses = new Queue<UInt8>();
 
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     if (IsConnected) {
                         byte _response = ScanPrivate(true);
@@ -790,7 +806,7 @@ namespace SpdReaderWriterDll {
                         }
 
                         for (UInt8 i = 0; i <= 7; i++) {
-                            if (GetBit(_response, i) == 1) {
+                            if (Data.GetBit(_response, i)) {
                                 addresses.Enqueue((byte)(80 + i));
                             }
                         }
@@ -811,10 +827,10 @@ namespace SpdReaderWriterDll {
         /// <returns>A bitmask representing available EEPROM addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         private UInt8 ScanPrivate(bool bitmask) {
             if (bitmask) {
-                lock (PortLock) {
+                lock (_portLock) {
                     try {
                         if (IsConnected) {
-                            return ExecuteCommand(new[] { SCANBUS });
+                            return ExecuteCommand(Command.SCANBUS);
                         }
                     }
                     catch {
@@ -832,10 +848,10 @@ namespace SpdReaderWriterDll {
         /// <param name="fastMode">Fast mode or standard mode</param>
         /// <returns><see langword="true" /> if the operation is successful</returns>
         private bool SetI2CClockPrivate(bool fastMode) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { I2CCLOCK, BoolToInt(fastMode) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToInt(fastMode) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set I2C clock mode on {PortName}");
@@ -849,10 +865,10 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true" /> if the device's I2C bus is running in fast mode, or <see langword="false" /> if it is in standard mode</returns>
         private bool GetI2CClockPrivate() {
 
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { I2CCLOCK, GET }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.I2CCLOCK, Command.GET }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to get I2C clock mode on {PortName}");
@@ -867,10 +883,10 @@ namespace SpdReaderWriterDll {
         /// <param name="state">Config pin state</param>
         /// <returns><see langword="true" /> if the config pin has been set</returns>
         private bool SetConfigPinPrivate(byte pin, bool state) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { PINCONTROL, pin, BoolToInt(state) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set config pin state on {PortName}");
@@ -884,10 +900,10 @@ namespace SpdReaderWriterDll {
         /// <param name="pin">Config pin</param>
         /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
         private bool GetConfigPinPrivate(byte pin) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { PINCONTROL, pin, GET }) == Response.ON;
+                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Command.GET }) == Response.ON;
                 }
                 catch {
                     throw new Exception($"Unable to get config pin state on {PortName}");
@@ -901,10 +917,10 @@ namespace SpdReaderWriterDll {
         /// <param name="state">High voltage supply state</param>
         /// <returns><see langword="true" /> if operation is completed</returns>
         private bool SetHighVoltagePrivate(bool state) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { PINCONTROL, HIGH_VOLTAGE_SWITCH, BoolToInt(state) }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set High Voltage state on {PortName}");
@@ -917,10 +933,10 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true" /> if high voltage is applied to pin SA0</returns>
         private bool GetHighVoltagePrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { PINCONTROL, HIGH_VOLTAGE_SWITCH, GET }) == Response.ON;
+                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Command.GET }) == Response.ON;
                 }
                 catch {
                     throw new Exception($"Unable to get High Voltage state on {PortName}");
@@ -934,10 +950,10 @@ namespace SpdReaderWriterDll {
         /// <param name="address">EEPROM address</param>
         /// <returns><see langword="true" /> if the address is accessible</returns>
         private bool ProbeAddressPrivate(UInt8 address) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { PROBEADDRESS, address }) == Response.ACK;
+                           ExecuteCommand(new[] { Command.PROBEADDRESS, address }) == Response.ACK;
                 }
                 catch {
                     throw new Exception($"Unable to probe address {address} on {PortName}");
@@ -951,12 +967,12 @@ namespace SpdReaderWriterDll {
         /// <returns>Firmware version number</returns>
         private int GetFirmwareVersionPrivate() {
             int _version = 0;
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     if (IsConnected) {
                         _version = Int32.Parse(
                             Encoding.Default.GetString(
-                                ExecuteCommand(new[] { GETVERSION }, 8)
+                                ExecuteCommand(Command.GETVERSION, 8)
                             )
                         );
                     }
@@ -978,7 +994,7 @@ namespace SpdReaderWriterDll {
             if (name == "") throw new ArgumentException("Name can't be blank");
             if (name.Length > 16) throw new ArgumentException("Name can't be longer than 16 characters");
 
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     if (IsConnected) {
                         string _name = name.Trim();
@@ -990,7 +1006,7 @@ namespace SpdReaderWriterDll {
                         // Prepare a byte array containing cmd byte + name length + name
                         byte[] _nameCommand = new byte[1 + 1 + _name.Length];
                         // command byte at position 0
-                        _nameCommand[0] = NAME;
+                        _nameCommand[0] = Command.NAME;
                         // name length at position 1
                         _nameCommand[1] = (byte)_name.Length;
                         // copy new name to byte array
@@ -1015,10 +1031,10 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>Device's name</returns>
         private string GetNamePrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     if (CurrentName == null) {
-                        CurrentName = Encoding.Default.GetString(ExecuteCommand(new[] { NAME, GET }, 16)).Split('\0')[0];
+                        CurrentName = Encoding.Default.GetString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16)).Split('\0')[0];
                     }
                     return CurrentName;
                 }
@@ -1035,12 +1051,12 @@ namespace SpdReaderWriterDll {
         private string[] FindPrivate() {
             Stack<string> _result = new Stack<string>();
 
-            lock (FindLock) {
+            lock (_findLock) {
                 foreach (string _portName in SerialPort.GetPortNames().Distinct().ToArray()) {
 
                     SerialDevice _device = new SerialDevice(PortSettings, _portName);
                     try {
-                        lock (_device.PortLock) {
+                        lock (_device._portLock) {
                             if (_device.ConnectPrivate()) {
                                 _device.DisposePrivate();
                                 _result.Push(_portName);
@@ -1062,10 +1078,10 @@ namespace SpdReaderWriterDll {
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true" /> if DDR4 is found</returns>
         private bool DetectDdr4Private(UInt8 address) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { DDR4DETECT, address }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.DDR4DETECT, address }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Error detecting DDR4 on {PortName}");
@@ -1079,10 +1095,10 @@ namespace SpdReaderWriterDll {
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true" /> if DDR5 is found</returns>
         private bool DetectDdr5Private(UInt8 address) {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     return IsConnected &&
-                           ExecuteCommand(new[] { DDR5DETECT, address }) == Response.SUCCESS;
+                           ExecuteCommand(new[] { Command.DDR5DETECT, address }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Error detecting DDR5 on {PortName}");
@@ -1094,7 +1110,7 @@ namespace SpdReaderWriterDll {
         /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
         /// </summary>
         private void ClearBufferPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     if (IsConnected) {
                         // Clear response data
@@ -1123,7 +1139,7 @@ namespace SpdReaderWriterDll {
         /// Clears serial port buffers and causes any buffered data to be written
         /// </summary>
         private void FlushBufferPrivate() {
-            lock (PortLock) {
+            lock (_portLock) {
                 if (IsConnected) {
                     _sp.BaseStream.Flush();
                 }
@@ -1143,7 +1159,7 @@ namespace SpdReaderWriterDll {
 
             byte[] _response = new byte[responseLength];
 
-            lock (PortLock) {
+            lock (_portLock) {
                 try {
                     // Check connection
                     if (IsConnected) {
@@ -1193,21 +1209,212 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private object PortLock = _portLock;
+        private readonly object _portLock = new object();
 
         /// <summary>
         /// FindLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private object FindLock = _findLock;
+        private readonly object _findLock = new object();
 
         /// <summary>
-        /// PortLock object used to prevent other threads from acquiring the lock 
+        /// Device commands
         /// </summary>
-        private static readonly object _portLock = new object();
+        public struct Command {
+            /// <summary>
+            /// Read byte
+            /// </summary>
+            public const byte READBYTE     = (byte)'r';
+            /// <summary>
+            /// Write byte
+            /// </summary>
+            public const byte WRITEBYTE    = (byte)'w';
+            /// <summary>
+            /// Write page
+            /// </summary>
+            public const byte WRITEPAGE    = (byte)'g';
+            /// <summary>
+            /// Scan i2c bus
+            /// </summary>
+            public const byte SCANBUS      = (byte)'s';
+            /// <summary>
+            /// Set i2c clock 
+            /// </summary>
+            public const byte I2CCLOCK     = (byte)'c';
+            /// <summary>
+            /// Probe i2c address
+            /// </summary>
+            public const byte PROBEADDRESS = (byte)'a';
+            /// <summary>
+            /// Config pin state control
+            /// </summary>
+            public const byte PINCONTROL   = (byte)'p';
+            /// <summary>
+            /// RSWP control
+            /// </summary>
+            public const byte RSWP         = (byte)'b';
+            /// <summary>
+            /// PSWP control
+            /// </summary>
+            public const byte PSWP         = (byte)'l';
+            /// <summary>
+            /// Get Firmware version
+            /// </summary>
+            public const byte GETVERSION   = (byte)'v';
+            /// <summary>
+            /// Device Communication Test
+            /// </summary>
+            public const byte TESTCOMM     = (byte)'t';
+            /// <summary>
+            /// Report current RSWP RAM support
+            /// </summary>
+            public const byte RSWPREPORT   = (byte)'f';
+            /// <summary>
+            /// Re-evaluate RSWP capabilities
+            /// </summary>
+            public const byte RETESTRSWP   = (byte)'e';
+            /// <summary>
+            /// Device name controls
+            /// </summary>
+            public const byte NAME         = (byte)'n';
+            /// <summary>
+            /// DDR4 detection
+            /// </summary>
+            public const byte DDR4DETECT   = (byte)'4';
+            /// <summary>
+            /// DDR5 detection
+            /// </summary>
+            public const byte DDR5DETECT   = (byte)'5';
+            /// <summary>
+            /// Restore device settings to default
+            /// </summary>
+            public const byte FACTORYRESET = (byte)'-';
+            /// <summary>
+            /// Suffix added to get current state
+            /// </summary>
+            public const byte GET          = (byte)'?';
+            /// <summary>
+            /// Suffix added to set state equivalent to true/on/enable etc
+            /// </summary>
+            public const byte ON           = 1;
+            /// <summary>
+            /// Suffix added to set state equivalent to false/off/disable etc
+            /// </summary>
+            public const byte OFF          = 0;
+            /// <summary>
+            /// "Do not care" byte
+            /// </summary>
+            public const byte DNC          = 0;
+        }
 
         /// <summary>
-        /// FindLock object used to prevent other threads from acquiring the lock
+        /// Class describing configuration pins
         /// </summary>
-        private static readonly object _findLock = new object();
+        public struct Pin {
+            /// <summary>
+            /// Struct describing config pin names
+            /// </summary>
+            public struct Name {
+                /// <summary>
+                /// DDR5 offline mode control pin
+                /// </summary>
+                public const byte OFFLINE_MODE_SWITCH = 0;
+
+                /// <summary>
+                /// Slave address 1 (SA1) control pin
+                /// </summary>
+                public const byte SA1_SWITCH          = 1;
+
+                /// <summary>
+                /// High voltage (9V) control pin
+                /// </summary>
+                public const byte HIGH_VOLTAGE_SWITCH = 9;
+            }
+
+            /// <summary>
+            /// Struct describing config pin states
+            /// </summary>
+            public struct State {
+                /// <summary>
+                /// Name state describing condition when pin is <b>HIGH</b>
+                /// </summary>
+                public const bool HIGH     = true;
+
+                /// <summary>
+                /// Name state describing condition when pin is <b>LOW</b>
+                /// </summary>
+                public const bool LOW      = false;
+
+                // Aliases for HIGH
+                public const bool VDDSPD   = HIGH;
+                public const bool PULLUP   = HIGH;
+                public const bool VCC      = HIGH;
+                public const bool ON       = HIGH;
+                public const bool UP       = HIGH;
+                public const bool ENABLE   = HIGH;
+                public const bool ENABLED  = HIGH;
+
+                // Aliases for LOW
+                public const bool VSSSPD   = LOW;
+                public const bool PUSHDOWN = LOW;
+                public const bool VSS      = LOW;
+                public const bool GND      = LOW;
+                public const bool OFF      = LOW;
+                public const bool DOWN     = LOW;
+                public const bool DISABLE  = LOW;
+                public const bool DISABLED = LOW;
+                public const bool DEFAULT  = LOW;
+            }
+        }
+
+        /// <summary>
+        /// Class describing different responses received from the device
+        /// </summary>
+        public struct Response {
+            /// <summary>
+            /// Boolean True response
+            /// </summary>
+            public const byte TRUE     = 0x01;
+            /// <summary>
+            /// Boolean False response
+            /// </summary>
+            public const byte FALSE    = 0x00;
+            /// <summary>
+            /// Indicates the operation has failed
+            /// </summary>
+            public const byte ERROR    = 0xFF;
+            /// <summary>
+            /// Indicates the operation was executed successfully
+            /// </summary>
+            public const byte SUCCESS  = 0x01;
+            /// <summary>
+            /// A response used to indicate an error when normally a numeric non-zero answer is expected if the operation was executed successfully
+            /// </summary>
+            public const byte NULL     = 0x00;
+            /// <summary>
+            /// A response used to describe when SA pin is tied to VCC
+            /// </summary> 
+            public const byte ON       = 0x01;
+            /// <summary>
+            /// A response used to describe when SA pin is tied to GND
+            /// </summary>
+            public const byte OFF      = 0x00;
+            /// <summary>
+            /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
+            /// </summary>
+            public const char WELCOME  = '!';
+            /// <summary>
+            /// A response indicating the command or syntax was not in a correct fromat
+            /// </summary>
+            public const char UNKNOWN  = '?';
+
+            // Aliases
+            public const byte ACK      = SUCCESS;
+            public const byte ENABLED  = TRUE;
+            public const byte DISABLED = FALSE;
+            public const byte NACK     = ERROR;
+            public const byte NOACK    = ERROR;
+            public const byte FAIL     = ERROR;
+            public const byte ZERO     = NULL;
+        }
     }
 }
