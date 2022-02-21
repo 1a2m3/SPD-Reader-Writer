@@ -10,24 +10,12 @@ namespace SpdReaderWriter {
         /// <summary>
         /// Serial port settings
         /// </summary>
-        public static Device.SerialPortSettings readerSettings = new Device.SerialPortSettings(
+        public static SerialDevice.SerialPortSettings readerSettings = new SerialDevice.SerialPortSettings(
             // Baud rate
             115200,
             // Enable DTR
             true,
             // Enable RTS
-            true,
-            // Data bits
-            8,
-            // Handshake
-            Handshake.None,
-            // New line
-            "\n",
-            // Parity
-            Parity.None,
-            // Stop bits
-            StopBits.One,
-            // Use event handler
             true,
             // Response timeout (sec.)
             10);
@@ -42,7 +30,7 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_BasicUse() {
             // Initialize the device
-            Device myDevice = new Device(readerSettings, portName);
+            SerialDevice myDevice = new SerialDevice(readerSettings, portName);
             //myDevice.Connect();
 
             // Test if the device responds (optional)
@@ -59,7 +47,7 @@ namespace SpdReaderWriter {
             myDevice.SpdSize = Ram.SpdSize.DDR4;
 
             // The device can also be initialized in one line, like so:
-            Device myOtherDevice = new Device(readerSettings, portName, 80, Ram.SpdSize.DDR4);
+            SerialDevice myOtherDevice = new SerialDevice(readerSettings, portName, 80, Ram.SpdSize.DDR4);
 
             // Read first byte at offset 0
             byte firstByte = Eeprom.ReadByte(myDevice, 0);
@@ -84,7 +72,7 @@ namespace SpdReaderWriter {
         /// Test an unreachable device to make sure all functions properly return false
         /// </summary>
         public static void Example_TestNonConnectableDevice() {
-            Device UnreachableDevice = new Device(readerSettings,"COM666");
+            SerialDevice UnreachableDevice = new SerialDevice(readerSettings,"COM666");
             UnreachableDevice.I2CAddress = 0x50;
             if (UnreachableDevice.IsConnected) {
                 // This won't be reached
@@ -97,12 +85,12 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_TestRealDevice() {
             // Test a real device
-            Device RealDevice = new Device(readerSettings, portName);
+            SerialDevice RealDevice = new SerialDevice(readerSettings, portName);
             RealDevice.Test(); //true
             RealDevice.Scan(); //{ 80 }
 
             // Test a real device
-            Device MyReader = new Device(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
+            SerialDevice MyReader = new SerialDevice(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
             MyReader.Test(); //true
         }
 
@@ -111,8 +99,8 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_DuplicateRam() {
             // Copy SPD contents from one DIMM to another
-            Device source = new Device(readerSettings, "COM1", 80, Ram.SpdSize.DDR4);
-            Device destination = new Device(readerSettings, "COM4", 82, source.SpdSize);
+            SerialDevice source = new SerialDevice(readerSettings, "COM1", 80, Ram.SpdSize.DDR4);
+            SerialDevice destination = new SerialDevice(readerSettings, "COM4", 82, source.SpdSize);
 
             for (ushort i = 0; i < (int)source.SpdSize; i++) {
                 Eeprom.WriteByte(destination, i, Eeprom.ReadByte(source, i));
@@ -131,17 +119,17 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_FixCRC() {
 
-            Device MyReader = new Device(readerSettings, portName, 0x52, Ram.SpdSize.DDR4);
+            SerialDevice MyReader = new SerialDevice(readerSettings, portName, 0x52, Ram.SpdSize.DDR4);
 
             // Read first 126 bytes
             byte[] spdHeader = Eeprom.ReadByte(MyReader, 0, 126);
 
             // Calculate CRC
-            ushort crc = Spd.Crc16(spdHeader, 0x1021);
+            ushort crc = Data.Crc16(spdHeader, 0x1021);
 
             // Get LSB (byte 127) and MSB (byte 128)
-            byte CrcLsb = (byte)(crc & 0xff);   // CRC LSB at 0x7e for 0-125 range or @ 0xfe for 128-253 range
-            byte CrcMsb = (byte)(crc >> 8);     // CRC MSB at 0x7f for 0-125 range or @ 0xff for 128-253 range
+            byte CrcLsb = (byte)(crc & 0xFF);   // CRC LSB at 0x7E for 0-125 range or @ 0xFE for 128-253 range
+            byte CrcMsb = (byte)(crc >> 8);     // CRC MSB at 0x7F for 0-125 range or @ 0xFF for 128-253 range
 
             // Compare calculated CRC against SPD data
             if (Eeprom.ReadByte(MyReader, 0x7e, 1)[0] == CrcLsb && Eeprom.ReadByte(MyReader, 0x7f, 1)[0] == CrcMsb) {
@@ -153,16 +141,16 @@ namespace SpdReaderWriter {
                 Eeprom.UpdateByte(MyReader, 0x7e, CrcLsb);
                 Eeprom.UpdateByte(MyReader, 0x7f, CrcMsb);
             }
-            // Note: you'll have to do the same for 128-253 range, checksum bytes are 0xfe and 0xff
+            // Note: you'll have to do the same for 128-253 range, checksum bytes are 0xfe and 0xFF
         }
 
         /// <summary>
-        /// Erase SPD contents (fill with 0xff's)
+        /// Erase SPD contents (fill with 0xFF's)
         /// </summary>
         public static void Example_EraseSPD() {
-            Device MyReader = new Device(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
+            SerialDevice MyReader = new SerialDevice(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
             for (ushort i = 0; i <= (int)MyReader.SpdSize; i++) {
-                Eeprom.UpdateByte(MyReader, i, 0xff);
+                Eeprom.UpdateByte(MyReader, i, 0xFF);
                 Console.WriteLine(i.ToString());
             }
         }
@@ -172,7 +160,7 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void ScanRange() {
 
-            Device myDevice = new Device(readerSettings, "COM8");
+            SerialDevice myDevice = new SerialDevice(readerSettings, "COM8");
 
             bool[] _probes = new bool[128];
 
