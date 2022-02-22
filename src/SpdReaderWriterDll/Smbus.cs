@@ -83,6 +83,7 @@ namespace SpdReaderWriterDll {
         HM97 = 0x8CC3,
         #endregion
 
+        // DDR4
         #region LGA2066
         X299 = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
         #endregion
