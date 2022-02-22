@@ -20,7 +20,70 @@ namespace SpdReaderWriterDll {
     /// Intel: PCH device ID (LPC/eSPI controller or ISA bridge)
     /// AMD:   TBD
     /// </summary>
-    public enum ChipsetDeviceId : UInt16 {    
+    public enum ChipsetDeviceId : UInt16 {
+
+        // DDR3
+        #region LGA1156
+        H55  = 0x3B06,
+        P55  = 0x3B02,
+        H57  = 0x3B08,
+        Q57  = 0x3B0A,
+        #endregion
+
+        #region LGA1155
+        H61  = 0x1C5C,
+        B65  = 0x1C50,
+        Q65  = 0x1C4C,
+        P67  = 0x1C46,
+        H67  = 0x1C4A,
+        Q67  = 0x1C4E,
+        Z68  = 0x1C44,
+        B75  = 0x1E49,
+        Q75  = 0x1E48,
+        Z75  = 0x1E46,
+        H77  = 0x1E4A,
+        Q77  = 0x1E47,
+        Z77  = 0x1E44,
+        #endregion
+
+        #region LGA1150
+        H81  = 0x8C5C,
+        B85  = 0x8C50,
+        Q85  = 0x8C4C,
+        Q87  = 0x8C4E,
+        H87  = 0x8C4A,
+        Z87  = 0x8C44,
+        Z97  = 0x8CC4,
+        H97  = 0x8CC6,
+        #endregion
+
+        #region MOBILE 5/6/7/8/9 Series
+        NM10 = 0x27BC,
+        PM55 = 0x3B03,
+        HM55 = 0x3B09,
+        HM57 = 0x3B0B,
+        QM57 = 0x3B07,
+        QS57 = 0x3B0F,
+        HM65 = 0x1C49,
+        HM67 = 0x1C4B,
+        UM67 = 0x1C47,
+        QM67 = 0x1C4F,
+        QS67 = 0x1C4D,
+        NM70 = 0x1E5F,
+        HM70 = 0x1E5E,
+        HM75 = 0x1E5D,
+        HM76 = 0x1E59,
+        UM77 = 0x1E58,
+        HM77 = 0x1E57,
+        QM77 = 0x1E55,
+        QS77 = 0x1E56,
+        HM86 = 0x8C49,
+        QM87 = 0x8C4F,
+        HM87 = 0x8C4B,
+        HM97 = 0x8CC3,
+        #endregion
+
+        // DDR4
         #region LGA2066
         X299 = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
         #endregion
@@ -32,8 +95,12 @@ namespace SpdReaderWriterDll {
     public enum IntelCpuSmbusDeviceId : UInt16 {
         // LGA 2066 SKL-X & CLX-X
         SKLX_SMBUS = 0x2085,
+
+        // LGA 2011-3 HW-E & BW-E
+        //HSWE_SMBUS_0 = 0x2F68,
+        //HSWE_SMBUS_1 = 0x2FA8,
     }
-    
+
     /// <summary>
     /// Intel X299 SMBus controller register offsets
     /// </summary>
@@ -159,8 +226,8 @@ namespace SpdReaderWriterDll {
         /// Command execution delays
         /// </summary>
         private struct ExecutionDelay {
-            public static readonly UInt8 _writeDelay = 10;
-            public static readonly UInt8 _waitDelay  =  0;
+            internal static readonly UInt8 WriteDelay = 10;
+            internal static readonly UInt8 WaitDelay  =  0;
         }
 
         /// <summary>
@@ -198,7 +265,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Describes SMBus state
         /// </summary>
-        public bool IsRunning => _ioPort != null || _pciDevice != null;
+        public bool IsRunning => (ioPort != null || pciDevice != null) && TotalSMBuses > 0 && Addresses > 0;
 
         /// <summary>
         /// Describes SMBus connection state
@@ -220,13 +287,21 @@ namespace SpdReaderWriterDll {
         /// </summary>
         private void Init() {
 
-            // Load driver
-            Driver.InitializeOls();
+            try {
+                // Load driver
+                Driver.InitializeOls();
 
-            // Check driver status
-            if (Driver.GetStatus() == (uint)Ols.Status.NO_ERROR &&
-                Driver.GetDllStatus() == (uint)Ols.OlsDllStatus.OLS_DLL_NO_ERROR) {
+                // Check dll status
+                if (Driver.GetDllStatus() != (uint)Ols.OlsDllStatus.OLS_DLL_NO_ERROR) {
+                    throw new DllNotFoundException();
+                }
 
+                // Check driver status
+                if (Driver.GetStatus() != (uint)Ols.Status.NO_ERROR) {
+                    throw new SystemException();
+                }
+            }
+            finally {
                 // Load device info
                 deviceInfo = GetDeviceInfo();
             }
@@ -244,10 +319,10 @@ namespace SpdReaderWriterDll {
                         }
 
                         // Locate ICH SMBus controller
-                        pciDevice = new PciDevice(PciDevice.FindDeviceByClass(PciDevice.BaseClass.SERIAL, PciDevice.SubClass.SMBUS));
+                        pciDevice = new PciDevice(PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus));
                         
                         // Read IO port address and info
-                        UInt16 ioPortAddress = pciDevice.ReadWord(0x20);
+                        UInt16 ioPortAddress = pciDevice.ReadWord(PciDevice.RegisterOffset.BaseAddress[4]);
 
                         // Check SPD write disable bit
                         SpdWriteDisabled = Data.GetBit(pciDevice.ReadByte(0x40), 4);
@@ -271,7 +346,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
         }
 
@@ -289,7 +364,7 @@ namespace SpdReaderWriterDll {
             if (result.vendorId == PlatformVendorId.Intel) {
                 // Find ISA bridge to get chipset ID
                 try {
-                    UInt32 _isa = PciDevice.FindDeviceByClass(PciDevice.BaseClass.BRIDGE, PciDevice.SubClass.ISA);
+                    UInt32 _isa = PciDevice.FindDeviceByClass(PciDevice.BaseClass.Bridge, PciDevice.SubClass.Isa);
                     UInt16 _device = new PciDevice(_isa).GetDeviceId();
                     result.deviceId = (ChipsetDeviceId)_device;
                 }
@@ -299,7 +374,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (result.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
 
             return result;
@@ -311,39 +386,43 @@ namespace SpdReaderWriterDll {
         /// <returns>An array of bytes containing SMBus numbers</returns>
         public byte[] FindBus() {
 
-            Queue<byte> result = new Queue<byte>();
+            try {
+                Queue<byte> result = new Queue<byte>();
 
-            if (deviceInfo.vendorId == PlatformVendorId.Intel) {
+                if (deviceInfo.vendorId == PlatformVendorId.Intel) {
 
-                switch (deviceInfo.deviceId) {
-                    case ChipsetDeviceId.X299:
+                    switch (deviceInfo.deviceId) {
+                        case ChipsetDeviceId.X299:
+                            // Save existing bus number
+                            byte _currentBus = BusNumber;
 
-                        // Save existing bus number
-                        byte _currentBus = BusNumber;
-
-                        for (byte i = 0; i <= 1; i++) {
-                            BusNumber = i;
-                            if (pciDevice.ReadByte((byte)(X299SmbusRegister.DIMMCFG + (i * 4))) > 0 || TryScan()) {
-                                // the bus is valid
-                                result.Enqueue(i);
+                            for (byte i = 0; i <= 1; i++) {
+                                BusNumber = i;
+                                if (pciDevice.ReadByte((byte)(X299SmbusRegister.DIMMCFG + (i * 4))) > 0 || TryScan()) {
+                                    // the bus is valid
+                                    result.Enqueue(i);
+                                }
                             }
-                        }
 
-                        // Restore original bus number
-                        BusNumber = _currentBus;
+                            // Restore original bus number
+                            BusNumber = _currentBus;
 
-                        break;
-
-                    default:
-                        if (!CheckChipsetSupport(deviceInfo.deviceId)) {
                             break;
-                        }
-                        
-                        return new byte[] { 0 };
-                }
-            }
 
-            return result.ToArray();
+                        default:
+                            if (!CheckChipsetSupport(deviceInfo.deviceId)) {
+                                break;
+                            }
+
+                            return new byte[] { 0 };
+                    }
+                }
+
+                return result.ToArray();
+            }
+            catch {
+                return new byte[0];
+            }
         }
 
         /// <summary>
@@ -379,7 +458,7 @@ namespace SpdReaderWriterDll {
                 return result;
             }
 
-            throw new ArgumentException("Invalid use of method argument");
+            throw new ArgumentException("Invalid use of method argument" + nameof(bitmask));
         }
 
         /// <summary>
@@ -432,7 +511,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus instance</param>
         /// <param name="slaveAddress">Slave address</param>
         /// <param name="offset">Byte position</param>
-        /// <returns></returns>
+        /// <returns>Byte value read from the device</returns>
         public static byte ReadByte(Smbus device, byte slaveAddress, UInt16 offset) {
 
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
@@ -455,7 +534,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
 
             throw new IOException($"General Read error");
@@ -490,8 +569,8 @@ namespace SpdReaderWriterDll {
                     Execute();
 
                     Thread.Sleep(slaveAddress >= 0x50 && slaveAddress <= 0x57 
-                        ? ExecutionDelay._writeDelay 
-                        : ExecutionDelay._waitDelay);
+                        ? ExecutionDelay.WriteDelay 
+                        : ExecutionDelay.WaitDelay);
 
                     while (GetBusStatus() == SmbStatus.BUSY) { }
 
@@ -503,7 +582,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
 
             return false;
@@ -532,7 +611,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
         }
 
@@ -559,7 +638,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
         }
 
@@ -616,7 +695,6 @@ namespace SpdReaderWriterDll {
         private static void SetSlaveInputData(byte input) {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
-
                     case ChipsetDeviceId.X299:
                         _pciDevice.WriteByte(
                             offset: (byte)(X299SmbusRegister.INPUT + (_busNumber * 4)), 
@@ -635,7 +713,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
         }
 
@@ -647,7 +725,6 @@ namespace SpdReaderWriterDll {
 
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
-
                     case ChipsetDeviceId.X299:
                         return _pciDevice.ReadByte((byte)(X299SmbusRegister.OUTPUT + (_busNumber * 4)));
 
@@ -661,7 +738,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
 
             throw new IOException("No data");
@@ -673,9 +750,7 @@ namespace SpdReaderWriterDll {
         private static void Execute() {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
-
                     case ChipsetDeviceId.X299:
-
                         _pciDevice.WriteByte(
                             offset: (byte)(X299SmbusRegister.COMMAND + (_busNumber * 4)),
                              value: X299SmbusCommand.EXEC_CMD);
@@ -718,7 +793,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
         }
 
@@ -735,7 +810,7 @@ namespace SpdReaderWriterDll {
             public const byte CmdWordData = 0b011 << 2;
             public const byte CmdPrcCall  = 0b100 << 2;
             public const byte CmdBlock    = 0b101 << 2;
-            public const byte CmdI2cRead  = 0b110 << 2;
+            public const byte CmdI2CRead  = 0b110 << 2;
             public const byte CmbBockProc = 0b111 << 2;
         }
 
@@ -743,10 +818,10 @@ namespace SpdReaderWriterDll {
         /// SMBus status
         /// </summary>
         public enum SmbStatus : byte {
-            READY   = 0,
-            BUSY    = 1,
-            ERROR   = 2,
-            SUCCESS = 3,
+            READY,
+            BUSY,
+            ERROR,
+            SUCCESS,
         }
 
         /// <summary>
@@ -761,7 +836,6 @@ namespace SpdReaderWriterDll {
                 switch (_deviceInfo.deviceId) {
 
                     case ChipsetDeviceId.X299:
-
                         _status = _pciDevice.ReadByte((byte)(X299SmbusRegister.STATUS + (_busNumber * 4)));
                         if ((_status & X299SmbusStatus.BUSY) > 0) {
                             return SmbStatus.BUSY;
@@ -806,7 +880,7 @@ namespace SpdReaderWriterDll {
             }
 
             else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
-                throw new NotSupportedException("No AMD support yet");
+                //throw new NotSupportedException("No AMD support yet");
             }
 
             return SmbStatus.ERROR;
