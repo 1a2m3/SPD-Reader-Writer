@@ -570,20 +570,20 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// DDR4 EEPROM commands
         /// </summary>
-        public struct EepromCommand {
+        internal struct EepromCommand {
             // DDR4 Page commands
-            public const byte SPA0 = 0x6C;
-            public const byte SPA1 = 0x6E;
-            public const byte RPA  = 0x6D;
+            internal const byte SPA0 = 0x6C;
+            internal const byte SPA1 = 0x6E;
+            internal const byte RPA  = 0x6D;
 
             // DDR4 RSWP commands
-            public const byte RPS0 = 0x63;
-            public const byte RPS1 = 0x69;
-            public const byte RPS2 = 0x6B;
-            public const byte RPS3 = 0x61;
+            internal const byte RPS0 = 0x63;
+            internal const byte RPS1 = 0x69;
+            internal const byte RPS2 = 0x6B;
+            internal const byte RPS3 = 0x61;
 
             // PSWP commands
-            public const byte PWPB = 0b0110;
+            internal const byte PWPB = 0b0110;
         }
     }
 }
