@@ -298,7 +298,7 @@ namespace SpdReaderWriterDll {
 
                 // Check driver status
                 if (Driver.GetStatus() != (uint)Ols.Status.NO_ERROR) {
-                    throw new DriveNotFoundException();
+                    throw new SystemException();
                 }
             }
             finally {
