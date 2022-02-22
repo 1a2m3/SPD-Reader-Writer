@@ -2,6 +2,7 @@ using System;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
+
     /// <summary>
     /// I/O port class
     /// </summary>
@@ -31,9 +32,13 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// IO Port base address
+        /// Read IO port mapped register
         /// </summary>
-        public UInt16 BaseAddress;
+        /// <param name="offset">Register offset</param>
+        /// <returns>Register value</returns>
+        public byte ReadByte(UInt8 offset) {
+            return Smbus.Driver.ReadIoPortByte((UInt16)(BaseAddress + offset));
+        }
 
         /// <summary>
         /// Write IO port mapped register
@@ -45,12 +50,8 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Read IO port mapped register
+        /// IO Port base address
         /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <returns>Register value</returns>
-        public byte ReadByte(UInt8 offset) {
-            return Smbus.Driver.ReadIoPortByte((UInt16)(BaseAddress + offset));
-        }
+        public UInt16 BaseAddress { get; set; }
     }
 }
