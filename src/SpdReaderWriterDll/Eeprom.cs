@@ -14,7 +14,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte offset</param>
-        /// <returns>Byte value at <paramref name="offset"/></returns>
+        /// <returns>Byte value at <paramref name="offset" /></returns>
         public static byte ReadByte(Smbus device, UInt16 offset) {
 
             if (offset > device.MaxSpdSize) {
@@ -56,7 +56,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
+        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /> </returns>
         public static bool WriteByte(Smbus device, UInt16 offset, byte value) {
 
             if (offset > device.MaxSpdSize) {
@@ -76,7 +76,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
-        /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/></returns>
+        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /></returns>
         public static bool WriteByte(Smbus device, UInt16 offset, byte[] value) {
 
             for (UInt16 i = 0; i < value.Length; i++) {
@@ -94,7 +94,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if byte read at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
         public static bool UpdateByte(Smbus device, UInt16 offset, byte value) {
             return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
         }
@@ -105,7 +105,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array contents</param>
-        /// <returns><see langword="true" /> if bytes read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
+        /// <returns><see langword="true" /> if bytes read at <paramref name="offset" /> matches <paramref name="value" /> values</returns>
         public static bool UpdateByte(Smbus device, UInt16 offset, byte[] value) {
             return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
         }
@@ -116,7 +116,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMB device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if bytes at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
         public static bool VerifyByte(Smbus device, UInt16 offset, byte value) {
             return ReadByte(device, offset) == value;
         }
@@ -127,7 +127,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMB device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte array</param>
-        /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if bytes at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
         public static bool VerifyByte(Smbus device, UInt16 offset, byte[] value) {
 
             byte[] source = ReadByte(device, offset, (UInt8)value.Length);
@@ -165,7 +165,8 @@ namespace SpdReaderWriterDll {
                 return;
             }
 
-            if (eepromPageNumber > 1) {
+            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR4 && eepromPageNumber > 1 ||
+                device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR5 && eepromPageNumber > 15) {
                 throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
             }
 
@@ -201,7 +202,12 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         private static void AdjustPageAddress(Smbus device, UInt16 offset) {
-            byte targetPage = (byte)(offset >> 8);
+
+            byte targetPage = 0;
+
+            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR4) {
+                targetPage = (byte)(offset >> 8);
+            }
 
             if (targetPage != GetPageAddress()) {
                 SetPageAddress(device, targetPage);
@@ -266,7 +272,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte offset</param>
-        /// <returns>Byte value at <paramref name="offset"/></returns>
+        /// <returns>Byte value at <paramref name="offset" /></returns>
         public static byte ReadByte(SerialDevice device, UInt16 offset) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -320,7 +326,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
+        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /> </returns>
         public static bool WriteByte(SerialDevice device, UInt16 offset, byte value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -345,7 +351,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
-        /// <returns><see langword="true" /> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
+        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /> </returns>
         public static bool WriteByte(SerialDevice device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -378,7 +384,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if byte read at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
         public static bool UpdateByte(SerialDevice device, UInt16 offset, byte value) {
             try {
                 return VerifyByte(device, offset, value) ||
@@ -395,7 +401,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
-        /// <returns><see langword="true" /> if page read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
+        /// <returns><see langword="true" /> if page read at <paramref name="offset" /> matches <paramref name="value" /> values</returns>
         public static bool UpdateByte(SerialDevice device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -419,7 +425,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if byte at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if byte at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
         public static bool VerifyByte(SerialDevice device, UInt16 offset, byte value) {
             try {
                 return ReadByte(device, offset) == value;
@@ -435,7 +441,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
-        /// <returns><see langword="true" /> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
+        /// <returns><see langword="true" /> if bytes at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
         public static bool VerifyByte(SerialDevice device, UInt16 offset, byte[] value) {
             try {
                 byte[] source = ReadByte(device, offset, (UInt8)value.Length);
@@ -458,7 +464,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be write protected</param>
-        /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block"/> </returns>
+        /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block" /> </returns>
         public static bool SetRswp(SerialDevice device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { SerialDevice.Command.RSWP, block, SerialDevice.Command.ON }) == SerialDevice.Response.SUCCESS;
