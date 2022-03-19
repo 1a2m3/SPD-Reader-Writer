@@ -154,7 +154,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type" /> struct</returns>
         public byte GetRamTypeSupport() {
             return GetRamTypeSupportPrivate();
         }
@@ -163,7 +163,7 @@ namespace SpdReaderWriterDll {
         /// Test if the device supports RAM type RSWP at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> RSWP at firmware level</returns>
+        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type" /> RSWP at firmware level</returns>
         public bool GetRamTypeSupport(byte ramTypeBitmask) {
             return GetRamTypeSupportPrivate(ramTypeBitmask);
         }
@@ -171,7 +171,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type" /> struct</returns>
         public byte RswpRetest() {
             return RswpRetestPrivate();
         }
@@ -462,10 +462,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address"/>
+        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address" />
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR4 is found at <see cref="address"/></returns>
+        /// <returns><see langword="true" /> if DDR4 is found at <see cref="address" /></returns>
         public bool DetectDdr4(UInt8 address) {
             return DetectDdr4Private(address);
         }
@@ -479,10 +479,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address"/>
+        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address" />
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR5 is found at <see cref="address"/></returns>
+        /// <returns><see langword="true" /> if DDR5 is found at <see cref="address" /></returns>
         public bool DetectDdr5(UInt8 address) {
             return DetectDdr5Private(address);
         }
@@ -722,7 +722,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets initial supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask" /> struct</returns>
         private byte GetRamTypeSupportPrivate() {
             lock (_portLock) {
                 try {
@@ -738,7 +738,7 @@ namespace SpdReaderWriterDll {
         /// Test if the device supports RAM type at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
+        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type" /> at firmware level</returns>
         private bool GetRamTypeSupportPrivate(byte ramTypeBitmask) {
             return (GetRamTypeSupportPrivate() & ramTypeBitmask) == ramTypeBitmask;
         }
@@ -746,7 +746,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask" /> struct</returns>
         private byte RswpRetestPrivate() {
             lock (_portLock) {
                 try {
@@ -990,9 +990,15 @@ namespace SpdReaderWriterDll {
         /// <param name="name">Device name</param>
         /// <returns><see langword="true" /> when the device name is set</returns>
         private bool SetNamePrivate(string name) {
-            if (name == null) throw new ArgumentNullException("Name can't be null");
-            if (name == "") throw new ArgumentException("Name can't be blank");
-            if (name.Length > 16) throw new ArgumentException("Name can't be longer than 16 characters");
+            if (name == null) {
+                throw new ArgumentNullException("Name can't be null");
+            }
+            if (name == "") {
+                throw new ArgumentException("Name can't be blank");
+            }
+            if (name.Length > 16) {
+                throw new ArgumentException("Name can't be longer than 16 characters");
+            }
 
             lock (_portLock) {
                 try {
