@@ -14,17 +14,17 @@ namespace SpdReaderWriterDll {
         /// PCI Base Class codes
         /// </summary>
         public struct BaseClass {
-            public const byte Memory = 0x05;
-            public const byte Bridge = 0x06;
-            public const byte Serial = 0x0C;
+            public const byte Memory                  = 0x05;
+            public const byte Bridge                  = 0x06;
+            public const byte Serial                  = 0x0C;
         }
 
         /// <summary>
         /// PCI sub class codes
         /// </summary>
         public struct SubClass {
-            public const byte Isa    = 0x01;
-            public const byte Smbus  = 0x05;
+            public const byte Isa                     = 0x01;
+            public const byte Smbus                   = 0x05;
         }
 
         /// <summary>
@@ -83,10 +83,10 @@ namespace SpdReaderWriterDll {
         /// <returns>PCI device location matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public static UInt32 FindDeviceById(UInt16 vendorId, UInt16 deviceId) {
             try {
-                UInt32[] _pciDevice = new PciDevice().FindDeviceById(vendorId, deviceId, 1);
+                UInt32[] pciDevice = new PciDevice().FindDeviceById(vendorId, deviceId, 1);
 
-                if (_pciDevice.Length > 0 && _pciDevice[0] != UInt16.MaxValue) {
-                    return _pciDevice[0];
+                if (pciDevice.Length > 0 && pciDevice[0] != UInt16.MaxValue) {
+                    return pciDevice[0];
                 }
 
                 return UInt16.MaxValue;
@@ -142,9 +142,9 @@ namespace SpdReaderWriterDll {
         /// <returns>PCI device location matching Device Class</returns>
         public static UInt32 FindDeviceByClass(byte baseClass, byte subClass, byte programIf) {
             try {
-                UInt32[] _pciDevice = new PciDevice().FindDeviceByClass(baseClass, subClass, programIf, 1);
-                if (_pciDevice.Length > 0 && _pciDevice[0] != UInt32.MaxValue) {
-                    return _pciDevice[0];
+                UInt32[] pciDevice = new PciDevice().FindDeviceByClass(baseClass, subClass, programIf, 1);
+                if (pciDevice.Length > 0 && pciDevice[0] != UInt32.MaxValue) {
+                    return pciDevice[0];
                 }
 
                 return UInt32.MaxValue;
@@ -202,7 +202,7 @@ namespace SpdReaderWriterDll {
         /// Read byte from PCI device memory space
         /// </summary>
         /// <param name="offset">Byte location</param>
-        /// <returns>Byte value at <paramref name="offset"/> location</returns>
+        /// <returns>Byte value at <paramref name="offset" /> location</returns>
         public UInt8 ReadByte(byte offset) {
             return Smbus.Driver.ReadPciConfigByte(PciInfo.DeviceMemoryLocation, offset);
         }
@@ -211,7 +211,7 @@ namespace SpdReaderWriterDll {
         /// Read word from PCI device memory space
         /// </summary>
         /// <param name="offset">Word location</param>
-        /// <returns>Word value at <paramref name="offset"/> location</returns>
+        /// <returns>Word value at <paramref name="offset" /> location</returns>
         public UInt16 ReadWord(byte offset) {
             return Smbus.Driver.ReadPciConfigWord(PciInfo.DeviceMemoryLocation, offset);
         }
@@ -220,7 +220,7 @@ namespace SpdReaderWriterDll {
         /// Read Dword from PCI device memory space
         /// </summary>
         /// <param name="offset">Dword location</param>
-        /// <returns>Dword value at <paramref name="offset"/> location</returns>
+        /// <returns>Dword value at <paramref name="offset" /> location</returns>
         public UInt32 ReadDword(byte offset) {
             return Smbus.Driver.ReadPciConfigDword(PciInfo.DeviceMemoryLocation, offset);
         }
@@ -262,11 +262,7 @@ namespace SpdReaderWriterDll {
             public static uint FunctionNumber;
 
             // PCI device memory location
-            public static uint DeviceMemoryLocation {
-                get {
-                    return Smbus.Driver.PciBusDevFunc(BusNumber, DeviceNumber, FunctionNumber);
-                }
-            }
+            public static uint DeviceMemoryLocation => Smbus.Driver.PciBusDevFunc(BusNumber, DeviceNumber, FunctionNumber);
         }
     }
 }
