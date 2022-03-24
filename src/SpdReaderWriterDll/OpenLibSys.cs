@@ -19,39 +19,39 @@ namespace OpenLibSys {
 
         // for this support library
         public enum Status {
-            NO_ERROR                              = 0,
-            DLL_NOT_FOUND                         = 1,
-            DLL_INCORRECT_VERSION                 = 2,
-            DLL_INITIALIZE_ERROR                  = 3,
+            DLL_OK                               = 0,
+            DLL_NOT_FOUND                        = 1,
+            DLL_INCORRECT_VERSION                = 2,
+            DLL_INITIALIZE_ERROR                 = 3,
         }
 
         // for WinRing0
         public enum OlsDllStatus {
-            OLS_DLL_NO_ERROR                      = 0,
-            OLS_DLL_UNSUPPORTED_PLATFORM          = 1,
-            OLS_DLL_DRIVER_NOT_LOADED             = 2,
-            OLS_DLL_DRIVER_NOT_FOUND              = 3,
-            OLS_DLL_DRIVER_UNLOADED               = 4,
-            OLS_DLL_DRIVER_NOT_LOADED_ON_NETWORK  = 5,
-            OLS_DLL_UNKNOWN_ERROR                 = 9
+            OLS_DLL_OK                           = 0,
+            OLS_DLL_UNSUPPORTED_PLATFORM         = 1,
+            OLS_DLL_DRIVER_NOT_LOADED            = 2,
+            OLS_DLL_DRIVER_NOT_FOUND             = 3,
+            OLS_DLL_DRIVER_UNLOADED              = 4,
+            OLS_DLL_DRIVER_NOT_LOADED_ON_NETWORK = 5,
+            OLS_DLL_UNKNOWN_ERROR                = 9,
         }
 
         // for WinRing0
         public enum OlsDriverType {
-            OLS_DRIVER_TYPE_UNKNOWN               = 0,
-            OLS_DRIVER_TYPE_WIN_9X                = 1,
-            OLS_DRIVER_TYPE_WIN_NT                = 2,
-            OLS_DRIVER_TYPE_WIN_NT4               = 3,    // Obsolete
-            OLS_DRIVER_TYPE_WIN_NT_X64            = 4,
-            OLS_DRIVER_TYPE_WIN_NT_IA64           = 5     // Unsupported
+            OLS_DRIVER_TYPE_UNKNOWN              = 0,
+            OLS_DRIVER_TYPE_WIN_9X               = 1,
+            OLS_DRIVER_TYPE_WIN_NT               = 2,
+            OLS_DRIVER_TYPE_WIN_NT4              = 3,    // Obsolete
+            OLS_DRIVER_TYPE_WIN_NT_X64           = 4,
+            OLS_DRIVER_TYPE_WIN_NT_IA64          = 5,    // Unsupported
         }
 
         // for WinRing0
         public enum OlsErrorPci : uint {
-            OLS_ERROR_PCI_BUS_NOT_EXIST           = 0xE0000001,
-            OLS_ERROR_PCI_NO_DEVICE               = 0xE0000002,
-            OLS_ERROR_PCI_WRITE_CONFIG            = 0xE0000003,
-            OLS_ERROR_PCI_READ_CONFIG             = 0xE0000004
+            OLS_ERROR_PCI_BUS_NOT_EXIST          = 0xE0000001,
+            OLS_ERROR_PCI_NO_DEVICE              = 0xE0000002,
+            OLS_ERROR_PCI_WRITE_CONFIG           = 0xE0000003,
+            OLS_ERROR_PCI_READ_CONFIG            = 0xE0000004,
         }
 
         // Bus Number, Device Number and Function Number to PCI Device Address
@@ -76,8 +76,7 @@ namespace OpenLibSys {
 
         [DllImport("kernel32")]
         public extern static IntPtr LoadLibrary(string lpFileName);
-
-
+        
         [DllImport("kernel32", SetLastError = true)]
         private static extern bool FreeLibrary(IntPtr hModule);
 
@@ -85,7 +84,7 @@ namespace OpenLibSys {
         private static extern IntPtr GetProcAddress(IntPtr hModule, [MarshalAs(UnmanagedType.LPStr)] string lpProcName);
 
         private IntPtr module = IntPtr.Zero;
-        private uint status   = (uint)Status.NO_ERROR;
+        private uint status   = (uint)Status.DLL_OK;
 
         public Ols() {
 
