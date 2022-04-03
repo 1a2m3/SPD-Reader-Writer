@@ -40,26 +40,5 @@ namespace SpdReaderWriterDll {
             DDR4          = 512,
             DDR5          = 1024,
         }
-
-        /// <summary>
-        /// Bitmask values describing specific RAM type RSWP support
-        /// </summary>
-        public struct BitMask {
-
-            /// <summary>
-            /// Value describing <value>DDR3</value> and below RSWP support
-            /// </summary>
-            public const byte DDR3 = 1 << 3;
-
-            /// <summary>
-            /// Value describing <value>DDR4</value> RSWP support
-            /// </summary>
-            public const byte DDR4 = 1 << 4;
-
-            /// <summary>
-            /// Value describing <value>DDR5</value> RSWP support
-            /// </summary>
-            public const byte DDR5 = 1 << 5;
-        }
     }
 }
