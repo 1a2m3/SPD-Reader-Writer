@@ -12,13 +12,13 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
-    public class SerialDevice {
+    public class Arduino {
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
-        public SerialDevice(SerialPortSettings portSettings) {
+        public Arduino(SerialPortSettings portSettings) {
             PortSettings = portSettings;
         }
 
@@ -27,7 +27,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
-        public SerialDevice(SerialPortSettings portSettings, string portName) {
+        public Arduino(SerialPortSettings portSettings, string portName) {
             PortSettings = portSettings;
             PortName     = portName;
         }
@@ -38,7 +38,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName" >Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        public SerialDevice(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
+        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -51,7 +51,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="spdSize">Total EEPROM size</param>
-        public SerialDevice(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
+        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -77,7 +77,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Device class destructor
         /// </summary>
-        ~SerialDevice() {
+        ~Arduino() {
             DisposePrivate();
         }
 
@@ -555,9 +555,9 @@ namespace SpdReaderWriterDll {
         public bool RswpPresent {
             get {
                 return IsConnected &&
-                       ((RamTypeSupport & Ram.BitMask.DDR3) == Ram.BitMask.DDR3 ||
-                        (RamTypeSupport & Ram.BitMask.DDR4) == Ram.BitMask.DDR4 ||
-                        (RamTypeSupport & Ram.BitMask.DDR5) == Ram.BitMask.DDR5);
+                       ((RamTypeSupport & RswpSupport.DDR3) == RswpSupport.DDR3 ||
+                        (RamTypeSupport & RswpSupport.DDR4) == RswpSupport.DDR4 ||
+                        (RamTypeSupport & RswpSupport.DDR5) == RswpSupport.DDR5);
             }
         }
 
@@ -618,8 +618,8 @@ namespace SpdReaderWriterDll {
                 if (!IsConnected) {
                     _sp = new SerialPort {
                         // New connection settings
-                        PortName = PortName,
-                        BaudRate = PortSettings.BaudRate,
+                        PortName  = PortName,
+                        BaudRate  = PortSettings.BaudRate,
                         DtrEnable = PortSettings.DtrEnable,
                         RtsEnable = PortSettings.RtsEnable
                     };
@@ -1055,17 +1055,17 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>An array of serial port names which have valid devices connected to</returns>
         private string[] FindPrivate() {
-            Stack<string> _result = new Stack<string>();
+            Stack<string> result = new Stack<string>();
 
             lock (_findLock) {
-                foreach (string _portName in SerialPort.GetPortNames().Distinct().ToArray()) {
+                foreach (string portName in SerialPort.GetPortNames().Distinct().ToArray()) {
 
-                    SerialDevice _device = new SerialDevice(PortSettings, _portName);
+                    Arduino device = new Arduino(PortSettings, portName);
                     try {
-                        lock (_device._portLock) {
-                            if (_device.ConnectPrivate()) {
-                                _device.DisposePrivate();
-                                _result.Push(_portName);
+                        lock (device._portLock) {
+                            if (device.ConnectPrivate()) {
+                                device.DisposePrivate();
+                                result.Push(portName);
                             }
                         }
                     }
@@ -1075,7 +1075,7 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            return _result.ToArray();
+            return result.ToArray();
         }
 
         /// <summary>
@@ -1163,7 +1163,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
 
-            byte[] _response = new byte[responseLength];
+            byte[] response = new byte[responseLength];
 
             lock (_portLock) {
                 try {
@@ -1196,13 +1196,13 @@ namespace SpdReaderWriterDll {
 
                             // Wait for data
                             if (ResponseData != null && ResponseData.Count >= responseLength && !DataReceiving) {
-                                for (int i = 0; i < _response.Length; i++) {
-                                    _response[i] = ResponseData.Dequeue();
+                                for (int i = 0; i < response.Length; i++) {
+                                    response[i] = ResponseData.Dequeue();
                                 }
                                 break;
                             }
                         }
-                        return _response;
+                        return response;
                     }
                     throw new TimeoutException("Response timeout");
                 }
@@ -1373,7 +1373,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Class describing different responses received from the device
+        /// Responses received from the device
         /// </summary>
         public struct Response {
             /// <summary>
@@ -1421,6 +1421,27 @@ namespace SpdReaderWriterDll {
             public const byte NOACK    = ERROR;
             public const byte FAIL     = ERROR;
             public const byte ZERO     = NULL;
+        }
+
+        /// <summary>
+        /// Bitmask values describing specific RAM type RSWP support
+        /// </summary>
+        public struct RswpSupport {
+
+            /// <summary>
+            /// Value describing <value>DDR3</value> and below RSWP support
+            /// </summary>
+            public const byte DDR3 = 1 << 3;
+
+            /// <summary>
+            /// Value describing <value>DDR4</value> RSWP support
+            /// </summary>
+            public const byte DDR4 = 1 << 4;
+
+            /// <summary>
+            /// Value describing <value>DDR5</value> RSWP support
+            /// </summary>
+            public const byte DDR5 = 1 << 5;
         }
     }
 }
