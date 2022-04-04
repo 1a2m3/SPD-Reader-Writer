@@ -84,10 +84,11 @@ namespace SpdReaderWriterDll {
         /// </summary>
         ~WinRing0() {
             if (_deviceHandle != null) {
+
                 CloseDriverHandle();
                 StopDriver();
                 RemoveDriver(true);
-                _deviceHandle = null;                
+                _deviceHandle = null;
             }
         }
 
@@ -361,7 +362,7 @@ namespace SpdReaderWriterDll {
         /// <param name="revision">Revision number</param>
         /// <param name="release">Release number</param>
         /// <returns>Driver version</returns>
-        public UInt32 GetDriverVersion(out byte major, out byte minor, out byte revision, out byte release) {
+        public UInt32 GetDriverVersion(ref byte major, ref byte minor, ref byte revision, ref byte release) {
 
             UInt32 output = default;
 
@@ -553,9 +554,7 @@ namespace SpdReaderWriterDll {
 
             for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
 
-                UInt16 _header = ReadPciConfigWord(PciBusDevFunc(bus, 0, 0), 0x00);
-
-                if ( _header != vendorId) {
+                if (ReadPciConfigWord(PciBusDevFunc(bus, 0, 0), 0x00) != vendorId) {
                     continue;
                 }
 
@@ -781,8 +780,8 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a byte value to the specified PCI configuration address
         /// </summary>
-        /// <param name="pciAddress">PCI device address </param>
-        /// <param name="regAddress">Configuration register address </param>
+        /// <param name="pciAddress">PCI device address</param>
+        /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Byte value to write to the configuration register</param>
         public void WritePciConfigByte(uint pciAddress, byte regAddress, byte value) {
             WritePciConfigByteEx(pciAddress, regAddress, value);
@@ -791,8 +790,8 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a byte value to the specified PCI configuration address
         /// </summary>
-        /// <param name="pciAddress">PCI device address </param>
-        /// <param name="regAddress">Configuration register address </param>
+        /// <param name="pciAddress">PCI device address</param>
+        /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Byte value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WritePciConfigByteEx(uint pciAddress, byte regAddress, byte value) {
@@ -808,9 +807,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a UInt16 value to the specified PCI configuration address
         /// </summary>
-        /// <param name="pciAddress">PCI device address </param>
-        /// <param name="regAddress">Configuration register address </param>
-        /// <param name="value">UInt16 value to write to the configuration register </param>
+        /// <param name="pciAddress">PCI device address</param>
+        /// <param name="regAddress">Configuration register address</param>
+        /// <param name="value">UInt16 value to write to the configuration register</param>
         public void WritePciConfigWord(uint pciAddress, byte regAddress, UInt16 value) {
             WritePciConfigWordEx(pciAddress, regAddress, value);
         }
@@ -818,9 +817,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a UInt16 value to the specified PCI configuration address
         /// </summary>
-        /// <param name="pciAddress">PCI device address </param>
-        /// <param name="regAddress">Configuration register address </param>
-        /// <param name="value">Word value to write to the configuration register </param>
+        /// <param name="pciAddress">PCI device address</param>
+        /// <param name="regAddress">Configuration register address</param>
+        /// <param name="value">Word value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WritePciConfigWordEx(uint pciAddress, byte regAddress, UInt16 value) {
 
@@ -840,9 +839,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a UInt32 value to the specified PCI configuration address
         /// </summary>
-        /// <param name="pciAddress">PCI device address </param>
-        /// <param name="regAddress">Configuration register address </param>
-        /// <param name="value">UInt32 value to write to the configuration register </param>
+        /// <param name="pciAddress">PCI device address</param>
+        /// <param name="regAddress">Configuration register address</param>
+        /// <param name="value">UInt32 value to write to the configuration register</param>
         public void WritePciConfigDword(uint pciAddress, byte regAddress, UInt32 value) {
             WritePciConfigDwordEx(pciAddress, regAddress, value);
         }
@@ -850,9 +849,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a UInt32 value to the specified PCI configuration address
         /// </summary>
-        /// <param name="pciAddress">PCI device address </param>
-        /// <param name="regAddress">Configuration register address </param>
-        /// <param name="value">DWORD value to write to the configuration register </param>
+        /// <param name="pciAddress">PCI device address</param>
+        /// <param name="regAddress">Configuration register address</param>
+        /// <param name="value">UInt32 value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WritePciConfigDwordEx(uint pciAddress, byte regAddress, UInt32 value) {
 
@@ -879,7 +878,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// PCI address, register, and byte value used by <see cref="DeviceIoControl"/> for writing bytes to PCI device
+        /// PCI address, register offset, and byte value used by <see cref="DeviceIoControl"/> for writing bytes to PCI device
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WritePciConfigInputByte {
@@ -889,7 +888,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// PCI address, register, and word value used by <see cref="DeviceIoControl"/> for writing words to PCI device
+        /// PCI address, register offset, and word value used by <see cref="DeviceIoControl"/> for writing words to PCI device
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WritePciConfigInputWord {
@@ -899,7 +898,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// PCI address, register, and dword value used by <see cref="DeviceIoControl"/> for writing dwords to PCI device
+        /// PCI address, register offset, and dword value used by <see cref="DeviceIoControl"/> for writing dwords to PCI device
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WritePciConfigInputDword {
@@ -1056,7 +1055,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Writes a UInt16 value to the specified I/O port address
         /// </summary>
-        /// <param name="port">I/O port address </param>
+        /// <param name="port">I/O port address</param>
         /// <param name="value">UInt16 value to write to the port</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WriteIoPortWordEx(UInt16 port, UInt16 value) {
@@ -1160,7 +1159,7 @@ namespace SpdReaderWriterDll {
             /// <param name="lpFileName">The name of the file or device to be created or opened.</param>
             /// <param name="dwDesiredAccess">The requested access to the file or device, which can be of <see cref="FileAccess"/> values.</param>
             /// <param name="dwShareMode">The requested sharing mode of the file or device, which can be of <see cref="FileShare"/> values.</param>
-            /// <param name="lpSecurityAttributes">A pointer to a SECURITY_ATTRIBUTES structure</param>
+            /// <param name="lpSecurityAttributes">A pointer to optional SECURITY_ATTRIBUTES structure or IntPtr.Zero</param>
             /// <param name="dwCreationDisposition">An action to take on a file or device that exists or does not exist. For devices other than files, this parameter is usually set to <see cref="FileMode.OPEN_EXISTING"/>.</param>
             /// <param name="dwFlagsAndAttributes">The file or device attributes and flags.</param>
             /// <param name="hTemplateFile">A valid handle to a template file with the <see cref="FileAccess.GENERIC_READ"/> access right.</param>
@@ -1170,7 +1169,7 @@ namespace SpdReaderWriterDll {
                 [MarshalAs(UnmanagedType.LPTStr)] string lpFileName,
                 [MarshalAs(UnmanagedType.U4)] FileAccess dwDesiredAccess,
                 [MarshalAs(UnmanagedType.U4)] FileShare dwShareMode,
-                [Optional] IntPtr lpSecurityAttributes, // optional SECURITY_ATTRIBUTES struct or IntPtr.Zero
+                [Optional] IntPtr lpSecurityAttributes,
                 [MarshalAs(UnmanagedType.U4)] FileMode dwCreationDisposition,
                 [MarshalAs(UnmanagedType.U4)] FileAttributes dwFlagsAndAttributes,
                 IntPtr hTemplateFile);
@@ -1179,12 +1178,12 @@ namespace SpdReaderWriterDll {
             /// The requested access to the file or device used by <see cref="CreateFile"/>
             /// </summary>
             internal enum FileAccess {
-                GENERIC_NEITHER          = 0,
-                GENERIC_ALL              = 1 << 28,
-                GENERIC_EXECUTE          = 1 << 29,
-                GENERIC_WRITE            = 1 << 30,
-                GENERIC_READ             = 1 << 31,
-                GENERIC_READWRITE        = GENERIC_WRITE | GENERIC_READ,
+                GENERIC_NEITHER              = 0,
+                GENERIC_ALL                  = 1 << 28,
+                GENERIC_EXECUTE              = 1 << 29,
+                GENERIC_WRITE                = 1 << 30,
+                GENERIC_READ                 = 1 << 31,
+                GENERIC_READWRITE            = GENERIC_WRITE | GENERIC_READ,
             }
 
             /// <summary>
@@ -1194,19 +1193,19 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Prevents other processes from opening a file or device if they request delete, read, or write access.
                 /// </summary>
-                FILE_SHARE_NONE          = 0x00000000,
+                FILE_SHARE_NONE              = 0x00000000,
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request delete access.
                 /// </summary>
-                FILE_SHARE_DELETE        = 0x00000004,
+                FILE_SHARE_DELETE            = 0x00000004,
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read access.
                 /// </summary>
-                FILE_SHARE_READ          = 0x00000001,
+                FILE_SHARE_READ              = 0x00000001,
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request write access.
                 /// </summary>
-                FILE_SHARE_WRITE         = 0x00000002,
+                FILE_SHARE_WRITE             = 0x00000002,
             }
 
             /// <summary>
@@ -1216,23 +1215,23 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Creates a new file, only if it does not already exist.
                 /// </summary>
-                CREATE_NEW               = 1,
+                CREATE_NEW                   = 1,
                 /// <summary>
                 /// Creates a new file, always. 
                 /// </summary>
-                CREATE_ALWAYS            = 2,
+                CREATE_ALWAYS                = 2,
                 /// <summary>
                 /// Opens a file or device, only if it exists. 
                 /// </summary>
-                OPEN_EXISTING            = 3,
+                OPEN_EXISTING                = 3,
                 /// <summary>
                 /// Opens a file, always. 
                 /// </summary>
-                OPEN_ALWAYS              = 4,
+                OPEN_ALWAYS                  = 4,
                 /// <summary>
                 /// Opens a file and truncates it so that its size is zero bytes, only if it exists. 
                 /// </summary>
-                TRUNCATE_EXISTING        = 5,
+                TRUNCATE_EXISTING            = 5,
             }
 
             /// <summary>
@@ -1240,39 +1239,85 @@ namespace SpdReaderWriterDll {
             /// This parameter can include any combination of the available file attributes or <see cref="FILE_ATTRIBUTE_NORMAL"/>
             /// All other file attributes override <see cref="FILE_ATTRIBUTE_NORMAL"/>.
             /// </summary>
-            internal enum FileAttributes {
+            internal enum FileAttributes : UInt32 {
                 /// <summary>
                 /// The file is read only. Applications can read the file, but cannot write to or delete it.
                 /// </summary>
-                FILE_ATTRIBUTE_READONLY  = 0x1,
+                FILE_ATTRIBUTE_READONLY      = 0x1,
                 /// <summary>
                 /// The file is hidden. Do not include it in an ordinary directory listing. 
                 /// </summary>
-                FILE_ATTRIBUTE_HIDDEN    = 0x2,
+                FILE_ATTRIBUTE_HIDDEN        = 0x2,
                 /// <summary>
                 /// The file is part of or used exclusively by an operating system. 
                 /// </summary>
-                FILE_ATTRIBUTE_SYSTEM    = 0x4,
+                FILE_ATTRIBUTE_SYSTEM        = 0x4,
                 /// <summary>
                 /// The file should be archived. Applications use this attribute to mark files for backup or removal. 
                 /// </summary>
-                FILE_ATTRIBUTE_ARCHIVE   = 0x20,
+                FILE_ATTRIBUTE_ARCHIVE       = 0x20,
                 /// <summary>
                 /// The file does not have other attributes set. This attribute is valid only if used alone. 
                 /// </summary>
-                FILE_ATTRIBUTE_NORMAL    = 0x80,
+                FILE_ATTRIBUTE_NORMAL        = 0x80,
                 /// <summary>
                 /// The file is being used for temporary storage. 
                 /// </summary>
-                FILE_ATTRIBUTE_TEMPORARY = 0x100,
+                FILE_ATTRIBUTE_TEMPORARY     = 0x100,
                 /// <summary>
                 /// The data of a file is not immediately available. This attribute indicates that file data is physically moved to offline storage.
                 /// </summary>
-                FILE_ATTRIBUTE_OFFLINE   = 0x1000,
+                FILE_ATTRIBUTE_OFFLINE       = 0x1000,
                 /// <summary>
                 /// The file or directory is encrypted. For a file, data is encrypted. For a directory, encryption is enabled for newly created files and subdirectories. 
                 /// </summary>
-                FILE_ATTRIBUTE_ENCRYPTED = 0x4000,
+                FILE_ATTRIBUTE_ENCRYPTED     = 0x4000,
+                /// <summary>
+                /// The file is being opened or created for a backup or restore operation. 
+                /// </summary>
+                FILE_FLAG_BACKUP_SEMANTICS   = 0x02000000,
+                /// <summary>
+                /// The file is to be deleted immediately after all of its handles are closed, which includes the specified handle and any other open or duplicated handles. 
+                /// </summary>
+                FILE_FLAG_DELETE_ON_CLOSE    = 0x04000000,
+                /// <summary>
+                /// The file or device is being opened with no system caching for data reads and writes. 
+                /// </summary>
+                FILE_FLAG_NO_BUFFERING       = 0x20000000,
+                /// <summary>
+                /// The file data is requested, but it should continue to be located in remote storage.
+                /// </summary>
+                FILE_FLAG_OPEN_NO_RECALL     = 0x00100000,
+                /// <summary>
+                /// Normal reparse point processing will not occur; <see cref="CreateFile"/> will attempt to open the reparse point.
+                /// When a file is opened, a file handle is returned, whether or not the filter that controls the reparse point is operational.
+                /// This flag cannot be used with the <see cref="FileMode.CREATE_ALWAYS"/> flag.
+                /// </summary>
+                FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000,
+                /// <summary>
+                /// The file or device is being opened or created for asynchronous I/O. 
+                /// </summary>
+                FILE_FLAG_OVERLAPPED         = 0x40000000,
+                /// <summary>
+                /// Access will occur according to POSIX rules. This includes allowing multiple files with names, differing only in case, for file systems that support that naming. 
+                /// </summary>
+                FILE_FLAG_POSIX_SEMANTICS    = 0x01000000,
+                /// <summary>
+                /// Access is intended to be random. The system can use this as a hint to optimize file caching. 
+                /// </summary>
+                FILE_FLAG_RANDOM_ACCESS      = 0x10000000,
+                /// <summary>
+                /// The file or device is being opened with session awareness. 
+                /// </summary>
+                FILE_FLAG_SESSION_AWARE      = 0x00800000,
+                /// <summary>
+                /// Access is intended to be sequential from beginning to end.
+                /// </summary>
+                FILE_FLAG_SEQUENTIAL_SCAN    = 0x08000000,
+                /// <summary>
+                /// Write operations will not go through any intermediate cache, they will go directly to disk.
+                /// </summary>
+                FILE_FLAG_WRITE_THROUGH      = 0x80000000,
             }
 
             /// <summary>
@@ -1584,7 +1629,7 @@ namespace SpdReaderWriterDll {
             /// This handle is returned by the <see cref="OpenService"/> or <see cref="CreateService"/> function,
             /// and it must have the <see cref="ServiceRights.SERVICE_START"/> access right.</param>
             /// <param name="dwNumServiceArgs">The number of strings in the <paramref name="lpServiceArgVectors"/> array.</param>
-            /// <param name="lpServiceArgVectors">The null-terminated strings to be passed to the ServiceMain function for the service as arguments. </param>
+            /// <param name="lpServiceArgVectors">The null-terminated strings to be passed to the ServiceMain function for the service as arguments.</param>
             /// <returns><see langref="true"/> if the function succeeds</returns>
             [DllImport(advapi32, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
