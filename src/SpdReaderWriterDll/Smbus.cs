@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.RegularExpressions;
 using System.Threading;
-using OpenLibSys;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -156,9 +155,9 @@ namespace SpdReaderWriterDll {
     public class Smbus {
 
         /// <summary>
-        /// OpenLibSys instance
+        /// Kernel Driver instance
         /// </summary>
-        public static Ols Driver = new Ols();
+        public static WinRing0 Driver;
 
         /// <summary>
         /// Device info struct
@@ -243,8 +242,11 @@ namespace SpdReaderWriterDll {
         ~Smbus() {
             ioPort    = null;
             pciDevice = null;
-            Driver.DeinitializeOls();
-            Driver.Dispose();
+
+            Driver?.CloseDriverHandle();
+            Driver?.StopDriver();
+            Driver?.RemoveDriver(true);
+
             if (!IsRunning) {
                 I2CAddress       = 0;
                 TotalSMBuses     = 0;
@@ -283,22 +285,27 @@ namespace SpdReaderWriterDll {
         public UInt8 Addresses;
 
         /// <summary>
-        /// Initialize SMBus controller
+        /// Initializes SMBus controller class
         /// </summary>
         private void Init() {
 
             try {
-                // Load driver
-                Driver.InitializeOls();
+                Driver = new WinRing0();
 
-                // Check dll status
-                if (Driver.GetDllStatus() != (uint)Ols.OlsDllStatus.OLS_DLL_NO_ERROR) {
-                    throw new DllNotFoundException();
+                if (!Driver.IsInstalled) {
+                    throw new Exception("Driver is not installed");
                 }
 
-                // Check driver status
-                if (Driver.GetStatus() != (uint)Ols.Status.NO_ERROR) {
-                    throw new SystemException();
+                if (!Driver.IsServiceRunning) {
+                    throw new Exception("Driver service is not running");
+                }
+
+                if (!Driver.IsHandleOpen) {
+                    throw new Exception("Driver handle is not open");
+                }
+
+                if (!Driver.IsReady) {
+                    throw new Exception("Driver is not ready");
                 }
             }
             finally {
@@ -385,7 +392,6 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>An array of bytes containing SMBus numbers</returns>
         public byte[] FindBus() {
-
             try {
                 Queue<byte> result = new Queue<byte>();
 
@@ -428,9 +434,26 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Scan SMBus for available slave devices
         /// </summary>
-        /// <returns><see langword="true" /> if <see cref="BusNumber"/> has at least one slave device present</returns>
+        /// <returns><see langword="true"/> if <see cref="BusNumber"/> has at least one slave device present</returns>
         public bool TryScan() {
+
+            for (byte i = 0x50; i <= 0x57; i++) {
+                if (ProbeAddress(i)) {
+                    return true;
+                }
+            }
+
             return Scan(this, minimumResults: true).Length > 0;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="slaveAddress"></param>
+        /// <returns></returns>
+        public bool ProbeAddress(byte slaveAddress) {
+
+            return false;
         }
 
         /// <summary>
@@ -444,7 +467,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Scan SMBus for available slave devices
         /// </summary>
-        /// <param name="bitmask">Set to <see langword="true" /> to enable bitmask result</param>
+        /// <param name="bitmask">Set to <see langword="true"/> to enable bitmask result</param>
         /// <returns>A bitmask value representing available bus addresses. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         public byte Scan(bool bitmask) {
             byte result = 0;
@@ -458,15 +481,15 @@ namespace SpdReaderWriterDll {
                 return result;
             }
 
-            throw new ArgumentException("Invalid use of method argument" + nameof(bitmask));
+            throw new ArgumentException("Invalid use of method argument " + nameof(bitmask));
         }
 
         /// <summary>
         /// Scan SMBus for available slave devices
         /// </summary>
         /// <param name="device">SMBus instance</param>
-        /// <param name="minimumResults">Set to <see langword="true" /> to stop scanning once at least one slave address is found,
-        /// or <see langword="false" /> to scan the entire range</param>
+        /// <param name="minimumResults">Set to <see langword="true"/> to stop scanning once at least one slave address is found,
+        /// or <see langword="false"/> to scan the entire range</param>
         /// <returns>An array of found bus addresses on <see cref="BusNumber"/></returns>
         private UInt8[] Scan(Smbus device, bool minimumResults) {
 
@@ -494,10 +517,14 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SMBus instance</param>
         /// <param name="slaveAddress">Slave address</param>
-        /// <returns><see langword="true" /> if <paramref name="slaveAddress"/> responds to read with ACK</returns>
+        /// <returns><see langword="true"/> if <paramref name="slaveAddress"/> responds to read with ACK</returns>
         public static bool ReadByte(Smbus device, byte slaveAddress) {
             try {
-                ReadByte(device, slaveAddress, 0x00);
+                SetSlaveAddress(slaveAddress);
+                SetSlaveOffset(0x00);
+                SetSlaveReadMode();
+                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData);
+
                 return GetBusStatus() != SmbStatus.ERROR;
             }
             catch {
@@ -514,13 +541,13 @@ namespace SpdReaderWriterDll {
         /// <returns>Byte value read from the device</returns>
         public static byte ReadByte(Smbus device, byte slaveAddress, UInt16 offset) {
 
-            if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
+            if (device.deviceInfo.vendorId == PlatformVendorId.Intel) {
 
                 try {
                     SetSlaveAddress(slaveAddress);
                     SetSlaveOffset(offset);
                     SetSlaveReadMode();
-                    Execute();
+                    Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData);
 
                     while (GetBusStatus() == SmbStatus.BUSY) { }
 
@@ -533,7 +560,7 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
+            else if (device.deviceInfo.vendorId == PlatformVendorId.AMD) {
                 //throw new NotSupportedException("No AMD support yet");
             }
 
@@ -560,13 +587,13 @@ namespace SpdReaderWriterDll {
         /// <returns>Byte read from slave device at <paramref name="slaveAddress"/></returns>
         public static bool WriteByte(Smbus device, byte slaveAddress, UInt16 offset, byte value) {
 
-            if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
+            if (device.deviceInfo.vendorId == PlatformVendorId.Intel) {
                 try {
                     SetSlaveAddress(slaveAddress);
                     SetSlaveOffset(offset);
                     SetSlaveInputData(value);
                     SetSlaveWriteMode();
-                    Execute();
+                    Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData);
 
                     Thread.Sleep(slaveAddress >= 0x50 && slaveAddress <= 0x57 
                         ? ExecutionDelay.WriteDelay 
@@ -581,7 +608,7 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            else if (_deviceInfo.vendorId == PlatformVendorId.AMD) {
+            else if (device.deviceInfo.vendorId == PlatformVendorId.AMD) {
                 //throw new NotSupportedException("No AMD support yet");
             }
 
@@ -747,7 +774,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Execute SMB command
         /// </summary>
-        private static void Execute() {
+        private static void Execute(byte cmd) {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
@@ -765,18 +792,18 @@ namespace SpdReaderWriterDll {
                         // Clear last status
                         while (GetBusStatus() != SmbStatus.READY) {
                             _ioPort.WriteByte(
-                                offset: IntelSmbusRegister.STATUS, 
+                                offset: IntelSmbusRegister.STATUS,
                                  value: Data.SetBit(
                                        input: _ioPort.ReadByte(offset: IntelSmbusRegister.STATUS), 
                                     position: 0, 
                                        value: true)); 
                             while (GetBusStatus() == SmbStatus.BUSY) { }
                         }
-
+                        
                         // Execute
                         _ioPort.WriteByte(
                             offset: IntelSmbusRegister.COMMAND,
-                             value: IntelSmbusCmd.CmdByteData | IntelSmbusCmd.Start);
+                             value: cmd);
                         while (GetBusStatus() == SmbStatus.BUSY) { }
 
                         // Wait for success or error status, because on some systems
@@ -805,13 +832,14 @@ namespace SpdReaderWriterDll {
             public const byte Start       = 1 << 6;
 
             // Bits 4:2
-            public const byte CmdByte     = 0b001 << 2;
-            public const byte CmdByteData = 0b010 << 2;
-            public const byte CmdWordData = 0b011 << 2;
-            public const byte CmdPrcCall  = 0b100 << 2;
-            public const byte CmdBlock    = 0b101 << 2;
-            public const byte CmdI2CRead  = 0b110 << 2;
-            public const byte CmbBockProc = 0b111 << 2;
+            public const byte CmdQuick    = 0b000 << 2; // tx slave address register
+            public const byte CmdByte     = 0b001 << 2; // tx slave address and command registers (read)
+            public const byte CmdByteData = 0b010 << 2; // tx slave address, command, and DATA0 registers (write)
+            public const byte CmdWordData = 0b011 << 2; // tx slave address, command, DATA0 and DATA1 registers
+            public const byte CmdPrcCall  = 0b100 << 2; // tx slave address, command, DATA0 and DATA1 registers. DATA0 and DATA1 registers will contain the read data
+            public const byte CmdBlock    = 0b101 << 2; // tx slave address, command, DATA0 registers, and the Block Data Byte register
+            public const byte CmdI2CRead  = 0b110 << 2; // tx slave address, command, DATA0, DATA1 registers, and the Block Data Byte register
+            public const byte CmbBockProc = 0b111 << 2; //  
         }
 
         /// <summary>
@@ -890,7 +918,7 @@ namespace SpdReaderWriterDll {
         /// Check if the device ID is supported
         /// </summary>
         /// <param name="deviceId">Chipset DeviceID</param>
-        /// <returns><see langword="true" /> if the <paramref name="deviceId"/> is present in the <see cref="ChipsetDeviceId"/> enum</returns>
+        /// <returns><see langword="true"/> if <paramref name="deviceId"/> is present in the <see cref="ChipsetDeviceId"/> enum</returns>
         private static bool CheckChipsetSupport(ChipsetDeviceId deviceId) {
             return Enum.IsDefined(typeof(ChipsetDeviceId), deviceId);
         }
