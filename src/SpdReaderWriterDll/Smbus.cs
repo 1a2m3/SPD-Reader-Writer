@@ -157,7 +157,11 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Kernel Driver instance
         /// </summary>
-        public static WinRing0 Driver;
+        public WinRing0 Driver {
+            get => _driver;
+            set => _driver = value;
+        }
+        internal static WinRing0 _driver;
 
         /// <summary>
         /// Device info struct
@@ -170,7 +174,6 @@ namespace SpdReaderWriterDll {
             get => _deviceInfo;
             set => _deviceInfo = value;
         }
-
         private static DeviceInfo _deviceInfo;
 
         /// <summary>
