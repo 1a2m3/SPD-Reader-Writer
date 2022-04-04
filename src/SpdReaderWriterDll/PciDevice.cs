@@ -50,9 +50,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="memoryAddress">PCI device memory location</param>
         public PciDevice(uint memoryAddress) {
-            PciInfo.BusNumber      = Smbus.Driver.PciGetBus(memoryAddress);
-            PciInfo.DeviceNumber   = Smbus.Driver.PciGetDev(memoryAddress);
-            PciInfo.FunctionNumber = Smbus.Driver.PciGetFunc(memoryAddress);
+            PciInfo.BusNumber      = WinRing0.PciGetBus(memoryAddress);
+            PciInfo.DeviceNumber   = WinRing0.PciGetDev(memoryAddress);
+            PciInfo.FunctionNumber = WinRing0.PciGetFunc(memoryAddress);
         }
 
         /// <summary>
@@ -166,7 +166,7 @@ namespace SpdReaderWriterDll {
 
             Queue<UInt32> results = new Queue<UInt32>();
 
-            for (int i = 0; i < byte.MaxValue; i++) {
+            for (int i = 1; i < byte.MaxValue; i++) {
 
                 UInt32 id = Smbus.Driver.FindPciDeviceByClass(baseClass, subClass, programIf, (byte)i);
 
@@ -262,7 +262,7 @@ namespace SpdReaderWriterDll {
             public static uint FunctionNumber;
 
             // PCI device memory location
-            public static uint DeviceMemoryLocation => Smbus.Driver.PciBusDevFunc(BusNumber, DeviceNumber, FunctionNumber);
+            public static uint DeviceMemoryLocation => WinRing0.PciBusDevFunc(BusNumber, DeviceNumber, FunctionNumber);
         }
     }
 }
