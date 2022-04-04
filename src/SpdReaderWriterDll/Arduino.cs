@@ -555,9 +555,9 @@ namespace SpdReaderWriterDll {
         public bool RswpPresent {
             get {
                 return IsConnected &&
-                       ((RamTypeSupport & RswpSupport.DDR3) == RswpSupport.DDR3 ||
-                        (RamTypeSupport & RswpSupport.DDR4) == RswpSupport.DDR4 ||
-                        (RamTypeSupport & RswpSupport.DDR5) == RswpSupport.DDR5);
+                       ((RamTypeSupport & Response.RswpSupport.DDR3) == Response.RswpSupport.DDR3 ||
+                        (RamTypeSupport & Response.RswpSupport.DDR4) == Response.RswpSupport.DDR4 ||
+                        (RamTypeSupport & Response.RswpSupport.DDR5) == Response.RswpSupport.DDR5);
             }
         }
 
@@ -1421,27 +1421,27 @@ namespace SpdReaderWriterDll {
             public const byte NOACK    = ERROR;
             public const byte FAIL     = ERROR;
             public const byte ZERO     = NULL;
-        }
-
-        /// <summary>
-        /// Bitmask values describing specific RAM type RSWP support
-        /// </summary>
-        public struct RswpSupport {
 
             /// <summary>
-            /// Value describing <value>DDR3</value> and below RSWP support
+            /// Bitmask values describing specific RAM type RSWP support
             /// </summary>
-            public const byte DDR3 = 1 << 3;
+            public struct RswpSupport {
 
-            /// <summary>
-            /// Value describing <value>DDR4</value> RSWP support
-            /// </summary>
-            public const byte DDR4 = 1 << 4;
+                /// <summary>
+                /// Value describing <value>DDR3</value> and below RSWP support
+                /// </summary>
+                public const byte DDR3 = 1 << 3;
 
-            /// <summary>
-            /// Value describing <value>DDR5</value> RSWP support
-            /// </summary>
-            public const byte DDR5 = 1 << 5;
+                /// <summary>
+                /// Value describing <value>DDR4</value> RSWP support
+                /// </summary>
+                public const byte DDR4 = 1 << 4;
+
+                /// <summary>
+                /// Value describing <value>DDR5</value> RSWP support
+                /// </summary>
+                public const byte DDR5 = 1 << 5;
+            }
         }
     }
 }
