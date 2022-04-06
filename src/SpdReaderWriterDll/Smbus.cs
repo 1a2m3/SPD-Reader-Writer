@@ -94,10 +94,6 @@ namespace SpdReaderWriterDll {
     public enum IntelCpuSmbusDeviceId : UInt16 {
         // LGA 2066 SKL-X & CLX-X
         SKLX_SMBUS = 0x2085,
-
-        // LGA 2011-3 HW-E & BW-E
-        //HSWE_SMBUS_0 = 0x2F68,
-        //HSWE_SMBUS_1 = 0x2FA8,
     }
 
     /// <summary>
@@ -180,15 +176,14 @@ namespace SpdReaderWriterDll {
         /// SMBus bus number
         /// </summary>
         public byte BusNumber {
-            get {
-                return _busNumber;
-            }
+            get => _busNumber;
             set {
                 _busNumber = value;
                 // Reset Eeprom page when bus is set
                 Eeprom.ResetPageAddress(this);
             }
         }
+
         private static byte _busNumber;
 
         /// <summary>
@@ -204,7 +199,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// SPD BIOS write disable state (ICH only)
         /// </summary>
-        public bool SpdWriteDisabled = false;
+        public bool SpdWriteDisabled;
 
         /// <summary>
         /// PCI device instance
@@ -246,9 +241,7 @@ namespace SpdReaderWriterDll {
             ioPort    = null;
             pciDevice = null;
 
-            Driver?.CloseDriverHandle();
-            Driver?.StopDriver();
-            Driver?.RemoveDriver(true);
+            Driver?.Deinitialize();
 
             if (!IsRunning) {
                 I2CAddress       = 0;
@@ -295,25 +288,13 @@ namespace SpdReaderWriterDll {
             try {
                 Driver = new WinRing0();
 
-                if (!Driver.IsInstalled) {
-                    throw new Exception("Driver is not installed");
-                }
-
-                if (!Driver.IsServiceRunning) {
-                    throw new Exception("Driver service is not running");
-                }
-
-                if (!Driver.IsHandleOpen) {
-                    throw new Exception("Driver handle is not open");
-                }
-
-                if (!Driver.IsReady) {
-                    throw new Exception("Driver is not ready");
+                if (Driver.IsReady) {
+                    // Load device info
+                    deviceInfo = GetDeviceInfo();
                 }
             }
-            finally {
-                // Load device info
-                deviceInfo = GetDeviceInfo();
+            catch (Exception e) {
+                throw new Exception($"Initialization failure: {e.Message}");
             }
 
             if (deviceInfo.vendorId == PlatformVendorId.Intel) {
@@ -439,7 +420,6 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if <see cref="BusNumber"/> has at least one slave device present</returns>
         public bool TryScan() {
-
             for (byte i = 0x50; i <= 0x57; i++) {
                 if (ProbeAddress(i)) {
                     return true;
@@ -450,13 +430,12 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// 
+        /// Validates slave address by reading first byte from it
         /// </summary>
-        /// <param name="slaveAddress"></param>
-        /// <returns></returns>
+        /// <param name="slaveAddress">Slave address</param>
+        /// <returns>><see langword="true"/> if <paramref name="slaveAddress"/> responds to <see cref="ReadByte"/></returns>
         public bool ProbeAddress(byte slaveAddress) {
-
-            return false;
+            return ReadByte(this, slaveAddress);
         }
 
         /// <summary>
@@ -689,8 +668,8 @@ namespace SpdReaderWriterDll {
 
                         // Set bit 0 to 1 to enable read
                         _ioPort.WriteByte(
-                            offset: IntelSmbusRegister.ADDRESS, 
-                             value: Data.SetBit(_ioPort.ReadByte(IntelSmbusRegister.ADDRESS), 0, true));
+                            offset : IntelSmbusRegister.ADDRESS, 
+                             value : Data.SetBit(_ioPort.ReadByte(IntelSmbusRegister.ADDRESS), 0, true));
                         break;
                 }
             }
@@ -704,8 +683,8 @@ namespace SpdReaderWriterDll {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
                         _pciDevice.WriteByte(
-                            offset: (UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4)),
-                             value: (byte)(_pciDevice.ReadByte((UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4))) | X299SmbusCommand.WRITE));
+                            offset : (UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4)),
+                             value : (byte)(_pciDevice.ReadByte((UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4))) | X299SmbusCommand.WRITE));
                         break;
 
                     default:
@@ -727,8 +706,8 @@ namespace SpdReaderWriterDll {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
                         _pciDevice.WriteByte(
-                            offset: (byte)(X299SmbusRegister.INPUT + (_busNumber * 4)), 
-                             value: input);
+                            offset : (byte)(X299SmbusRegister.INPUT + (_busNumber * 4)), 
+                             value : input);
                         break;
 
                     default:
@@ -736,8 +715,8 @@ namespace SpdReaderWriterDll {
                             break;
                         }
                         _ioPort.WriteByte(
-                            offset: IntelSmbusRegister.DATA, 
-                             value: input);
+                            offset : IntelSmbusRegister.DATA, 
+                             value : input);
                         break;
                 }
             }
@@ -782,8 +761,8 @@ namespace SpdReaderWriterDll {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
                         _pciDevice.WriteByte(
-                            offset: (byte)(X299SmbusRegister.COMMAND + (_busNumber * 4)),
-                             value: X299SmbusCommand.EXEC_CMD);
+                            offset : (byte)(X299SmbusRegister.COMMAND + (_busNumber * 4)),
+                             value : X299SmbusCommand.EXEC_CMD);
                         while (GetBusStatus() == SmbStatus.BUSY) { }
                         break;
 
@@ -795,18 +774,18 @@ namespace SpdReaderWriterDll {
                         // Clear last status
                         while (GetBusStatus() != SmbStatus.READY) {
                             _ioPort.WriteByte(
-                                offset: IntelSmbusRegister.STATUS,
-                                 value: Data.SetBit(
-                                       input: _ioPort.ReadByte(offset: IntelSmbusRegister.STATUS), 
-                                    position: 0, 
-                                       value: true)); 
+                                offset : IntelSmbusRegister.STATUS,
+                                 value : Data.SetBit(
+                                       input : _ioPort.ReadByte(offset: IntelSmbusRegister.STATUS), 
+                                    position : 0, 
+                                       value : true)); 
                             while (GetBusStatus() == SmbStatus.BUSY) { }
                         }
                         
                         // Execute
                         _ioPort.WriteByte(
-                            offset: IntelSmbusRegister.COMMAND,
-                             value: cmd);
+                            offset : IntelSmbusRegister.COMMAND,
+                             value : cmd);
                         while (GetBusStatus() == SmbStatus.BUSY) { }
 
                         // Wait for success or error status, because on some systems
