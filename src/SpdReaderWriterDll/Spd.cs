@@ -15,7 +15,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>RAM Type</returns>
-        public static Ram.Type GetRamType(SerialDevice device) {
+        public static Ram.Type GetRamType(Arduino device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -64,7 +64,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
-        public static SpdSize GetSpdSize(SerialDevice device) {
+        public static SpdSize GetSpdSize(Arduino device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -116,7 +116,7 @@ namespace SpdReaderWriterDll {
         /// Validates SPD data
         /// </summary>
         /// <param name="input">SPD contents</param>
-        /// <returns> <see langword="true" /> if <paramref name="input"/> data is a valid SPD dump</returns>
+        /// <returns> <see langword="true" /> if <paramref name="input" /> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
             return (input.Length == (int)SpdSize.DDR5 ||
