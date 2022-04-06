@@ -1341,12 +1341,12 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public struct State {
                 /// <summary>
-                /// Name state describing condition when pin is <b>HIGH</b>
+                /// Pin state name describing condition when pin is <b>HIGH</b>
                 /// </summary>
                 public const bool HIGH     = true;
 
                 /// <summary>
-                /// Name state describing condition when pin is <b>LOW</b>
+                /// Pin state name describing condition when pin is <b>LOW</b>
                 /// </summary>
                 public const bool LOW      = false;
 
@@ -1405,7 +1405,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public const byte OFF      = 0x00;
             /// <summary>
-            /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
+            /// A response expected from the device after executing <see cref="Command.TESTCOMM"/> command to identify the correct device
             /// </summary>
             public const char WELCOME  = '!';
             /// <summary>
