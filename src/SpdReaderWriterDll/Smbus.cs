@@ -8,144 +8,6 @@ using UInt8 = System.Byte;
 namespace SpdReaderWriterDll {
 
     /// <summary>
-    /// Platform Vendor ID
-    /// </summary>
-    public enum PlatformVendorId : UInt16 {
-         AMD  = 0x1022,
-        Intel = 0x8086,
-    }
-
-    /// <summary>
-    /// Intel: PCH device ID (LPC/eSPI controller or ISA bridge)
-    /// AMD:   TBD
-    /// </summary>
-    public enum ChipsetDeviceId : UInt16 {
-
-        // DDR3
-        #region LGA1156
-        H55  = 0x3B06,
-        P55  = 0x3B02,
-        H57  = 0x3B08,
-        Q57  = 0x3B0A,
-        #endregion
-
-        #region LGA1155
-        H61  = 0x1C5C,
-        B65  = 0x1C50,
-        Q65  = 0x1C4C,
-        P67  = 0x1C46,
-        H67  = 0x1C4A,
-        Q67  = 0x1C4E,
-        Z68  = 0x1C44,
-        B75  = 0x1E49,
-        Q75  = 0x1E48,
-        Z75  = 0x1E46,
-        H77  = 0x1E4A,
-        Q77  = 0x1E47,
-        Z77  = 0x1E44,
-        #endregion
-
-        #region LGA1150
-        H81  = 0x8C5C,
-        B85  = 0x8C50,
-        Q85  = 0x8C4C,
-        Q87  = 0x8C4E,
-        H87  = 0x8C4A,
-        Z87  = 0x8C44,
-        Z97  = 0x8CC4,
-        H97  = 0x8CC6,
-        #endregion
-
-        #region MOBILE 5/6/7/8/9 Series
-        NM10 = 0x27BC,
-        PM55 = 0x3B03,
-        HM55 = 0x3B09,
-        HM57 = 0x3B0B,
-        QM57 = 0x3B07,
-        QS57 = 0x3B0F,
-        HM65 = 0x1C49,
-        HM67 = 0x1C4B,
-        UM67 = 0x1C47,
-        QM67 = 0x1C4F,
-        QS67 = 0x1C4D,
-        NM70 = 0x1E5F,
-        HM70 = 0x1E5E,
-        HM75 = 0x1E5D,
-        HM76 = 0x1E59,
-        UM77 = 0x1E58,
-        HM77 = 0x1E57,
-        QM77 = 0x1E55,
-        QS77 = 0x1E56,
-        HM86 = 0x8C49,
-        QM87 = 0x8C4F,
-        HM87 = 0x8C4B,
-        HM97 = 0x8CC3,
-        #endregion
-
-        // DDR4
-        #region LGA2066
-        X299 = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
-        #endregion
-    }
-
-    /// <summary>
-    /// Intel CPU SMBus Device ID
-    /// </summary>
-    public enum IntelCpuSmbusDeviceId : UInt16 {
-        // LGA 2066 SKL-X & CLX-X
-        SKLX_SMBUS = 0x2085,
-    }
-
-    /// <summary>
-    /// Intel X299 SMBus controller register offsets
-    /// </summary>
-    public struct X299SmbusRegister {
-        public const byte ADDRESS  = 0x9D;
-        public const byte OFFSET   = 0x9C;
-        public const byte INPUT    = 0xB6;
-        public const byte COMMAND  = 0x9E;
-        public const byte OUTPUT   = 0xB4;
-        public const byte STATUS   = 0xA8;
-        public const byte DIMMCFG  = 0x94;
-    }
-
-    /// <summary>
-    /// Intel chipset SMBus controller register offsets
-    /// </summary>
-    public struct IntelSmbusRegister {
-        public const byte STATUS   = 0x00;
-        public const byte COMMAND  = 0x02;
-        public const byte OFFSET   = 0x03;
-        public const byte ADDRESS  = 0x04;
-        public const byte DATA     = 0x05;
-    }
-
-    /// <summary>
-    /// Indicates SMBus controller commands and modifiers
-    /// </summary>
-    public struct X299SmbusCommand {
-        public const byte EXEC_CMD = 0x08; // 0b00001000
-
-        // X299SmbusRegister.COMMAND modifiers
-        public const byte MOD_WORD = 0x0A; // 0b00000010
-        public const byte MOD_NEXT = 0x04; // 0b00000100
-
-        // X299SmbusRegister.ADDRESS modifiers
-        public const byte READ     = 0x00; // 0b00000000
-        public const byte WRITE    = 0x80; // 0b10000000
-    }
-
-    /// <summary>
-    /// Describes SMBus controller status codes at <see cref="X299SmbusRegister.STATUS">status register</see>
-    /// </summary>
-    public struct X299SmbusStatus {
-        public const byte READY    = 0b00000000;
-        public const byte BUSY     = 0b00000001;
-        public const byte ACK      = 0b00000000;
-        public const byte NACK     = 0b00000010;
-    }
-
-    /// <summary>
     /// SMBus class
     /// </summary>
     public class Smbus {
@@ -279,6 +141,144 @@ namespace SpdReaderWriterDll {
         /// Number of slave addresses on selected bus
         /// </summary>
         public UInt8 Addresses;
+        
+        /// <summary>
+        /// Platform Vendor ID
+        /// </summary>
+        public enum PlatformVendorId : UInt16 {
+             AMD  = 0x1022,
+            Intel = 0x8086,
+        }
+
+        /// <summary>
+        /// Intel: PCH device ID (LPC/eSPI controller or ISA bridge)
+        /// AMD:   TBD
+        /// </summary>
+        public enum ChipsetDeviceId : UInt16 {
+
+            // DDR3
+            #region LGA1156
+            H55   = 0x3B06,
+            P55   = 0x3B02,
+            H57   = 0x3B08,
+            Q57   = 0x3B0A,
+            #endregion
+
+            #region LGA1155
+            H61   = 0x1C5C,
+            B65   = 0x1C50,
+            Q65   = 0x1C4C,
+            P67   = 0x1C46,
+            H67   = 0x1C4A,
+            Q67   = 0x1C4E,
+            Z68   = 0x1C44,
+            B75   = 0x1E49,
+            Q75   = 0x1E48,
+            Z75   = 0x1E46,
+            H77   = 0x1E4A,
+            Q77   = 0x1E47,
+            Z77   = 0x1E44,
+            #endregion
+
+            #region LGA1150
+            H81   = 0x8C5C,
+            B85   = 0x8C50,
+            Q85   = 0x8C4C,
+            Q87   = 0x8C4E,
+            H87   = 0x8C4A,
+            Z87   = 0x8C44,
+            Z97   = 0x8CC4,
+            H97   = 0x8CC6,
+            #endregion
+
+            #region MOBILE 5/6/7/8/9 Series
+            NM10  = 0x27BC,
+            PM55  = 0x3B03,
+            HM55  = 0x3B09,
+            HM57  = 0x3B0B,
+            QM57  = 0x3B07,
+            QS57  = 0x3B0F,
+            HM65  = 0x1C49,
+            HM67  = 0x1C4B,
+            UM67  = 0x1C47,
+            QM67  = 0x1C4F,
+            QS67  = 0x1C4D,
+            NM70  = 0x1E5F,
+            HM70  = 0x1E5E,
+            HM75  = 0x1E5D,
+            HM76  = 0x1E59,
+            UM77  = 0x1E58,
+            HM77  = 0x1E57,
+            QM77  = 0x1E55,
+            QS77  = 0x1E56,
+            HM86  = 0x8C49,
+            QM87  = 0x8C4F,
+            HM87  = 0x8C4B,
+            HM97  = 0x8CC3,
+            #endregion           
+
+            // DDR4            
+            #region LGA2066
+            X299  = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
+            #endregion
+        }
+
+        /// <summary>
+        /// Intel CPU SMBus Device ID
+        /// </summary>
+        public enum IntelCpuSmbusDeviceId : UInt16 {
+            // LGA 2066 SKL-X & CLX-X
+            SKLX_SMBUS = 0x2085,
+        }
+
+        /// <summary>
+        /// Intel X299 SMBus controller register offsets
+        /// </summary>
+        public struct X299SmbusRegister {
+            public const byte ADDRESS  = 0x9D;
+            public const byte OFFSET   = 0x9C;
+            public const byte INPUT    = 0xB6;
+            public const byte COMMAND  = 0x9E;
+            public const byte OUTPUT   = 0xB4;
+            public const byte STATUS   = 0xA8;
+            public const byte DIMMCFG  = 0x94;
+        }
+
+        /// <summary>
+        /// Intel chipset SMBus controller register offsets
+        /// </summary>
+        public struct IntelSmbusRegister {
+            public const byte STATUS   = 0x00;
+            public const byte COMMAND  = 0x02;
+            public const byte OFFSET   = 0x03;
+            public const byte ADDRESS  = 0x04;
+            public const byte DATA     = 0x05;
+        }
+
+        /// <summary>
+        /// Indicates SMBus controller commands and modifiers
+        /// </summary>
+        public struct X299SmbusCommand {
+            public const byte EXEC_CMD = 0x08; // 0b00001000
+
+            // X299SmbusRegister.COMMAND modifiers
+            public const byte MOD_WORD = 0x0A; // 0b00000010
+            public const byte MOD_NEXT = 0x04; // 0b00000100
+
+            // X299SmbusRegister.ADDRESS modifiers
+            public const byte READ     = 0x00; // 0b00000000
+            public const byte WRITE    = 0x80; // 0b10000000
+        }
+
+        /// <summary>
+        /// Describes SMBus controller status codes at <see cref="X299SmbusRegister.STATUS">status register</see>
+        /// </summary>
+        public struct X299SmbusStatus {
+            public const byte READY    = 0b00000000;
+            public const byte BUSY     = 0b00000001;
+            public const byte ACK      = 0b00000000;
+            public const byte NACK     = 0b00000010;
+        }
 
         /// <summary>
         /// Initializes SMBus controller class
