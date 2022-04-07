@@ -159,7 +159,7 @@ namespace SpdReaderWriter {
                     // Test reversible write protection capabilities
                     if (mode.StartsWith("/") && mode.EndsWith("writeprotection")) {
 
-                        if (reader.GetRamTypeSupport() < Ram.BitMask.DDR3) {
+                        if (reader.GetRamTypeSupport() < Arduino.Response.RswpSupport.DDR3) {
                             throw new Exception("Your device does not support write protection features.");
                         }
 
