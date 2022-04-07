@@ -12,13 +12,13 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
-    public class SerialDevice {
+    public class Arduino {
 
         /// <summary>
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
-        public SerialDevice(SerialPortSettings portSettings) {
+        public Arduino(SerialPortSettings portSettings) {
             PortSettings = portSettings;
         }
 
@@ -27,7 +27,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
-        public SerialDevice(SerialPortSettings portSettings, string portName) {
+        public Arduino(SerialPortSettings portSettings, string portName) {
             PortSettings = portSettings;
             PortName     = portName;
         }
@@ -38,7 +38,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName" >Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        public SerialDevice(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
+        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -51,7 +51,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="spdSize">Total EEPROM size</param>
-        public SerialDevice(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
+        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -77,7 +77,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Device class destructor
         /// </summary>
-        ~SerialDevice() {
+        ~Arduino() {
             DisposePrivate();
         }
 
@@ -154,7 +154,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type" /> struct</returns>
         public byte GetRamTypeSupport() {
             return GetRamTypeSupportPrivate();
         }
@@ -163,7 +163,7 @@ namespace SpdReaderWriterDll {
         /// Test if the device supports RAM type RSWP at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> RSWP at firmware level</returns>
+        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type" /> RSWP at firmware level</returns>
         public bool GetRamTypeSupport(byte ramTypeBitmask) {
             return GetRamTypeSupportPrivate(ramTypeBitmask);
         }
@@ -171,7 +171,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type" /> struct</returns>
         public byte RswpRetest() {
             return RswpRetestPrivate();
         }
@@ -462,10 +462,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address"/>
+        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address" />
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR4 is found at <see cref="address"/></returns>
+        /// <returns><see langword="true" /> if DDR4 is found at <see cref="address" /></returns>
         public bool DetectDdr4(UInt8 address) {
             return DetectDdr4Private(address);
         }
@@ -479,10 +479,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address"/>
+        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address" />
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR5 is found at <see cref="address"/></returns>
+        /// <returns><see langword="true" /> if DDR5 is found at <see cref="address" /></returns>
         public bool DetectDdr5(UInt8 address) {
             return DetectDdr5Private(address);
         }
@@ -555,9 +555,9 @@ namespace SpdReaderWriterDll {
         public bool RswpPresent {
             get {
                 return IsConnected &&
-                       ((RamTypeSupport & Ram.BitMask.DDR3) == Ram.BitMask.DDR3 ||
-                        (RamTypeSupport & Ram.BitMask.DDR4) == Ram.BitMask.DDR4 ||
-                        (RamTypeSupport & Ram.BitMask.DDR5) == Ram.BitMask.DDR5);
+                       ((RamTypeSupport & Response.RswpSupport.DDR3) == Response.RswpSupport.DDR3 ||
+                        (RamTypeSupport & Response.RswpSupport.DDR4) == Response.RswpSupport.DDR4 ||
+                        (RamTypeSupport & Response.RswpSupport.DDR5) == Response.RswpSupport.DDR5);
             }
         }
 
@@ -618,8 +618,8 @@ namespace SpdReaderWriterDll {
                 if (!IsConnected) {
                     _sp = new SerialPort {
                         // New connection settings
-                        PortName = PortName,
-                        BaudRate = PortSettings.BaudRate,
+                        PortName  = PortName,
+                        BaudRate  = PortSettings.BaudRate,
                         DtrEnable = PortSettings.DtrEnable,
                         RtsEnable = PortSettings.RtsEnable
                     };
@@ -722,7 +722,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets initial supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask" /> struct</returns>
         private byte GetRamTypeSupportPrivate() {
             lock (_portLock) {
                 try {
@@ -738,7 +738,7 @@ namespace SpdReaderWriterDll {
         /// Test if the device supports RAM type at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
+        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type" /> at firmware level</returns>
         private bool GetRamTypeSupportPrivate(byte ramTypeBitmask) {
             return (GetRamTypeSupportPrivate() & ramTypeBitmask) == ramTypeBitmask;
         }
@@ -746,7 +746,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask" /> struct</returns>
         private byte RswpRetestPrivate() {
             lock (_portLock) {
                 try {
@@ -990,9 +990,15 @@ namespace SpdReaderWriterDll {
         /// <param name="name">Device name</param>
         /// <returns><see langword="true" /> when the device name is set</returns>
         private bool SetNamePrivate(string name) {
-            if (name == null) throw new ArgumentNullException("Name can't be null");
-            if (name == "") throw new ArgumentException("Name can't be blank");
-            if (name.Length > 16) throw new ArgumentException("Name can't be longer than 16 characters");
+            if (name == null) {
+                throw new ArgumentNullException("Name can't be null");
+            }
+            if (name == "") {
+                throw new ArgumentException("Name can't be blank");
+            }
+            if (name.Length > 16) {
+                throw new ArgumentException("Name can't be longer than 16 characters");
+            }
 
             lock (_portLock) {
                 try {
@@ -1049,17 +1055,17 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>An array of serial port names which have valid devices connected to</returns>
         private string[] FindPrivate() {
-            Stack<string> _result = new Stack<string>();
+            Stack<string> result = new Stack<string>();
 
             lock (_findLock) {
-                foreach (string _portName in SerialPort.GetPortNames().Distinct().ToArray()) {
+                foreach (string portName in SerialPort.GetPortNames().Distinct().ToArray()) {
 
-                    SerialDevice _device = new SerialDevice(PortSettings, _portName);
+                    Arduino device = new Arduino(PortSettings, portName);
                     try {
-                        lock (_device._portLock) {
-                            if (_device.ConnectPrivate()) {
-                                _device.DisposePrivate();
-                                _result.Push(_portName);
+                        lock (device._portLock) {
+                            if (device.ConnectPrivate()) {
+                                device.DisposePrivate();
+                                result.Push(portName);
                             }
                         }
                     }
@@ -1069,7 +1075,7 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            return _result.ToArray();
+            return result.ToArray();
         }
 
         /// <summary>
@@ -1157,7 +1163,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
 
-            byte[] _response = new byte[responseLength];
+            byte[] response = new byte[responseLength];
 
             lock (_portLock) {
                 try {
@@ -1190,13 +1196,13 @@ namespace SpdReaderWriterDll {
 
                             // Wait for data
                             if (ResponseData != null && ResponseData.Count >= responseLength && !DataReceiving) {
-                                for (int i = 0; i < _response.Length; i++) {
-                                    _response[i] = ResponseData.Dequeue();
+                                for (int i = 0; i < response.Length; i++) {
+                                    response[i] = ResponseData.Dequeue();
                                 }
                                 break;
                             }
                         }
-                        return _response;
+                        return response;
                     }
                     throw new TimeoutException("Response timeout");
                 }
@@ -1335,12 +1341,12 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public struct State {
                 /// <summary>
-                /// Name state describing condition when pin is <b>HIGH</b>
+                /// Pin state name describing condition when pin is <b>HIGH</b>
                 /// </summary>
                 public const bool HIGH     = true;
 
                 /// <summary>
-                /// Name state describing condition when pin is <b>LOW</b>
+                /// Pin state name describing condition when pin is <b>LOW</b>
                 /// </summary>
                 public const bool LOW      = false;
 
@@ -1367,7 +1373,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Class describing different responses received from the device
+        /// Responses received from the device
         /// </summary>
         public struct Response {
             /// <summary>
@@ -1399,7 +1405,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public const byte OFF      = 0x00;
             /// <summary>
-            /// A response expected from the device after executing Command.TESTCOMM command to identify the correct device
+            /// A response expected from the device after executing <see cref="Command.TESTCOMM"/> command to identify the correct device
             /// </summary>
             public const char WELCOME  = '!';
             /// <summary>
@@ -1415,6 +1421,27 @@ namespace SpdReaderWriterDll {
             public const byte NOACK    = ERROR;
             public const byte FAIL     = ERROR;
             public const byte ZERO     = NULL;
+
+            /// <summary>
+            /// Bitmask values describing specific RAM type RSWP support
+            /// </summary>
+            public struct RswpSupport {
+
+                /// <summary>
+                /// Value describing <value>DDR3</value> and below RSWP support
+                /// </summary>
+                public const byte DDR3 = 1 << 3;
+
+                /// <summary>
+                /// Value describing <value>DDR4</value> RSWP support
+                /// </summary>
+                public const byte DDR4 = 1 << 4;
+
+                /// <summary>
+                /// Value describing <value>DDR5</value> RSWP support
+                /// </summary>
+                public const byte DDR5 = 1 << 5;
+            }
         }
     }
 }

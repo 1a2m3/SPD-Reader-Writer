@@ -18,19 +18,19 @@
 #include <ntddk.h>
 
 /******************************************************************************
-				0192  *        RtlConvertUlongToLargeInteger   (NTDLL.@)
+    0192  *        RtlConvertUlongToLargeInteger   (NTDLL.@)
 4c1fa161a… Jon *0193  *
-				0194  * Convert a 32 bit unsigned integer into 64 bits.
-				0195  *
-				0196  * PARAMS
-				0197  *  a [I] Number to convert
-				0198  *
-				0199  * RETURNS
-				0200  *  a.
+    0194  * Convert a 32 bit unsigned integer into 64 bits.
+    0195  *
+    0196  * PARAMS
+    0197  *  a [I] Number to convert
+    0198  *
+    0199  * RETURNS
+    0200  *  a.
 d76f9f963… Alex*0201  */
 //ULONGLONG WINAPI RtlConvertUlongToLargeInteger(ULONG a)
 //{
-//	return a;
+// return a;
 //}
 
 //#include <devioctl.h>
@@ -46,14 +46,14 @@ d76f9f963… Alex*0201  */
 
 #include "OlsIoctl.h"
 
-#define NT_DEVICE_NAME	L"\\Device\\WinRing0_1_2_0"
-#define DOS_DEVICE_NAME	L"\\DosDevices\\WinRing0_1_2_0"
+#define NT_DEVICE_NAME  L"\\Device\\WinRing0_1_2_0"
+#define DOS_DEVICE_NAME L"\\DosDevices\\WinRing0_1_2_0"
 
 enum UNIT {
-	BYTE = 1,
-	TWOBYTES = 2,
-	FOURBYTES = 4,
-	EIGHTBYTES = 8
+    BYTE       = 1,
+    TWOBYTES   = 2,
+    FOURBYTES  = 4,
+    EIGHTBYTES = 8
 };
 
 //-----------------------------------------------------------------------------
@@ -62,19 +62,19 @@ enum UNIT {
 //
 //-----------------------------------------------------------------------------
 
-NTSTATUS	DriverEntry(
-				IN PDRIVER_OBJECT DriverObject,
-				IN PUNICODE_STRING RegistryPath
-			);
+NTSTATUS DriverEntry(
+    IN PDRIVER_OBJECT DriverObject,
+    IN PUNICODE_STRING RegistryPath
+);
 
-NTSTATUS	OlsDispatch(
-				IN PDEVICE_OBJECT pDO,
-				IN PIRP pIrp
-			);
+NTSTATUS OlsDispatch(
+    IN PDEVICE_OBJECT pDO,
+    IN PIRP pIrp
+);
 
-VOID		Unload(
-				IN PDRIVER_OBJECT DriverObject
-			);
+VOID  Unload(
+    IN PDRIVER_OBJECT DriverObject
+);
 
 //-----------------------------------------------------------------------------
 //
@@ -82,80 +82,79 @@ VOID		Unload(
 //
 //-----------------------------------------------------------------------------
 
-NTSTATUS	ReadMsr(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS ReadMsr(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
-NTSTATUS	WriteMsr(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
-			
-NTSTATUS	ReadPmc(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS WriteMsr(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
-NTSTATUS	ReadIoPort(
-				ULONG ioControlCode,
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS ReadPmc(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
-NTSTATUS	WriteIoPort(
-				ULONG ioControlCode,
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS ReadIoPort(
+    ULONG ioControlCode,
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
-NTSTATUS	ReadPciConfig(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS WriteIoPort(
+    ULONG ioControlCode,
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
-NTSTATUS	WritePciConfig(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
-			
-NTSTATUS	ReadMemory(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS ReadPciConfig(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
-NTSTATUS	WriteMemory(
-				void *lpInBuffer, 
-				ULONG nInBufferSize, 
-				void *lpOutBuffer, 
-				ULONG nOutBufferSize, 
-				ULONG *lpBytesReturned
-			);
+NTSTATUS WritePciConfig(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
+NTSTATUS ReadMemory(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
+
+NTSTATUS WriteMemory(
+    void* lpInBuffer,
+    ULONG nInBufferSize,
+    void* lpOutBuffer,
+    ULONG nOutBufferSize,
+    ULONG* lpBytesReturned
+);
 
 //-----------------------------------------------------------------------------
 //
@@ -163,5 +162,5 @@ NTSTATUS	WriteMemory(
 //
 //-----------------------------------------------------------------------------
 
-NTSTATUS pciConfigRead(ULONG pciAddress, ULONG offset, void *data, int length);
-NTSTATUS pciConfigWrite(ULONG pciAddress, ULONG offset, void *data, int length);
+NTSTATUS pciConfigRead(ULONG pciAddress, ULONG offset, void* data, int length);
+NTSTATUS pciConfigWrite(ULONG pciAddress, ULONG offset, void* data, int length);

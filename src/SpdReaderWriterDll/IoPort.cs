@@ -37,7 +37,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
         public byte ReadByte(UInt8 offset) {
-            return Smbus.Driver.ReadIoPortByte((UInt16)(BaseAddress + offset));
+            return Smbus._driver.ReadIoPortByte((UInt16)(BaseAddress + offset));
         }
 
         /// <summary>
@@ -46,7 +46,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Register value</param>
         public void WriteByte(UInt8 offset, byte value) {
-            Smbus.Driver.WriteIoPortByte((UInt16)(BaseAddress + offset), value);
+            Smbus._driver.WriteIoPortByte((UInt16)(BaseAddress + offset), value);
         }
 
         /// <summary>
