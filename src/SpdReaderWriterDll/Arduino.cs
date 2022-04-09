@@ -36,7 +36,7 @@ namespace SpdReaderWriterDll {
         /// Initializes the SPD reader/writer device
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
-        /// <param name="portName" >Serial port name</param>
+        /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
             PortSettings = portSettings;
