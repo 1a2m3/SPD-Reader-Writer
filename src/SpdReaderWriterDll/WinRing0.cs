@@ -1098,6 +1098,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address used by <see cref="DeviceIoControl"/> for reading from an I/O port
         /// </summary>
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct ReadIoPortInput {
             public UInt32 PortNumber;
         }
@@ -1105,6 +1106,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address and value used by <see cref="DeviceIoControl"/> for writing to an I/O port
         /// </summary>
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WriteIoPortInput {
             public UInt32 PortNumber;
             public UInt32 Value;
