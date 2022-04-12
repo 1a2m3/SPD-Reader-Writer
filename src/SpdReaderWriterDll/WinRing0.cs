@@ -130,7 +130,7 @@ namespace SpdReaderWriterDll {
         private bool ExtractDriver() {
 
             // Read applicable driver from resources depending on OS platform
-            byte[] driverFileContents = Environment.Is64BitOperatingSystem ? Resources.WinRing0x64 : Resources.WinRing0;
+            byte[] driverFileContents = Data.DecompressGzip(Environment.Is64BitOperatingSystem ? Resources.WinRing0x64_sys : Resources.WinRing0_sys);
 
             if (!(File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName)))) {
 
@@ -152,13 +152,9 @@ namespace SpdReaderWriterDll {
         /// <returns><see langref="true"/> if the driver is successfully installed</returns>
         public bool InstallDriver() {
 
-            _fileName = Path.ChangeExtension(Assembly.GetExecutingAssembly().Location, "sys");
+            _fileName = Path.GetTempPath() + Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
 
             if (!ExtractDriver()) {
-                return false;
-            }
-
-            if (IsHandleOpen) {
                 return false;
             }
 
@@ -495,8 +491,8 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentOutOfRangeException();
             }
 
-            UInt32 pciAddress = UInt32.MaxValue;
-            UInt32 count      = UInt32.MinValue;
+            UInt32 pciAddress = 0xFFFF;
+            UInt32 count      = 0;
 
             if (vendorId == 0xFFFF || deviceId == 0xFFFF || index == 0) {
                 return pciAddress;
@@ -532,6 +528,16 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
+        /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        public UInt32[] FindPciDeviceByIdArray(UInt16 vendorId, UInt16 deviceId) {
+            return FindPciDeviceByIdArray(vendorId, deviceId, (UInt16)(gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction));
+        }
+
+        /// <summary>
+        /// Finds PCI devices matching Vendor ID and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
         /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public UInt32[] FindPciDeviceByIdArray(UInt16 vendorId, UInt16 deviceId, UInt16 maxCount) {
@@ -540,7 +546,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentOutOfRangeException();
             }
 
-            UInt32 count = UInt32.MinValue;
+            UInt32 count = 0;
 
             if (vendorId == 0xFFFF || deviceId == 0xFFFF || vendorId == 0x0000 || deviceId == 0x0000) {
                 return new UInt32[0];
@@ -620,6 +626,17 @@ namespace SpdReaderWriterDll {
             }
 
             return pciAddress;
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <returns>An array of PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        public UInt32[] FindPciDeviceByClassArray(UInt8 baseClass, UInt8 subClass, UInt8 programIf) {
+            return FindPciDeviceByClassArray(baseClass, subClass, programIf, (UInt16)(gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction));
         }
 
         /// <summary>
@@ -914,17 +931,17 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Maximum number of PCI buses assigned by <see cref="SetPciMaxBusIndex"/>
         /// </summary>
-        private UInt8 gPciNumberOfBus = 255;
+        private UInt8 gPciNumberOfBus            = 255;
 
         /// <summary>
         /// Maximum number of PCI devices per bus
         /// </summary>
-        private readonly UInt8 gPciNumberOfDevice = 32;
+        private const UInt8 gPciNumberOfDevice   = 32;
 
         /// <summary>
         /// Maximum number of PCI functions per device
         /// </summary>
-        private readonly UInt8 gPciNumberOfFunction = 8;
+        private const UInt8 gPciNumberOfFunction = 8;
 
         #endregion
 
@@ -1098,7 +1115,6 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address used by <see cref="DeviceIoControl"/> for reading from an I/O port
         /// </summary>
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct ReadIoPortInput {
             public UInt32 PortNumber;
         }
@@ -1106,7 +1122,6 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address and value used by <see cref="DeviceIoControl"/> for writing to an I/O port
         /// </summary>
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WriteIoPortInput {
             public UInt32 PortNumber;
             public UInt32 Value;
@@ -1359,28 +1374,36 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Winring0 Device type code
                 /// </summary>
-                public static readonly UInt32 DEVICE_TYPE = 40000;
+                public static readonly UInt32 DEVICE_TYPE = 40000;                                                           // 0x9C40
 
-                public static UInt32 GET_DRIVER_VERSION   = CTL_CODE(0x800, IOCTL_ACCESS.FILE_ANY_ACCESS);
-                /*                
-                public static UInt32 GET_REFCOUNT         = CTL_CODE(0x801, IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_MSR             = CTL_CODE(0x821, IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 WRITE_MSR            = CTL_CODE(0x822, IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_PMC             = CTL_CODE(0x823, IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 HALT                 = CTL_CODE(0x824, IOCTL_ACCESS.FILE_ANY_ACCESS);                
-                */
-                public static UInt32 READ_IO_PORT         = CTL_CODE(0x831, IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060C4
-                public static UInt32 WRITE_IO_PORT        = CTL_CODE(0x832, IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0C8
-                public static UInt32 READ_IO_PORT_BYTE    = CTL_CODE(0x833, IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060CC
-                public static UInt32 READ_IO_PORT_WORD    = CTL_CODE(0x834, IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060D0
-                public static UInt32 READ_IO_PORT_DWORD   = CTL_CODE(0x835, IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060D4
-                public static UInt32 WRITE_IO_PORT_BYTE   = CTL_CODE(0x836, IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0D8
-                public static UInt32 WRITE_IO_PORT_WORD   = CTL_CODE(0x837, IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0DC
-                public static UInt32 WRITE_IO_PORT_DWORD  = CTL_CODE(0x838, IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0E0
-                public static UInt32 READ_MEMORY          = CTL_CODE(0x841, IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C406104
-                public static UInt32 WRITE_MEMORY         = CTL_CODE(0x842, IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A108
-                public static UInt32 READ_PCI_CONFIG      = CTL_CODE(0x851, IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C406144
-                public static UInt32 WRITE_PCI_CONFIG     = CTL_CODE(0x852, IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A148
+                public static UInt32 GET_DRIVER_VERSION   = CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402000
+                public static UInt32 GET_REFCOUNT         = CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402004
+                public static UInt32 READ_MSR             = CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402084
+                public static UInt32 WRITE_MSR            = CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402088
+                public static UInt32 READ_PMC             = CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C40208C
+                public static UInt32 HALT                 = CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402090
+                public static UInt32 READ_IO_PORT         = CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060C4
+                public static UInt32 WRITE_IO_PORT        = CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0C8
+                public static UInt32 READ_IO_PORT_BYTE    = CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060CC
+                public static UInt32 READ_IO_PORT_WORD    = CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060D0
+                public static UInt32 READ_IO_PORT_DWORD   = CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060D4
+                public static UInt32 WRITE_IO_PORT_BYTE   = CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0D8
+                public static UInt32 WRITE_IO_PORT_WORD   = CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0DC
+                public static UInt32 WRITE_IO_PORT_DWORD  = CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0E0
+                public static UInt32 READ_MEMORY          = CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C406104
+                public static UInt32 WRITE_MEMORY         = CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A108
+                public static UInt32 READ_PCI_CONFIG      = CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C406144
+                public static UInt32 WRITE_PCI_CONFIG     = CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A148
+            }
+            
+            /// <summary>
+            /// Defines a new IO Control Code based on function and desired access parameters only
+            /// </summary>
+            /// <param name="function">Identifies the function to be performed by the driver.</param>
+            /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
+            /// <returns>An I/O control code</returns>
+            internal static UInt32 CTL_CODE(uint function, IOCTL_ACCESS access) {
+                return CTL_CODE(IoControlCode.DEVICE_TYPE, function, IOCTL_METHOD.METHOD_BUFFERED, access);
             }
 
             /// <summary>
@@ -1394,17 +1417,7 @@ namespace SpdReaderWriterDll {
             internal static UInt32 CTL_CODE(uint deviceType, uint function, IOCTL_METHOD method, IOCTL_ACCESS access) {
                 return (deviceType << 16) | ((uint)access << 14) | (uint)((UInt16)(function) << 2) | (uint)method;
             }
-
-            /// <summary>
-            /// Defines a new IO Control Code based on function and desired access parameters only
-            /// </summary>
-            /// <param name="function">Identifies the function to be performed by the driver.</param>
-            /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
-            /// <returns>An I/O control code</returns>
-            internal static UInt32 CTL_CODE(uint function, IOCTL_ACCESS access) {
-                return CTL_CODE(IoControlCode.DEVICE_TYPE, function, IOCTL_METHOD.METHOD_BUFFERED, access);
-            }
-
+            
             /// <summary>
             /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
             /// </summary>
@@ -1604,7 +1617,7 @@ namespace SpdReaderWriterDll {
             }
 
             /// <summary>
-            /// Windows error codes returned by <see cref="Marshal.GetHRForLastWin32Error()"/>
+            /// Windows error codes returned by <see cref="Marshal.GetHRForLastWin32Error"/>
             /// </summary>
             internal enum WinError {
                 /// <summary>
