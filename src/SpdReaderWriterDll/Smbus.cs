@@ -215,7 +215,7 @@ namespace SpdReaderWriterDll {
             QM87  = 0x8C4F,
             HM87  = 0x8C4B,
             HM97  = 0x8CC3,
-            #endregion           
+            #endregion
 
             // DDR4            
             #region LGA2066

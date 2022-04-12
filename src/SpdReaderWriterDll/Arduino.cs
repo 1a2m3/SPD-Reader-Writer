@@ -1409,7 +1409,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public const char WELCOME  = '!';
             /// <summary>
-            /// A response indicating the command or syntax was not in a correct fromat
+            /// A response indicating the command or syntax was not in a correct format
             /// </summary>
             public const char UNKNOWN  = '?';
 
