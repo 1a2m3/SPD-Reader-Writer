@@ -1,10 +1,12 @@
 using System.ComponentModel;
 
 namespace SpdReaderWriterDll {
+
     /// <summary>
     /// RAM class
     /// </summary>
     public class Ram {
+
         /// <summary>
         /// Defines basic memory type byte value
         /// </summary>
