@@ -48,6 +48,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">SPD dump</param>
         /// <returns>RAM Type</returns>
         public static Ram.Type GetRamType(byte[] input) {
+
             // Byte at offset 0x02 in SPD indicates RAM type
             if (input.Length >= 3) {
                 byte _rt = input[0x02];
