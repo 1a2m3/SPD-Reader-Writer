@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.IO.Compression;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -65,6 +67,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentOutOfRangeException(nameof(position));
             }
 
+            //return ((1 << position) & input) != 0;
             return ((input >> position) & 1) == 1;
         }
 
@@ -109,7 +112,6 @@ namespace SpdReaderWriterDll {
             return (byte)(value ? input | (1 << position) : input & ~(1 << position));
         }
 
-
         /// <summary>
         /// Gets number of bits from input byte at position and converts them to a new byte
         /// </summary>
@@ -153,13 +155,45 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Determine if a string contains a case insensitive given substring
+        /// Determines if a string contains a case insensitive given substring
         /// </summary>
         /// <param name="inputString">The string to search in</param>
         /// <param name="substring">The substring to search for in the <paramref name="inputString" /></param>
         /// <returns><see langword="true" /> if <paramref name="substring" /> is part of <paramref name="inputString" /></returns>
         public static bool StringContains(string inputString, string substring) {
             return inputString.IndexOf(substring, 0, StringComparison.CurrentCultureIgnoreCase) != -1;
+        }
+
+        /// <summary>
+        /// Decompresses GZip contents
+        /// </summary>
+        /// <param name="input">GZip contents byte array</param>
+        /// <returns>Decompressed byte array</returns>
+        public static byte[] DecompressGzip(byte[] input) {
+            using (GZipStream stream = new GZipStream(new MemoryStream(input), CompressionMode.Decompress)) {
+                const int size = 4096;
+                byte[] buffer = new byte[size];
+                using (MemoryStream memory = new MemoryStream()) {
+                    int count;
+                    do {
+                        count = stream.Read(buffer, 0, size);
+                        if (count > 0) {
+                            memory.Write(buffer, 0, count);
+                        }
+                    } while (count > 0);
+
+                    return memory.ToArray();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Converts byte array to string
+        /// </summary>
+        /// <param name="input">Input byte array</param>
+        /// <returns>Text string from <paramref name="input"/></returns>
+        public static string BytesToString(byte[] input) {
+            return System.Text.Encoding.Default.GetString(input);
         }
     }
 }
