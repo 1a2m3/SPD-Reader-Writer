@@ -92,6 +92,7 @@ namespace SpdReaderWriter {
                 "Command line parameters:",
                 "",
                 "{0} /?",
+                "{0} /find",
                 "{0} /find <all|arduino|smbus>",
                 "{0} /scan <PORTNAME>",
                 "{0} /scan <SMBUS#>",
