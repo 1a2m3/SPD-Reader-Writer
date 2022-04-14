@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,7 +17,6 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
-using System.Threading;
 using Microsoft.Win32.SafeHandles;
 using SpdReaderWriterDll.Properties;
 using UInt8 = System.Byte;
@@ -17,11 +27,6 @@ namespace SpdReaderWriterDll {
     /// Kernel driver (WinRing0) class
     /// </summary>
     public class WinRing0 {
-
-        /// <summary>
-        /// Service operation timeout
-        /// </summary>
-        public static Int32 Timeout => _timeout;
 
         /// <summary>
         /// Describes driver installation state
@@ -73,32 +78,22 @@ namespace SpdReaderWriterDll {
         /// Initializes kernel driver instance
         /// </summary>
         private void Initialize() {
-            int retryCount = 5;
-            int retry = 0;
 
-            while (!(IsInstalled || InstallDriver())) {
-                Thread.Sleep(IsInstalled ? 0 : Timeout);
-                if (++retry == retryCount) {
+            if (IsInstalled && IsServiceRunning) {
+                _disposeOnExit = false;
+            }
+            else {
+                if (!(IsInstalled || InstallDriver())) {
                     throw new Exception("Unable to install driver service");
                 }
-            }
 
-            retry = 0;
-
-            while (!(IsServiceRunning || StartDriver())) {
-                Thread.Sleep(IsServiceRunning ? 0 : Timeout);
-                if (++retry == retryCount) {
+                if (!(IsServiceRunning || StartDriver())) {
                     throw new Exception("Unable to start driver service");
                 }
             }
 
-            retry = 0;
-
-            while (!(IsHandleOpen || OpenDriverHandle())) {
-                Thread.Sleep(IsHandleOpen ? 0 : Timeout);
-                if (++retry == retryCount) {
-                    throw new Exception("Unable to open driver file handle");
-                }
+            if (!(IsHandleOpen || OpenDriverHandle())) {
+                throw new Exception("Unable to open driver file handle");
             }
         }
 
@@ -114,11 +109,14 @@ namespace SpdReaderWriterDll {
         /// </summary>
         internal void Deinitialize() {
             CloseDriverHandle();
-            StopDriver();
-            RemoveDriver(true);
+
+            if (_disposeOnExit) {
+                StopDriver();
+                RemoveDriver(deleteFile: true);
+            }
 
             _deviceHandle = null;
-            
+
             Advapi32.CloseServiceHandle(_servicePtr);
             Advapi32.CloseServiceHandle(_managerPtr);
         }
@@ -151,8 +149,6 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langref="true"/> if the driver is successfully installed</returns>
         public bool InstallDriver() {
-
-            _fileName = Path.GetTempPath() + Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
 
             if (!ExtractDriver()) {
                 return false;
@@ -265,6 +261,7 @@ namespace SpdReaderWriterDll {
 
             try {
                 if (_sc.Status != ServiceControllerStatus.Stopped) {
+
                     _sc.Stop();
 
                     // Wait for Stopped or StopPending
@@ -319,7 +316,7 @@ namespace SpdReaderWriterDll {
             IntPtr driverHandle = Kernel32.CreateFile(
                 lpFileName            : $@"\\.\{_name}",
                 dwDesiredAccess       : Kernel32.FileAccess.GENERIC_READWRITE,
-                dwShareMode           : Kernel32.FileShare.FILE_SHARE_NONE,
+                dwShareMode           : Kernel32.FileShare.FILE_SHARE_READWRITE,
                 lpSecurityAttributes  : IntPtr.Zero,
                 dwCreationDisposition : Kernel32.FileMode.OPEN_EXISTING,
                 dwFlagsAndAttributes  : Kernel32.FileAttributes.FILE_ATTRIBUTE_NORMAL,
@@ -340,13 +337,12 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langref="true"/> if driver handle is successfully closed</returns>
         public bool CloseDriverHandle() {
-
             if (IsHandleOpen) {
                 _deviceHandle.Close();
                 _deviceHandle.Dispose();
             }
 
-            return IsHandleOpen;
+            return !IsHandleOpen;
         }
 
         /// <summary>
@@ -1115,6 +1111,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address used by <see cref="DeviceIoControl"/> for reading from an I/O port
         /// </summary>
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct ReadIoPortInput {
             public UInt32 PortNumber;
         }
@@ -1122,6 +1119,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address and value used by <see cref="DeviceIoControl"/> for writing to an I/O port
         /// </summary>
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WriteIoPortInput {
             public UInt32 PortNumber;
             public UInt32 Value;
@@ -1152,10 +1150,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service control manager pointer
         /// </summary>
-        private IntPtr _managerPtr = Advapi32.OpenSCManager(
-            machineName  : null,
-            databaseName : null,
-            dwAccess     : Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
+        private IntPtr _managerPtr = Advapi32.OpenSCManager(dwAccess: Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
 
         /// <summary>
         /// Service object pointer
@@ -1165,7 +1160,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private string _fileName;
+        private string _fileName => Path.GetTempPath() + Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+
+        /// <summary>
+        /// Indicates whether the driver service should be stopped and deleted on exit
+        /// </summary>
+        private bool _disposeOnExit = true;
 
         /// <summary>
         /// Windows NT Kernel BASE API
@@ -1217,7 +1217,7 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Prevents other processes from opening a file or device if they request delete, read, or write access.
                 /// </summary>
-                FILE_SHARE_NONE              = 0x00000000,
+                FILE_SHARE_EXCLUSIVE         = 0x00000000,
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request delete access.
                 /// </summary>
@@ -1230,6 +1230,10 @@ namespace SpdReaderWriterDll {
                 /// Enables subsequent open operations on a file or device to request write access.
                 /// </summary>
                 FILE_SHARE_WRITE             = 0x00000002,
+                /// <summary>
+                /// Enables subsequent open operations on a file or device to request read and write access.
+                /// </summary>
+                FILE_SHARE_READWRITE = FILE_SHARE_READ | FILE_SHARE_WRITE,
             }
 
             /// <summary>
@@ -1461,6 +1465,13 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 FILE_READ_WRITE_DATA = FILE_READ_DATA | FILE_WRITE_DATA,
             }
+
+            /// <summary>
+            /// Retrieves the calling thread's last-error code value.
+            /// </summary>
+            /// <returns>Calling thread's last-error code</returns>
+            [DllImport(kernel32)]
+            internal static extern UInt16 GetLastError();
         }
 
         /// <summary>
@@ -1487,9 +1498,18 @@ namespace SpdReaderWriterDll {
                 ServiceAccessRights dwAccess);
 
             /// <summary>
+            /// Establishes a connection to the service control manager on local computer and opens the specified service control manager SERVICES_ACTIVE_DATABASE database.
+            /// </summary>
+            /// <param name="dwAccess">The access to the service control manager</param>
+            /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
+            internal static IntPtr OpenSCManager(ServiceAccessRights dwAccess) {
+                return OpenSCManager(null, null, dwAccess);
+            }
+
+            /// <summary>
             /// Service Security and Access Rights for the Service Control Manager
             /// </summary>
-            internal enum ServiceAccessRights {
+            internal enum ServiceAccessRights : UInt32 {
                 SC_MANAGER_ALL_ACCESS         = 0xF003F,
                 SC_MANAGER_CREATE_SERVICE     = 0x00002,
                 SC_MANAGER_CONNECT            = 0x00001,
@@ -1535,7 +1555,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The service type
             /// </summary>
-            internal enum ServiceType : UInt16 {
+            internal enum ServiceType : UInt32 {
                 /// <summary>
                 /// Driver service
                 /// </summary>
@@ -1569,7 +1589,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The service start options
             /// </summary>
-            internal enum StartType : UInt16 {
+            internal enum StartType : UInt32 {
                 /// <summary>
                 /// A device driver started by the system loader. This value is valid only for driver services
                 /// </summary>
@@ -1595,7 +1615,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
             /// </summary>
-            internal enum ErrorControl : UInt16 {
+            internal enum ErrorControl : UInt32 {
                 /// <summary>
                 /// The startup program logs the error in the event log, if possible
                 /// </summary>
@@ -1797,7 +1817,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The type of service for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusServiceType {
+            internal enum ServiceStatusServiceType : UInt32 {
                 /// <summary>
                 /// The service is a file system driver. 
                 /// </summary>
@@ -1827,7 +1847,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The current state of the service for <see cref="ServiceStatus"/>. 
             /// </summary>
-            internal enum ServiceStatusCurrentState {
+            internal enum ServiceStatusCurrentState : UInt32 {
                 /// <summary>
                 /// The service continue is pending. 
                 /// </summary>
@@ -1861,7 +1881,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The control codes the service accepts and processes in its handler function for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusControlsAccepted {
+            internal enum ServiceStatusControlsAccepted : UInt32 {
                 /// <summary>
                 /// The service is a network component that can accept changes in its binding without being stopped and restarted. 
                 /// </summary>
@@ -1892,7 +1912,7 @@ namespace SpdReaderWriterDll {
             /// Closes a handle to a service control manager or service object
             /// </summary>
             /// <param name="hSCObject">A handle to the service control manager object or the service object to close.
-            /// Handles to service control manager objects are returned by the <see cref="OpenSCManager"/> function,
+            /// Handles to service control manager objects are returned by the <see cref="OpenSCManager(string,string,ServiceAccessRights)"/> function,
             /// and handles to service objects are returned by either the <see cref="OpenService"/> or <see cref="CreateService"/> function.</param>
             /// <returns><see langref="true"/> if the function succeeds</returns>
             [DllImport(advapi32, SetLastError = true)]
