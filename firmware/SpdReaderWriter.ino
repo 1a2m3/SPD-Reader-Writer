@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20211228 // Version number (YYYYMMDD)
+#define VERSION 20220417 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -232,6 +232,7 @@ void parseCommand() {
       cmdProbeBusAddress();
       break;
 
+    // i2c bus settings
     case I2CCLOCK: 
       cmdI2CClock();
       break;
@@ -386,9 +387,13 @@ void cmdRetestRswp() {
   if (getI2cClockMode()) {
     Wire.setClock(100000);
   }
-  PORT.write(rswpSupportTest());
 
+  byte result = rswpSupportTest();  
+
+  // Restore I2C bus clock
   Wire.setClock(getI2cClockMode() ? 400000 : 100000);
+
+  PORT.write(result);
 }
 
 void cmdDdr4Detect() {
