@@ -1,7 +1,17 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 #if DEBUG
 
 using System;
-using System.IO.Ports;
 using SpdReaderWriterDll;
 
 namespace SpdReaderWriter {
@@ -10,7 +20,7 @@ namespace SpdReaderWriter {
         /// <summary>
         /// Serial port settings
         /// </summary>
-        public static Arduino.SerialPortSettings readerSettings = new Arduino.SerialPortSettings(
+        public static Arduino.SerialPortSettings ReaderSettings = new Arduino.SerialPortSettings(
             // Baud rate
             115200,
             // Enable DTR
@@ -23,14 +33,14 @@ namespace SpdReaderWriter {
         /// <summary>
         /// Serial Port name
         /// </summary>
-        public static string portName = "COM3";
+        public static string PortName = "COM3";
 
         /// <summary>
         /// Basic use
         /// </summary>
         public static void Example_BasicUse() {
             // Initialize the device
-            Arduino myDevice = new Arduino(readerSettings, portName);
+            Arduino myDevice = new Arduino(ReaderSettings, PortName);
             //myDevice.Connect();
 
             // Test if the device responds (optional)
@@ -47,7 +57,7 @@ namespace SpdReaderWriter {
             myDevice.SpdSize = Ram.SpdSize.DDR4;
 
             // The device can also be initialized in one line, like so:
-            Arduino myOtherDevice = new Arduino(readerSettings, portName, 80, Ram.SpdSize.DDR4);
+            Arduino myOtherDevice = new Arduino(ReaderSettings, PortName, 80, Ram.SpdSize.DDR4);
 
             // Read first byte at offset 0
             byte firstByte = Eeprom.ReadByte(myDevice, 0);
@@ -72,12 +82,12 @@ namespace SpdReaderWriter {
         /// Test an unreachable device to make sure all functions properly return false
         /// </summary>
         public static void Example_TestNonConnectableDevice() {
-            Arduino UnreachableDevice = new Arduino(readerSettings,"COM666");
-            UnreachableDevice.I2CAddress = 0x50;
-            if (UnreachableDevice.IsConnected) {
+            Arduino unreachableDevice = new Arduino(ReaderSettings,"COM666");
+            unreachableDevice.I2CAddress = 0x50;
+            if (unreachableDevice.IsConnected) {
                 // This won't be reached
             }
-            UnreachableDevice.Test(); // false
+            unreachableDevice.Test(); // false
         }
 
         /// <summary>
@@ -85,13 +95,13 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_TestRealDevice() {
             // Test a real device
-            Arduino RealDevice = new Arduino(readerSettings, portName);
-            RealDevice.Test(); //true
-            RealDevice.Scan(); //{ 80 }
+            Arduino realDevice = new Arduino(ReaderSettings, PortName);
+            realDevice.Test(); //true
+            realDevice.Scan(); //{ 80 }
 
             // Test a real device
-            Arduino MyReader = new Arduino(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
-            MyReader.Test(); //true
+            Arduino myReader = new Arduino(ReaderSettings, PortName, 0x50, Ram.SpdSize.DDR4);
+            myReader.Test(); //true
         }
 
         /// <summary>
@@ -99,8 +109,8 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_DuplicateRam() {
             // Copy SPD contents from one DIMM to another
-            Arduino source = new Arduino(readerSettings, "COM1", 80, Ram.SpdSize.DDR4);
-            Arduino destination = new Arduino(readerSettings, "COM4", 82, source.SpdSize);
+            Arduino source = new Arduino(ReaderSettings, "COM1", 80, Ram.SpdSize.DDR4);
+            Arduino destination = new Arduino(ReaderSettings, "COM4", 82, source.SpdSize);
 
             for (ushort i = 0; i < (int)source.SpdSize; i++) {
                 Eeprom.WriteByte(destination, i, Eeprom.ReadByte(source, i));
@@ -119,27 +129,27 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void Example_FixCRC() {
 
-            Arduino MyReader = new Arduino(readerSettings, portName, 0x52, Ram.SpdSize.DDR4);
+            Arduino myReader = new Arduino(ReaderSettings, PortName, 0x52, Ram.SpdSize.DDR4);
 
             // Read first 126 bytes
-            byte[] spdHeader = Eeprom.ReadByte(MyReader, 0, 126);
+            byte[] spdHeader = Eeprom.ReadByte(myReader, 0, 126);
 
             // Calculate CRC
             ushort crc = Data.Crc16(spdHeader, 0x1021);
 
             // Get LSB (byte 127) and MSB (byte 128)
-            byte CrcLsb = (byte)(crc & 0xFF);   // CRC LSB at 0x7E for 0-125 range or @ 0xFE for 128-253 range
-            byte CrcMsb = (byte)(crc >> 8);     // CRC MSB at 0x7F for 0-125 range or @ 0xFF for 128-253 range
+            byte crcLsb = (byte)(crc & 0xFF);   // CRC LSB at 0x7E for 0-125 range or @ 0xFE for 128-253 range
+            byte crcMsb = (byte)(crc >> 8);     // CRC MSB at 0x7F for 0-125 range or @ 0xFF for 128-253 range
 
             // Compare calculated CRC against SPD data
-            if (Eeprom.ReadByte(MyReader, 0x7e, 1)[0] == CrcLsb && Eeprom.ReadByte(MyReader, 0x7f, 1)[0] == CrcMsb) {
+            if (Eeprom.ReadByte(myReader, 0x7e, 1)[0] == crcLsb && Eeprom.ReadByte(myReader, 0x7f, 1)[0] == crcMsb) {
                 // The checksum is correct, do nothing
                 return;
             }
             else {
                 // Write correct values to SPD
-                Eeprom.UpdateByte(MyReader, 0x7e, CrcLsb);
-                Eeprom.UpdateByte(MyReader, 0x7f, CrcMsb);
+                Eeprom.UpdateByte(myReader, 0x7e, crcLsb);
+                Eeprom.UpdateByte(myReader, 0x7f, crcMsb);
             }
             // Note: you'll have to do the same for 128-253 range, checksum bytes are 0xfe and 0xFF
         }
@@ -148,9 +158,9 @@ namespace SpdReaderWriter {
         /// Erase SPD contents (fill with 0xFF's)
         /// </summary>
         public static void Example_EraseSPD() {
-            Arduino MyReader = new Arduino(readerSettings, portName, 0x50, Ram.SpdSize.DDR4);
-            for (ushort i = 0; i <= (int)MyReader.SpdSize; i++) {
-                Eeprom.UpdateByte(MyReader, i, 0xFF);
+            Arduino myReader = new Arduino(ReaderSettings, PortName, 0x50, Ram.SpdSize.DDR4);
+            for (ushort i = 0; i <= (int)myReader.SpdSize; i++) {
+                Eeprom.UpdateByte(myReader, i, 0xFF);
                 Console.WriteLine(i.ToString());
             }
         }
@@ -160,12 +170,12 @@ namespace SpdReaderWriter {
         /// </summary>
         public static void ScanRange() {
 
-            Arduino myDevice = new Arduino(readerSettings, "COM8");
+            Arduino myDevice = new Arduino(ReaderSettings, "COM8");
 
-            bool[] _probes = new bool[128];
+            bool[] probes = new bool[128];
 
             for (byte i = 0; i < 128; i++) {
-                _probes[i] = myDevice.ProbeAddress(i);
+                probes[i] = myDevice.ProbeAddress(i);
             }
         }
     }
