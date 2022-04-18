@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using UInt8 = System.Byte;
 
@@ -14,17 +25,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte offset</param>
-        /// <returns>Byte value at <paramref name="offset" /></returns>
+        /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Smbus device, UInt16 offset) {
-
-            if (offset > device.MaxSpdSize) {
-                throw new IndexOutOfRangeException($"Invalid offset");
-            }
-
-            if (device.MaxSpdSize >= (UInt16)(Spd.GetSpdSize(Ram.Type.DDR4))) {
-                AdjustPageAddress(device, offset);
-            }
-            
+            AdjustPageAddress(device, offset);
             return Smbus.ReadByte(device, device.I2CAddress, offset);
         }
         
@@ -33,7 +36,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte offset</param>
-        /// <param name="count">Total number of bytes to read from <paramref name="offset" /></param>
+        /// <param name="count">Total number of bytes to read from <paramref name="offset"/></param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Smbus device, UInt16 offset, UInt8 count) {
 
@@ -56,17 +59,9 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /> </returns>
+        /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Smbus device, UInt16 offset, byte value) {
-
-            if (offset > device.MaxSpdSize) {
-                throw new IndexOutOfRangeException($"Invalid offset");
-            }
-
-            if (device.MaxSpdSize >= (UInt16)(Spd.GetSpdSize(Ram.Type.DDR4))) {
-                AdjustPageAddress(device, offset);
-            }
-
+            AdjustPageAddress(device, offset);
             return Smbus.WriteByte(device, device.I2CAddress, offset, value);
         }
 
@@ -76,7 +71,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
-        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /></returns>
+        /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/></returns>
         public static bool WriteByte(Smbus device, UInt16 offset, byte[] value) {
 
             for (UInt16 i = 0; i < value.Length; i++) {
@@ -94,7 +89,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if byte read at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
+        /// <returns><see langword="true"/> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool UpdateByte(Smbus device, UInt16 offset, byte value) {
             return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
         }
@@ -105,7 +100,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array contents</param>
-        /// <returns><see langword="true" /> if bytes read at <paramref name="offset" /> matches <paramref name="value" /> values</returns>
+        /// <returns><see langword="true"/> if bytes read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
         public static bool UpdateByte(Smbus device, UInt16 offset, byte[] value) {
             return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
         }
@@ -116,7 +111,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMB device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if bytes at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
+        /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Smbus device, UInt16 offset, byte value) {
             return ReadByte(device, offset) == value;
         }
@@ -127,7 +122,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMB device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte array</param>
-        /// <returns><see langword="true" /> if bytes at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
+        /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Smbus device, UInt16 offset, byte[] value) {
 
             byte[] source = ReadByte(device, offset, (UInt8)value.Length);
@@ -140,7 +135,7 @@ namespace SpdReaderWriterDll {
 
             return true;
         }
-        
+
         /// <summary>
         /// EEPROM local page number
         /// </summary>
@@ -161,7 +156,7 @@ namespace SpdReaderWriterDll {
         /// <param name="eepromPageNumber">Page number</param>
         private static void SetPageAddress(Smbus device, UInt8 eepromPageNumber) {
 
-            if (device.MaxSpdSize < (UInt16)Ram.SpdSize.DDR4) {
+            if (device.MaxSpdSize != 0 && device.MaxSpdSize < (UInt16)Ram.SpdSize.DDR4) {
                 return;
             }
 
@@ -183,25 +178,21 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Gets currently selected EEPROM page number from hardware
-        /// </summary>
-        /// <param name="device">SMBus device instance</param>
-        /// <returns>Currently selected EEPROM page number</returns>
-        private static UInt8 GetPageAddress(Smbus device) {
-
-            if (device.MaxSpdSize < (UInt16)Ram.SpdSize.DDR4) {
-                return 0;
-            }
-
-            return (byte)(Smbus.ReadByte(device, EepromCommand.RPA >> 1) ? 0 : 1);
-        }
-
-        /// <summary>
         /// Adjust EEPROM page number according to specified offset
         /// </summary>
         /// <param name="device">SMBus device instance</param>
         /// <param name="offset">Byte position</param>
         private static void AdjustPageAddress(Smbus device, UInt16 offset) {
+
+            if (device.MaxSpdSize >= (UInt16)Ram.SpdSize.MINIMUM) {
+                if (offset > device.MaxSpdSize) {
+                    throw new IndexOutOfRangeException($"Invalid offset");
+                }
+
+                if (device.MaxSpdSize < (UInt16)Spd.GetSpdSize(Ram.Type.DDR4)) {
+                    return;
+                }
+            }
 
             byte targetPage = 0;
 
@@ -218,7 +209,7 @@ namespace SpdReaderWriterDll {
         /// Read software write protection status
         /// </summary>
         /// <param name="device">SMBus device instance</param>
-        /// <returns><see langword="true" /> if some blocks are write protected or <see langword="false" /> when all blocks are writable</returns>
+        /// <returns><see langword="true"/> if some blocks are write protected or <see langword="false"/> when all blocks are writable</returns>
         public static bool GetRswp(Smbus device) {
             for (UInt8 i = 0; i <= 3; i++) {
                 if (GetRswp(device, i)) {
@@ -234,7 +225,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SMBus device instance</param>
         /// <param name="block">Block number to be checked</param>
-        /// <returns><see langword="true" /> if the block is write protected or <see langword="false" /> when the block is writable</returns>
+        /// <returns><see langword="true"/> if the block is write protected or <see langword="false"/> when the block is writable</returns>
         public static bool GetRswp(Smbus device, UInt8 block) {
 
             byte[] rswpCmd = {
@@ -258,7 +249,7 @@ namespace SpdReaderWriterDll {
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
         /// <param name="device">SMBus device instance</param>
-        /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
+        /// <returns><see langword="true"/> when PSWP is enabled or <see langword="false"/> if when PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(Smbus device) {
             return !Smbus.ReadByte(device, (byte)((EepromCommand.PWPB << 3) | (device.I2CAddress & 0b111)));
         }
@@ -272,7 +263,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte offset</param>
-        /// <returns>Byte value at <paramref name="offset" /></returns>
+        /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Arduino device, UInt16 offset) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -296,7 +287,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position to start reading from</param>
-        /// <param name="count">Total number of bytes to read from <paramref name="offset" /> </param>
+        /// <param name="count">Total number of bytes to read from <paramref name="offset"/> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Arduino device, UInt16 offset, UInt8 count) {
             if (offset > (int)Ram.SpdSize.DDR5) {
@@ -326,7 +317,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /> </returns>
+        /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -351,7 +342,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
-        /// <returns><see langword="true" /> if <paramref name="value" /> is written to <paramref name="offset" /> </returns>
+        /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -384,7 +375,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if byte read at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
+        /// <returns><see langword="true"/> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool UpdateByte(Arduino device, UInt16 offset, byte value) {
             try {
                 return VerifyByte(device, offset, value) ||
@@ -401,7 +392,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
-        /// <returns><see langword="true" /> if page read at <paramref name="offset" /> matches <paramref name="value" /> values</returns>
+        /// <returns><see langword="true"/> if page read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
         public static bool UpdateByte(Arduino device, UInt16 offset, byte[] value) {
             if (offset > (int)Ram.SpdSize.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
@@ -425,7 +416,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
-        /// <returns><see langword="true" /> if byte at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
+        /// <returns><see langword="true"/> if byte at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Arduino device, UInt16 offset, byte value) {
             try {
                 return ReadByte(device, offset) == value;
@@ -441,7 +432,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
-        /// <returns><see langword="true" /> if bytes at <paramref name="offset" /> matches <paramref name="value" /> value</returns>
+        /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
         public static bool VerifyByte(Arduino device, UInt16 offset, byte[] value) {
             try {
                 byte[] source = ReadByte(device, offset, (UInt8)value.Length);
@@ -464,7 +455,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be write protected</param>
-        /// <returns><see langword="true" /> when the write protection has been enabled on block <paramref name="block" /> </returns>
+        /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/> </returns>
         public static bool SetRswp(Arduino device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
@@ -478,7 +469,7 @@ namespace SpdReaderWriterDll {
         /// Enables software write protection on all 4 EEPROM blocks
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
-        /// <returns><see langword="true" /> when the write protection has been enabled on all available blocks</returns>
+        /// <returns><see langword="true"/> when the write protection has been enabled on all available blocks</returns>
         public static bool SetRswp(Arduino device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
@@ -498,7 +489,7 @@ namespace SpdReaderWriterDll {
         /// Read software write protection status
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
-        /// <returns><see langword="true" /> if the at least one block is write protected (or RSWP is not supported), or <see langword="false" /> when the EEPROM is writable</returns>
+        /// <returns><see langword="true"/> if the at least one block is write protected (or RSWP is not supported), or <see langword="false"/> when the EEPROM is writable</returns>
         public static bool GetRswp(Arduino device) {
             try {
                 for (UInt8 i = 0; i <= 3; i++) {
@@ -519,7 +510,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be checked</param>
-        /// <returns><see langword="true" /> if the block is write protected (or RSWP is not supported) or <see langword="false" /> when the block is writable</returns>
+        /// <returns><see langword="true"/> if the block is write protected (or RSWP is not supported) or <see langword="false"/> when the block is writable</returns>
         public static bool GetRswp(Arduino device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.GET }) == Arduino.Response.ENABLED;
@@ -533,7 +524,7 @@ namespace SpdReaderWriterDll {
         /// Clears EEPROM write protection 
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> if the write protection has been disabled</returns>
+        /// <returns><see langword="true"/> if the write protection has been disabled</returns>
         public static bool ClearRswp(Arduino device) {
             try {
                 return device.ExecuteCommand(new[] { Arduino.Command.RSWP, Arduino.Command.DNC, Arduino.Command.OFF }) == Arduino.Response.SUCCESS;
@@ -547,7 +538,7 @@ namespace SpdReaderWriterDll {
         /// Sets permanent write protection on supported EEPROMs
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> when the permanent write protection is enabled</returns>
+        /// <returns><see langword="true"/> when the permanent write protection is enabled</returns>
         public static bool SetPswp(Arduino device) {
             try {
                 return device.ExecuteCommand(new[] { Arduino.Command.PSWP, device.I2CAddress, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
@@ -561,7 +552,7 @@ namespace SpdReaderWriterDll {
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
         /// <param name="device">Device instance</param>
-        /// <returns><see langword="true" /> when PSWP is enabled or <see langword="false" /> if when PSWP has NOT been set and EEPROM is writable</returns>
+        /// <returns><see langword="true"/> when PSWP is enabled or <see langword="false"/> if when PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(Arduino device) {
             try {
                 return device.ExecuteCommand(new[] { Arduino.Command.PSWP, device.I2CAddress, Arduino.Command.GET }) == Arduino.Response.ENABLED;
