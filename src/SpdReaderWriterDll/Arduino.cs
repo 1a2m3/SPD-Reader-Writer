@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -123,7 +134,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Attempts to establish a connection with the SPD reader/writer device
         /// </summary>
-        /// <returns><see langword="true" /> if the connection is established</returns>
+        /// <returns><see langword="true"/> if the connection is established</returns>
         public bool Connect() {
             return ConnectPrivate();
         }
@@ -131,9 +142,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Disconnects the SPD reader/writer device
         /// </summary>
-        /// <returns><see langword="true" /> once the device is disconnected</returns>
+        /// <returns><see langword="true"/> once the device is disconnected</returns>
         public bool Disconnect() {
-            return DisconnectPrivate();
+            return DisconnectPrivate(this);
         }
 
         /// <summary>
@@ -146,7 +157,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Tests if the device responds to a test command
         /// </summary>
-        /// <returns><see langword="true" /> if the device responds properly to a test command</returns>
+        /// <returns><see langword="true"/> if the device responds properly to a test command</returns>
         public bool Test() {
             return TestPrivate();
         }
@@ -154,7 +165,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type" /> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
         public byte GetRamTypeSupport() {
             return GetRamTypeSupportPrivate();
         }
@@ -163,7 +174,7 @@ namespace SpdReaderWriterDll {
         /// Test if the device supports RAM type RSWP at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type" /> RSWP at firmware level</returns>
+        /// <returns><see langword="true"/> if the device supports <see cref="Ram.Type"/> RSWP at firmware level</returns>
         public bool GetRamTypeSupport(byte ramTypeBitmask) {
             return GetRamTypeSupportPrivate(ramTypeBitmask);
         }
@@ -171,7 +182,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type" /> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
         public byte RswpRetest() {
             return RswpRetestPrivate();
         }
@@ -205,17 +216,25 @@ namespace SpdReaderWriterDll {
         /// Sets clock frequency for I2C communication
         /// </summary>
         /// <param name="fastMode">Fast mode or standard mode</param>
-        /// <returns><see langword="true" /> if the operation is successful</returns>
+        /// <returns><see langword="true"/> if the operation is successful</returns>
         public bool SetI2CClock(bool fastMode) {
             return SetI2CClockPrivate(fastMode);
         }
 
         /// <summary>
-        /// Get current device I2C clock mode
+        /// Gets current device I2C clock mode
         /// </summary>
-        /// <returns><see langword="true" /> if the device's I2C bus is running in fast mode, or <see langword="false" /> if it is in standard mode</returns>
+        /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode, or <see langword="false"/> if it is in standard mode</returns>
         public bool GetI2CClock() {
             return GetI2CClockPrivate();
+        }
+
+        /// <summary>
+        /// Resets the device's settings to defaults
+        /// </summary>
+        /// <returns><see langword="true"/> once the device's settings are successfully reset to defaults</returns>
+        public bool FactoryReset() {
+            return FactoryResetPrivate(this);
         }
 
         /// <summary>
@@ -246,7 +265,7 @@ namespace SpdReaderWriterDll {
         /// Controls high voltage state on pin SA0
         /// </summary>
         /// <param name="state">High voltage supply state</param>
-        /// <returns><see langword="true" /> when operation is successful</returns>
+        /// <returns><see langword="true"/> when operation is successful</returns>
         public bool SetHighVoltage(bool state) {
             return SetHighVoltagePrivate(state);
         }
@@ -254,7 +273,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets high voltage state on pin SA0
         /// </summary>
-        /// <returns><see langword="true" /> if high voltage is applied to pin SA0</returns>
+        /// <returns><see langword="true"/> if high voltage is applied to pin SA0</returns>
         public bool GetHighVoltage() {
             return GetHighVoltagePrivate();
         }
@@ -264,7 +283,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="pin">Pin name</param>
         /// <param name="state">Pin state</param>
-        /// <returns><see langword="true" /> if the config pin has been set</returns>
+        /// <returns><see langword="true"/> if the config pin has been set</returns>
         public bool SetConfigPin(byte pin, bool state) {
             return SetConfigPinPrivate(pin, state);
         }
@@ -272,7 +291,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Get specified configuration pin state
         /// </summary>
-        /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
+        /// <returns><see langword="true"/> if pin is high, or <see langword="false"/> when pin is low</returns>
         public bool GetConfigPin(byte pin) {
             return GetConfigPinPrivate(pin) == Pin.State.ON;
         }
@@ -281,7 +300,7 @@ namespace SpdReaderWriterDll {
         /// Controls DDR5 offline mode operation
         /// </summary>
         /// <param name="state">Offline mode state</param>
-        /// <returns><see langword="true" /> when operation completes successfully</returns>
+        /// <returns><see langword="true"/> when operation completes successfully</returns>
         public bool SetOfflineMode(bool state) {
             return SetOfflineModePrivate(state);
         }
@@ -289,7 +308,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets DDR5 offline mode status
         /// </summary>
-        /// <returns><see langword="true" /> when DDR5 is in offline mode</returns>
+        /// <returns><see langword="true"/> when DDR5 is in offline mode</returns>
         public bool GetOfflineMode() {
             return GetOfflineModePrivate();
         }
@@ -297,7 +316,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Resets all config pins to their default state
         /// </summary>
-        /// <returns><see langword="true" /> when all config pins are reset</returns>
+        /// <returns><see langword="true"/> when all config pins are reset</returns>
         public bool ResetAddressPins() {
 
             PIN_SA1     = Pin.State.DEFAULT;
@@ -310,7 +329,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Probes default EEPROM address
         /// </summary>
-        /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
+        /// <returns><see langword="true"/> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
             return I2CAddress != 0 && ProbeAddressPrivate(I2CAddress);
         }
@@ -319,7 +338,7 @@ namespace SpdReaderWriterDll {
         /// Probes specified EEPROM address
         /// </summary>
         /// <param name="address">EEPROM address</param>
-        /// <returns><see langword="true" /> if EEPROM is detected at the specified address</returns>
+        /// <returns><see langword="true"/> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress(UInt8 address) {
             return ProbeAddressPrivate(address);
         }
@@ -410,7 +429,7 @@ namespace SpdReaderWriterDll {
         /// Assigns a name to the Device
         /// </summary>
         /// <param name="name">Device name</param>
-        /// <returns><see langword="true" /> when the device name is set</returns>
+        /// <returns><see langword="true"/> when the device name is set</returns>
         public bool SetName(string name) {
             return SetNamePrivate(name);
         }
@@ -456,16 +475,16 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Detects if DDR4 RAM is present on the device's I2C bus
         /// </summary>
-        /// <returns><see langword="true" /> if DDR4 is found</returns>
+        /// <returns><see langword="true"/> if DDR4 is found</returns>
         public bool DetectDdr4() {
             return DetectDdr4Private(I2CAddress);
         }
 
         /// <summary>
-        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address" />
+        /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="address"/>
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR4 is found at <see cref="address" /></returns>
+        /// <returns><see langword="true"/> if DDR4 is found at <see cref="address"/></returns>
         public bool DetectDdr4(UInt8 address) {
             return DetectDdr4Private(address);
         }
@@ -473,16 +492,16 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Detects if DDR5 RAM is present on the device's I2C bus
         /// </summary>
-        /// <returns><see langword="true" /> if DDR5 is found</returns>
+        /// <returns><see langword="true"/> if DDR5 is found</returns>
         public bool DetectDdr5() {
             return DetectDdr5Private(I2CAddress);
         }
 
         /// <summary>
-        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address" />
+        /// Detects if DDR5 RAM is present on the device's I2C bus at specified <see cref="address"/>
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR5 is found at <see cref="address" /></returns>
+        /// <returns><see langword="true"/> if DDR5 is found at <see cref="address"/></returns>
         public bool DetectDdr5(UInt8 address) {
             return DetectDdr5Private(address);
         }
@@ -612,7 +631,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Attempts to establish a connection with the device
         /// </summary>
-        /// <returns><see langword="true" /> if the connection is established</returns>
+        /// <returns><see langword="true"/> if the connection is established</returns>
         private bool ConnectPrivate() {
             lock (_portLock) {
                 if (!IsConnected) {
@@ -665,8 +684,8 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Disconnect from the device
         /// </summary>
-        /// <returns><see langword="true" /> once the device is disconnected</returns>
-        private bool DisconnectPrivate() {
+        /// <returns><see langword="true"/> once the device is disconnected</returns>
+        private bool DisconnectPrivate(Arduino device) {
             lock (_portLock) {
                 if (IsConnected) {
                     try {
@@ -677,6 +696,8 @@ namespace SpdReaderWriterDll {
                         _sp.Close();
                         // Reset valid state
                         _isValid = false;
+
+                        device = null;
                     }
                     catch (Exception ex) {
                         throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
@@ -706,7 +727,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Tests if the device is able to communicate
         /// </summary>
-        /// <returns><see langword="true" /> if the device responds to a test command</returns>
+        /// <returns><see langword="true"/> if the device responds to a test command</returns>
         private bool TestPrivate() {
             lock (_portLock) {
                 try {
@@ -722,7 +743,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets initial supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask" /> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
         private byte GetRamTypeSupportPrivate() {
             lock (_portLock) {
                 try {
@@ -738,7 +759,7 @@ namespace SpdReaderWriterDll {
         /// Test if the device supports RAM type at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true" /> if the device supports <see cref="Ram.Type" /> at firmware level</returns>
+        /// <returns><see langword="true"/> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
         private bool GetRamTypeSupportPrivate(byte ramTypeBitmask) {
             return (GetRamTypeSupportPrivate() & ramTypeBitmask) == ramTypeBitmask;
         }
@@ -746,7 +767,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask" /> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
         private byte RswpRetestPrivate() {
             lock (_portLock) {
                 try {
@@ -762,7 +783,7 @@ namespace SpdReaderWriterDll {
         /// Sets DDR5 offline mode 
         /// </summary>
         /// <param name="state">Offline mode state</param>
-        /// <returns><see langword="true" /> when operation is successful</returns>
+        /// <returns><see langword="true"/> when operation is successful</returns>
         private bool SetOfflineModePrivate(bool state) {
             lock (_portLock) {
                 try {
@@ -777,7 +798,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets DDR5 offline mode status
         /// </summary>
-        /// <returns><see langword="true" /> when DDR5 is in offline mode</returns>
+        /// <returns><see langword="true"/> when DDR5 is in offline mode</returns>
         private bool GetOfflineModePrivate() {
             lock (_portLock) {
                 try {
@@ -846,7 +867,7 @@ namespace SpdReaderWriterDll {
         /// Sets clock frequency for I2C communication
         /// </summary>
         /// <param name="fastMode">Fast mode or standard mode</param>
-        /// <returns><see langword="true" /> if the operation is successful</returns>
+        /// <returns><see langword="true"/> if the operation is successful</returns>
         private bool SetI2CClockPrivate(bool fastMode) {
             lock (_portLock) {
                 try {
@@ -862,7 +883,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Get current device I2C clock mode
         /// </summary>
-        /// <returns><see langword="true" /> if the device's I2C bus is running in fast mode, or <see langword="false" /> if it is in standard mode</returns>
+        /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode, or <see langword="false"/> if it is in standard mode</returns>
         private bool GetI2CClockPrivate() {
 
             lock (_portLock) {
@@ -877,11 +898,34 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Resets the device's settings to defaults
+        /// </summary>
+        /// <returns><see langword="true"/> once the device's settings are successfully reset to defaults</returns>
+        private bool FactoryResetPrivate(Arduino device) {
+
+            lock (_portLock) {
+                try {
+                    if (IsConnected &&
+                        ExecuteCommand(new[] { Command.FACTORYRESET }) == Response.SUCCESS) {
+                        device = null;
+
+                        return true;
+                    }
+
+                    return false;
+                }
+                catch {
+                    throw new Exception($"Unable to reset device settings on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Sets specified configuration pin to desired state
         /// </summary>
         /// <param name="pin">Config pin</param>
         /// <param name="state">Config pin state</param>
-        /// <returns><see langword="true" /> if the config pin has been set</returns>
+        /// <returns><see langword="true"/> if the config pin has been set</returns>
         private bool SetConfigPinPrivate(byte pin, bool state) {
             lock (_portLock) {
                 try {
@@ -898,7 +942,7 @@ namespace SpdReaderWriterDll {
         /// Get specified configuration pin state
         /// </summary>
         /// <param name="pin">Config pin</param>
-        /// <returns><see langword="true" /> if pin is high, or <see langword="false" /> when pin is low</returns>
+        /// <returns><see langword="true"/> if pin is high, or <see langword="false"/> when pin is low</returns>
         private bool GetConfigPinPrivate(byte pin) {
             lock (_portLock) {
                 try {
@@ -915,7 +959,7 @@ namespace SpdReaderWriterDll {
         /// Sets high voltage on or off on pin SA0
         /// </summary>
         /// <param name="state">High voltage supply state</param>
-        /// <returns><see langword="true" /> if operation is completed</returns>
+        /// <returns><see langword="true"/> if operation is completed</returns>
         private bool SetHighVoltagePrivate(bool state) {
             lock (_portLock) {
                 try {
@@ -931,7 +975,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets high voltage state on pin SA0
         /// </summary>
-        /// <returns><see langword="true" /> if high voltage is applied to pin SA0</returns>
+        /// <returns><see langword="true"/> if high voltage is applied to pin SA0</returns>
         private bool GetHighVoltagePrivate() {
             lock (_portLock) {
                 try {
@@ -948,7 +992,7 @@ namespace SpdReaderWriterDll {
         /// Tests if the address is present on the device's I2C bus
         /// </summary>
         /// <param name="address">EEPROM address</param>
-        /// <returns><see langword="true" /> if the address is accessible</returns>
+        /// <returns><see langword="true"/> if the address is accessible</returns>
         private bool ProbeAddressPrivate(UInt8 address) {
             lock (_portLock) {
                 try {
@@ -988,7 +1032,7 @@ namespace SpdReaderWriterDll {
         /// Assigns a name to the Device
         /// </summary>
         /// <param name="name">Device name</param>
-        /// <returns><see langword="true" /> when the device name is set</returns>
+        /// <returns><see langword="true"/> when the device name is set</returns>
         private bool SetNamePrivate(string name) {
             if (name == null) {
                 throw new ArgumentNullException("Name can't be null");
@@ -1082,7 +1126,7 @@ namespace SpdReaderWriterDll {
         /// Detects if DDR4 RAM is present on the device's I2C bus
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR4 is found</returns>
+        /// <returns><see langword="true"/> if DDR4 is found</returns>
         private bool DetectDdr4Private(UInt8 address) {
             lock (_portLock) {
                 try {
@@ -1099,7 +1143,7 @@ namespace SpdReaderWriterDll {
         /// Detects if DDR5 RAM is present on the device's I2C bus
         /// </summary>
         /// <param name="address">I2C address</param>
-        /// <returns><see langword="true" /> if DDR5 is found</returns>
+        /// <returns><see langword="true"/> if DDR5 is found</returns>
         private bool DetectDdr5Private(UInt8 address) {
             lock (_portLock) {
                 try {
@@ -1229,75 +1273,75 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Read byte
             /// </summary>
-            public const byte READBYTE     = (byte)'r';
+            public const byte READBYTE     = (byte) 'r';
             /// <summary>
             /// Write byte
             /// </summary>
-            public const byte WRITEBYTE    = (byte)'w';
+            public const byte WRITEBYTE    = (byte) 'w';
             /// <summary>
             /// Write page
             /// </summary>
-            public const byte WRITEPAGE    = (byte)'g';
+            public const byte WRITEPAGE    = (byte) 'g';
             /// <summary>
             /// Scan i2c bus
             /// </summary>
-            public const byte SCANBUS      = (byte)'s';
+            public const byte SCANBUS      = (byte) 's';
             /// <summary>
             /// Set i2c clock 
             /// </summary>
-            public const byte I2CCLOCK     = (byte)'c';
+            public const byte I2CCLOCK     = (byte) 'c';
             /// <summary>
             /// Probe i2c address
             /// </summary>
-            public const byte PROBEADDRESS = (byte)'a';
+            public const byte PROBEADDRESS = (byte) 'a';
             /// <summary>
             /// Config pin state control
             /// </summary>
-            public const byte PINCONTROL   = (byte)'p';
+            public const byte PINCONTROL   = (byte) 'p';
             /// <summary>
             /// RSWP control
             /// </summary>
-            public const byte RSWP         = (byte)'b';
+            public const byte RSWP         = (byte) 'b';
             /// <summary>
             /// PSWP control
             /// </summary>
-            public const byte PSWP         = (byte)'l';
+            public const byte PSWP         = (byte) 'l';
             /// <summary>
             /// Get Firmware version
             /// </summary>
-            public const byte GETVERSION   = (byte)'v';
+            public const byte GETVERSION   = (byte) 'v';
             /// <summary>
             /// Device Communication Test
             /// </summary>
-            public const byte TESTCOMM     = (byte)'t';
+            public const byte TESTCOMM     = (byte) 't';
             /// <summary>
             /// Report current RSWP RAM support
             /// </summary>
-            public const byte RSWPREPORT   = (byte)'f';
+            public const byte RSWPREPORT   = (byte) 'f';
             /// <summary>
             /// Re-evaluate RSWP capabilities
             /// </summary>
-            public const byte RETESTRSWP   = (byte)'e';
+            public const byte RETESTRSWP   = (byte) 'e';
             /// <summary>
             /// Device name controls
             /// </summary>
-            public const byte NAME         = (byte)'n';
+            public const byte NAME         = (byte) 'n';
             /// <summary>
             /// DDR4 detection
             /// </summary>
-            public const byte DDR4DETECT   = (byte)'4';
+            public const byte DDR4DETECT   = (byte) '4';
             /// <summary>
             /// DDR5 detection
             /// </summary>
-            public const byte DDR5DETECT   = (byte)'5';
+            public const byte DDR5DETECT   = (byte) '5';
             /// <summary>
             /// Restore device settings to default
             /// </summary>
-            public const byte FACTORYRESET = (byte)'-';
+            public const byte FACTORYRESET = (byte) '-';
             /// <summary>
             /// Suffix added to get current state
             /// </summary>
-            public const byte GET          = (byte)'?';
+            public const byte GET          = (byte) '?';
             /// <summary>
             /// Suffix added to set state equivalent to true/on/enable etc
             /// </summary>
