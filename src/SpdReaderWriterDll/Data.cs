@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.IO;
 using System.IO.Compression;
@@ -60,7 +71,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Input byte to get bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
-        /// <returns><see langword="true" /> if bit is set to 1 at <paramref name="position" /></returns>
+        /// <returns><see langword="true"/> if bit is set to 1 at <paramref name="position"/></returns>
         public static bool GetBit(byte input, UInt8 position) {
 
             if (position > 7) {
@@ -102,7 +113,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Input byte to set bit in</param>
         /// <param name="position">Bit position to set</param>
-        /// <param name="value">Boolean bit value, set <see langref="true" /> for 1, or <see langword="false" /> for 0</param>
+        /// <param name="value">Boolean bit value, set <see langref="true"/> for 1, or <see langword="false"/> for 0</param>
         public static byte SetBit(byte input, UInt8 position, bool value) {
 
             if (position > 7) {
@@ -117,7 +128,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
-        /// <returns>Byte matching bit pattern at <paramref name="input" /> position of all bits</returns>
+        /// <returns>Byte matching bit pattern at <paramref name="input"/> position of all bits</returns>
         public static byte GetByteFromBits(byte input, UInt8 position) {
             return GetByteFromBits(input, position, (byte)(position + 1));
         }
@@ -127,8 +138,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
-        /// <param name="count">The number of bits to read to the right of <paramref name="position" /> </param>
-        /// <returns>Byte matching bit pattern at <paramref name="input" /> position of <paramref name="count" /> bits</returns>
+        /// <param name="count">The number of bits to read to the right of <paramref name="position"/> </param>
+        /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
         public static byte GetByteFromBits(byte input, UInt8 position, UInt8 count) {
 
             if (count < 1) {
@@ -149,7 +160,7 @@ namespace SpdReaderWriterDll {
         /// Converts boolean type to UInt8
         /// </summary>
         /// <param name="input">Boolean input</param>
-        /// <returns>1 if the input is <see langword="true" />, or 0, when the input is <see langword="false" /></returns>
+        /// <returns>1 if the input is <see langword="true"/>, or 0, when the input is <see langword="false"/></returns>
         public static UInt8 BoolToInt(bool input) {
             return (UInt8)(input ? 1 : 0);
         }
@@ -158,8 +169,8 @@ namespace SpdReaderWriterDll {
         /// Determines if a string contains a case insensitive given substring
         /// </summary>
         /// <param name="inputString">The string to search in</param>
-        /// <param name="substring">The substring to search for in the <paramref name="inputString" /></param>
-        /// <returns><see langword="true" /> if <paramref name="substring" /> is part of <paramref name="inputString" /></returns>
+        /// <param name="substring">The substring to search for in the <paramref name="inputString"/></param>
+        /// <returns><see langword="true"/> if <paramref name="substring"/> is part of <paramref name="inputString"/></returns>
         public static bool StringContains(string inputString, string substring) {
             return inputString.IndexOf(substring, 0, StringComparison.CurrentCultureIgnoreCase) != -1;
         }
