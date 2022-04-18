@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +21,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// SMBus class
     /// </summary>
-    public class Smbus {
+    public class Smbus : IDisposable {
 
         /// <summary>
         /// Kernel Driver instance
@@ -20,6 +31,19 @@ namespace SpdReaderWriterDll {
             set => _driver = value;
         }
         internal static WinRing0 _driver;
+
+        /// <summary>
+        /// Kernel Driver version
+        /// </summary>
+        public string Version {
+            get {
+                byte[] v = new byte[4];
+                if (_driver != null && _driver.IsReady) {
+                    _driver.GetDriverVersion(ref v[0], ref v[1],ref v[2],ref v[3]);
+                }
+                return $"{v[0]}.{v[1]}.{v[2]}.{v[3]}";
+            }
+        }
 
         /// <summary>
         /// Device info struct
@@ -59,7 +83,7 @@ namespace SpdReaderWriterDll {
         public UInt16 MaxSpdSize;
 
         /// <summary>
-        /// SPD BIOS write disable state (ICH only)
+        /// SPD BIOS write disable state (ICH/PCH only)
         /// </summary>
         public bool SpdWriteDisabled;
 
@@ -100,10 +124,17 @@ namespace SpdReaderWriterDll {
         /// SMBus instance destructor
         /// </summary>
         ~Smbus() {
-            ioPort    = null;
-            pciDevice = null;
+            Dispose();
+        }
 
-            Driver?.Deinitialize();
+        /// <summary>
+        /// Disposes SMBus instance
+        /// </summary>
+        public void Dispose() {
+            ioPort     = null;
+            pciDevice  = null;
+            deviceInfo = default;
+            Driver     = null;
 
             if (!IsRunning) {
                 I2CAddress       = 0;
@@ -151,75 +182,130 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Intel: PCH device ID (LPC/eSPI controller or ISA bridge)
+        /// Intel: ICH/PCH device ID (LPC/eSPI controller or ISA bridge)
         /// AMD:   TBD
         /// </summary>
         public enum ChipsetDeviceId : UInt16 {
 
             // DDR3
+
             #region LGA1156
             H55   = 0x3B06,
-            P55   = 0x3B02,
             H57   = 0x3B08,
+            P55   = 0x3B02,
             Q57   = 0x3B0A,
             #endregion
 
             #region LGA1155
-            H61   = 0x1C5C,
             B65   = 0x1C50,
-            Q65   = 0x1C4C,
-            P67   = 0x1C46,
-            H67   = 0x1C4A,
-            Q67   = 0x1C4E,
-            Z68   = 0x1C44,
             B75   = 0x1E49,
-            Q75   = 0x1E48,
-            Z75   = 0x1E46,
+            H61   = 0x1C5C,
+            H67   = 0x1C4A,
             H77   = 0x1E4A,
+            P67   = 0x1C46,
+            Q65   = 0x1C4C,
+            Q67   = 0x1C4E,
+            Q75   = 0x1E48,
             Q77   = 0x1E47,
+            Z68   = 0x1C44,
+            Z75   = 0x1E46,
             Z77   = 0x1E44,
             #endregion
 
             #region LGA1150
-            H81   = 0x8C5C,
             B85   = 0x8C50,
+            H81   = 0x8C5C,
+            H87   = 0x8C4A,
+            H97   = 0x8CC6,
             Q85   = 0x8C4C,
             Q87   = 0x8C4E,
-            H87   = 0x8C4A,
             Z87   = 0x8C44,
             Z97   = 0x8CC4,
-            H97   = 0x8CC6,
             #endregion
 
             #region MOBILE 5/6/7/8/9 Series
-            NM10  = 0x27BC,
-            PM55  = 0x3B03,
             HM55  = 0x3B09,
             HM57  = 0x3B0B,
-            QM57  = 0x3B07,
-            QS57  = 0x3B0F,
             HM65  = 0x1C49,
             HM67  = 0x1C4B,
-            UM67  = 0x1C47,
-            QM67  = 0x1C4F,
-            QS67  = 0x1C4D,
-            NM70  = 0x1E5F,
             HM70  = 0x1E5E,
             HM75  = 0x1E5D,
             HM76  = 0x1E59,
-            UM77  = 0x1E58,
             HM77  = 0x1E57,
-            QM77  = 0x1E55,
-            QS77  = 0x1E56,
             HM86  = 0x8C49,
-            QM87  = 0x8C4F,
             HM87  = 0x8C4B,
             HM97  = 0x8CC3,
+            NM10  = 0x27BC,
+            NM70  = 0x1E5F,
+            PM55  = 0x3B03,
+            QM57  = 0x3B07,
+            QM67  = 0x1C4F,
+            QM77  = 0x1E55,
+            QM87  = 0x8C4F,
+            QS57  = 0x3B0F,
+            QS67  = 0x1C4D,
+            QS77  = 0x1E56,
+            UM67  = 0x1C47,
+            UM77  = 0x1E58,
             #endregion
 
-            // DDR4            
+            // DDR4
+
+            #region LGA1151
+            B150  = 0xA148,
+            B250  = 0xA2C8,
+            B360  = 0xA308,
+            B365  = 0xA2CC,
+            C232  = 0xA14A,
+            C236  = 0xA149,
+            C242  = 0xA30A,
+            C246  = 0xA309,
+            CM236 = 0xA150,
+            CM238 = 0xA154,
+            CM246 = 0xA30E,
+            H110  = 0xA143,
+            H170  = 0xA144,
+            H270  = 0xA2C4,
+            H310  = 0xA303,
+            H310D = 0x438E,
+            H310M = 0xA2CA,
+            H370  = 0xA304,
+            HM170 = 0xA14E,
+            HM175 = 0xA152,
+            HM370 = 0xA30D,
+            Q150  = 0xA147,
+            Q170  = 0xA146,
+            Q250  = 0xA2C7,
+            Q270  = 0xA2C6,
+            Q370  = 0xA306,
+            QM170 = 0xA14D,
+            QM175 = 0xA153,
+            QM370 = 0xA30C,
+            Z170  = 0xA145,
+            Z270  = 0xA2C5,
+            Z370  = 0xA2C9,
+            Z390  = 0xA305,
+            #endregion
+
+            #region LGA1200
+            B460  = 0xA3C8,
+            B560  = 0x4387,
+            C252  = 0x438C,
+            C256  = 0x438D,
+            H410  = 0xA3DA,
+            H470  = 0x0684,
+            H510  = 0x4388,
+            H570  = 0x4386,
+            Q470  = 0x0687,
+            Q570  = 0x4384,
+            W480  = 0x0697,
+            W580  = 0x438F,
+            Z490  = 0x0685,
+            Z590  = 0x4385,
+            #endregion
+
             #region LGA2066
-            X299  = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
+            X299 = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
             #endregion
         }
 
@@ -304,12 +390,12 @@ namespace SpdReaderWriterDll {
                         pciDevice = new PciDevice(PciDevice.FindDeviceById((UInt16)deviceInfo.vendorId, (UInt16)IntelCpuSmbusDeviceId.SKLX_SMBUS));
                         break;
 
-                    default: // ICH
+                    default: // ICH/PCH
                         if (!CheckChipsetSupport(deviceInfo.deviceId)) {
                             break;
                         }
 
-                        // Locate ICH SMBus controller
+                        // Locate ICH/PCH SMBus controller
                         pciDevice = new PciDevice(PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus));
                         
                         // Read IO port address and info
@@ -333,7 +419,7 @@ namespace SpdReaderWriterDll {
                 TotalSMBuses = (byte)FindBus().Length;
                 Addresses    = (byte)Scan().Length;
                 BusNumber    = 0;
-                MaxSpdSize   = GetMaxSpdSize(deviceInfo);
+                MaxSpdSize   = GetMaxSpdSize();
             }
 
             else if (deviceInfo.vendorId == PlatformVendorId.AMD) {
@@ -505,7 +591,9 @@ namespace SpdReaderWriterDll {
                 SetSlaveAddress(slaveAddress);
                 SetSlaveOffset(0x00);
                 SetSlaveReadMode();
-                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData);
+                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByte); // CmdQuick causes SMBus to lock out, requiring restart
+
+                while (GetBusStatus() == SmbStatus.BUSY) { }
 
                 return GetBusStatus() != SmbStatus.ERROR;
             }
@@ -529,7 +617,7 @@ namespace SpdReaderWriterDll {
                     SetSlaveAddress(slaveAddress);
                     SetSlaveOffset(offset);
                     SetSlaveReadMode();
-                    Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData);
+                    Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByte);
 
                     while (GetBusStatus() == SmbStatus.BUSY) { }
 
@@ -810,18 +898,61 @@ namespace SpdReaderWriterDll {
         /// SMBus Host Control Register data
         /// </summary>
         public struct IntelSmbusCmd {
-            // Bit 6
+            
+            /// <summary>
+            /// Initiates the Smbus command 
+            /// </summary>
             public const byte Start       = 1 << 6;
 
-            // Bits 4:2
-            public const byte CmdQuick    = 0b000 << 2; // tx slave address register
-            public const byte CmdByte     = 0b001 << 2; // tx slave address and command registers (read)
-            public const byte CmdByteData = 0b010 << 2; // tx slave address, command, and DATA0 registers (write)
-            public const byte CmdWordData = 0b011 << 2; // tx slave address, command, DATA0 and DATA1 registers
-            public const byte CmdPrcCall  = 0b100 << 2; // tx slave address, command, DATA0 and DATA1 registers. DATA0 and DATA1 registers will contain the read data
-            public const byte CmdBlock    = 0b101 << 2; // tx slave address, command, DATA0 registers, and the Block Data Byte register
-            public const byte CmdI2CRead  = 0b110 << 2; // tx slave address, command, DATA0, DATA1 registers, and the Block Data Byte register
-            public const byte CmbBockProc = 0b111 << 2; //  
+            /// <summary>
+            /// <b>Quick:</b>
+            /// The slave address and read/write value (bit 0) are stored in the transmit slave address register.
+            /// </summary>
+            public const byte CmdQuick    = 0b000 << 2;
+            /// <summary>
+            /// <b>Byte:</b>
+            /// This command uses the transmit slave address and command registers.
+            /// Bit 0 of the slave address register determines if this is a read or write command.
+            /// </summary>
+            public const byte CmdByte     = 0b001 << 2;
+            /// <summary>
+            /// <b>Byte Data:</b>
+            /// This command uses the transmit slave address, command, and DATA0 registers.
+            /// Bit 0 of the slave address register determines if this is a read or write command.
+            /// If it is a read, the DATA0 register will contain the read data.
+            /// </summary>
+            public const byte CmdByteData = 0b010 << 2;
+            /// <summary>
+            /// <b>Word Data:</b>
+            /// This command uses the transmit slave address, command, DATA0 and DATA1 registers.
+            /// Bit 0 of the slave address register determines if this is a read or write command.
+            /// If it is a read, after the command completes, the DATA0 and DATA1 registers will contain the read data.
+            /// </summary>
+            public const byte CmdWordData = 0b011 << 2;
+            /// <summary>
+            /// <b>Process Call:</b>
+            /// This command uses the transmit slave address, command, DATA0 and DATA1 registers.
+            /// Bit 0 of the slave address register determines if this is a read or write command.
+            /// After the command completes, the DATA0 and DATA1 registers will contain the read data.
+            /// </summary>
+            public const byte CmdPrcCall  = 0b100 << 2;
+            /// <summary>
+            /// <b>Block:</b>
+            /// This command uses the transmit slave address, command, DATA0 registers, and the Block Data Byte register.
+            /// For block write, the count is stored in the DATA0 register and indicates how many bytes of data will be transferred.
+            /// For block reads, the count is received and stored in the DATA0 register.
+            /// Bit 0 of the slave address register selects if this is a read or write command.
+            /// For writes, data is retrieved from the first n (where n is equal to the specified count) addresses of the SRAM array.
+            /// For reads, the data is stored in the Block Data Byte register.
+            /// </summary>
+            public const byte CmdBlock    = 0b101 << 2;
+            /// <summary>
+            /// <b>I2C Read:</b>
+            /// This command uses the transmit slave address, command, DATA0, DATA1 registers, and the Block Data Byte register.
+            /// The read data is stored in the Block Data Byte register.
+            /// The ICH/PCH continues reading data until the NAK is received.
+            /// </summary>
+            public const byte CmdI2CRead  = 0b110 << 2;
         }
 
         /// <summary>
@@ -908,21 +1039,32 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets supported platform maximum SPD size
         /// </summary>
-        /// <param name="deviceInfo">Platform info</param>
         /// <returns>SPD size</returns>
-        private static UInt16 GetMaxSpdSize(DeviceInfo deviceInfo) {
+        private UInt16 GetMaxSpdSize() {
 
             if (deviceInfo.vendorId == PlatformVendorId.Intel) {
 
-                UInt16 modelNumber = (UInt16)(Int32.Parse(Regex.Match(deviceInfo.deviceId.ToString(), @"\d+").Value));
+                UInt16 modelNumber = (UInt16)Int32.Parse(Regex.Match(deviceInfo.deviceId.ToString(), @"\d+").Value);
 
-                // Intel 100 series up to 500 series
-                if (modelNumber >= 100 && modelNumber <= 599) {
+                // Intel 90 series and older models before 100 series all support 256 byte EEPROM
+                if (modelNumber < 100) {
+                    return (UInt16)Ram.SpdSize.MINIMUM; // DDR3 and below
+                }
+
+                // Intel 200 series and up to before 600 series all support DDR4
+                if (modelNumber >= 200 && modelNumber < 600) {
                     return (UInt16)(Ram.SpdSize.DDR4);
+                }
+
+                // Other platforms supporting multiple RAM types (Intel 100 series):
+                // Read first DIMM's EEPROM byte at offset 0x02
+                foreach (byte address in Scan()) {
+                    I2CAddress = address;
+                    return (UInt16)Spd.GetSpdSize(Spd.GetRamType(new byte[] { 0x00, 0x00, Eeprom.ReadByte(this, 2) }));
                 }
             }
 
-            return (UInt16)Ram.SpdSize.DDR3; // DDR3 and below
+            return (UInt16)Ram.SpdSize.MINIMUM; // DDR3 and below
         }
     }
 }
