@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.IO;
 using UInt8 = System.Byte;
@@ -24,6 +35,7 @@ namespace SpdReaderWriterDll {
         public struct SubClass {
             public const byte Isa                     = 0x01;
             public const byte Smbus                   = 0x05;
+            public const byte I3C                     = 0x0A; // MIPI I3C Host Controller Interface
         }
 
         /// <summary>
@@ -148,7 +160,7 @@ namespace SpdReaderWriterDll {
         /// Read byte from PCI device memory space
         /// </summary>
         /// <param name="offset">Byte location</param>
-        /// <returns>Byte value at <paramref name="offset" /> location</returns>
+        /// <returns>Byte value at <paramref name="offset"/> location</returns>
         public UInt8 ReadByte(byte offset) {
             return Smbus._driver.ReadPciConfigByte(PciInfo.DeviceMemoryLocation, offset);
         }
@@ -157,7 +169,7 @@ namespace SpdReaderWriterDll {
         /// Read word from PCI device memory space
         /// </summary>
         /// <param name="offset">Word location</param>
-        /// <returns>Word value at <paramref name="offset" /> location</returns>
+        /// <returns>Word value at <paramref name="offset"/> location</returns>
         public UInt16 ReadWord(byte offset) {
             return Smbus._driver.ReadPciConfigWord(PciInfo.DeviceMemoryLocation, offset);
         }
@@ -166,7 +178,7 @@ namespace SpdReaderWriterDll {
         /// Read Dword from PCI device memory space
         /// </summary>
         /// <param name="offset">Dword location</param>
-        /// <returns>Dword value at <paramref name="offset" /> location</returns>
+        /// <returns>Dword value at <paramref name="offset"/> location</returns>
         public UInt32 ReadDword(byte offset) {
             return Smbus._driver.ReadPciConfigDword(PciInfo.DeviceMemoryLocation, offset);
         }
