@@ -26,7 +26,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Kernel driver (WinRing0) class
     /// </summary>
-    public class WinRing0 {
+    public class WinRing0 : IDisposable {
 
         /// <summary>
         /// Describes driver installation state
@@ -101,13 +101,13 @@ namespace SpdReaderWriterDll {
         /// Kernel driver destructor
         /// </summary>
         ~WinRing0() {
-            Deinitialize();
+            Dispose();
         }
 
         /// <summary>
         /// Deinitializes kernel driver instance
         /// </summary>
-        internal void Deinitialize() {
+        public void Dispose() {
             CloseDriverHandle();
 
             if (_disposeOnExit) {
@@ -278,6 +278,7 @@ namespace SpdReaderWriterDll {
                         }
                     }
                 }
+
                 return _sc.Status == ServiceControllerStatus.Stopped || _sc.Status == ServiceControllerStatus.StopPending;
             }
             catch {
@@ -362,7 +363,7 @@ namespace SpdReaderWriterDll {
             major    = (byte)(output >> 24);
             minor    = (byte)(output >> 16);
             revision = (byte)(output >> 8);
-            release  = (byte)output;
+            release  = (byte) output;
 
             return output;
         }
@@ -427,7 +428,7 @@ namespace SpdReaderWriterDll {
         }
 
         #region PCI device
-        
+
         /// <summary>
         /// Converts PCI Bus Number, Device Number, and Function Number to PCI Device Address
         /// </summary>
@@ -1135,7 +1136,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service operation timeout
         /// </summary>
-        private static Int32 _timeout = 1000;
+        private static readonly Int32 _timeout = 1000;
 
         /// <summary>
         /// IO device handle
@@ -1603,9 +1604,9 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 SERVICE_AUTO_START          = 0x00000002,
                 /// <summary>
-                /// A service started by the service control manager when a process calls the StartService function
+                /// A service started by the service control manager when a process calls the <see cref="StartService"/> function
                 /// </summary>
-                SERVICE_DEMAND_START        = 0x00000003,
+                SERVICE_DEMAND_START = 0x00000003,
                 /// <summary>
                 /// A service that cannot be started. Attempts to start the service result in the error code ERROR_SERVICE_DISABLED
                 /// </summary>

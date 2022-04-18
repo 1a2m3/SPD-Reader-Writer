@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.IO;
 using static SpdReaderWriterDll.Ram;
@@ -50,14 +61,7 @@ namespace SpdReaderWriterDll {
         public static Ram.Type GetRamType(byte[] input) {
 
             // Byte at offset 0x02 in SPD indicates RAM type
-            if (input.Length >= 3) {
-                byte _rt = input[0x02];
-                if (Enum.IsDefined(typeof(Ram.Type), (Ram.Type)_rt)) {
-                    return (Ram.Type)_rt;
-                }
-            }
-
-            return Ram.Type.UNKNOWN;
+            return input.Length >= 3 && Enum.IsDefined(typeof(Ram.Type), (Ram.Type)input[0x02]) ? (Ram.Type)input[0x02] : Ram.Type.UNKNOWN;
         }
 
         /// <summary>
@@ -80,7 +84,7 @@ namespace SpdReaderWriterDll {
             }
 
             if (device.DetectDdr4()) { 
-                return (SpdSize.DDR4);
+                return SpdSize.DDR4;
             }
 
             if (device.Scan().Length != 0) {
@@ -103,7 +107,7 @@ namespace SpdReaderWriterDll {
                 case Ram.Type.DDR2:
                 case Ram.Type.DDR2_FB_DIMM:
                 case Ram.Type.DDR3:
-                    return SpdSize.DDR3;
+                    return SpdSize.MINIMUM;
                 case Ram.Type.DDR4:
                     return SpdSize.DDR4;
                 case Ram.Type.DDR5:
@@ -117,7 +121,7 @@ namespace SpdReaderWriterDll {
         /// Validates SPD data
         /// </summary>
         /// <param name="input">SPD contents</param>
-        /// <returns> <see langword="true" /> if <paramref name="input" /> data is a valid SPD dump</returns>
+        /// <returns> <see langword="true"/> if <paramref name="input"/> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
             return (input.Length == (int)SpdSize.DDR5 ||
