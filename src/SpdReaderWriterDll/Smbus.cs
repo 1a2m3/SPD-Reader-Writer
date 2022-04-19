@@ -69,7 +69,6 @@ namespace SpdReaderWriterDll {
                 Eeprom.ResetPageAddress(this);
             }
         }
-
         private static byte _busNumber;
 
         /// <summary>
@@ -519,7 +518,7 @@ namespace SpdReaderWriterDll {
         /// Validates slave address by reading first byte from it
         /// </summary>
         /// <param name="slaveAddress">Slave address</param>
-        /// <returns>><see langword="true"/> if <paramref name="slaveAddress"/> responds to <see cref="ReadByte"/></returns>
+        /// <returns><see langword="true"/> if <paramref name="slaveAddress"/> responds to <see cref="ReadByte"/></returns>
         public bool ProbeAddress(byte slaveAddress) {
             return ReadByte(this, slaveAddress);
         }
@@ -536,7 +535,7 @@ namespace SpdReaderWriterDll {
         /// Scan SMBus for available slave devices
         /// </summary>
         /// <param name="bitmask">Set to <see langword="true"/> to enable bitmask result</param>
-        /// <returns>A bitmask value representing available bus addresses. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        /// <returns>A bitmask value representing available bus addresses. <example>Bit 0 is address 80, bit 1 is address 81, and so on.</example></returns>
         public byte Scan(bool bitmask) {
             byte result = 0;
 
@@ -643,7 +642,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus instance</param>
         /// <param name="slaveAddress">Slave address</param>
         /// <returns><see langwod="true"/> if write is successful</returns>
-        public static bool WriteByte(Smbus device, byte slaveAddress) {
+        public static bool WriteByte(Smbus device, UInt8 slaveAddress) {
             return WriteByte(device, slaveAddress, 0x00, 0x00);
         }
 
@@ -655,7 +654,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns>Byte read from slave device at <paramref name="slaveAddress"/></returns>
-        public static bool WriteByte(Smbus device, byte slaveAddress, UInt16 offset, byte value) {
+        public static bool WriteByte(Smbus device, UInt8 slaveAddress, UInt16 offset, byte value) {
 
             if (device.deviceInfo.vendorId == PlatformVendorId.Intel) {
                 try {
@@ -1046,8 +1045,8 @@ namespace SpdReaderWriterDll {
 
                 UInt16 modelNumber = (UInt16)Int32.Parse(Regex.Match(deviceInfo.deviceId.ToString(), @"\d+").Value);
 
-                // Intel 90 series and older models before 100 series all support 256 byte EEPROM
-                if (modelNumber < 100) {
+                // Intel 90 series (except for X99) and older models before 100 series all support 256 byte EEPROM
+                if (modelNumber < 99) {
                     return (UInt16)Ram.SpdSize.MINIMUM; // DDR3 and below
                 }
 
