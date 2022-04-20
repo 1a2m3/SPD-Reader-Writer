@@ -590,7 +590,7 @@ namespace SpdReaderWriterDll {
                 SetSlaveAddress(slaveAddress);
                 SetSlaveOffset(0x00);
                 SetSlaveReadMode();
-                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByte); // CmdQuick causes SMBus to lock out, requiring restart
+                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData); // CmdQuick causes SMBus to lock out, requiring restart; CmdByte returns wrong data
 
                 while (GetBusStatus() == SmbStatus.BUSY) { }
 
