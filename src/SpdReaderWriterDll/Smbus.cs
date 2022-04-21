@@ -1041,25 +1041,18 @@ namespace SpdReaderWriterDll {
         /// <returns>SPD size</returns>
         private UInt16 GetMaxSpdSize() {
 
-            if (deviceInfo.vendorId == PlatformVendorId.Intel) {
+            foreach (byte address in Scan()) {
 
-                UInt16 modelNumber = (UInt16)Int32.Parse(Regex.Match(deviceInfo.deviceId.ToString(), @"\d+").Value);
+                // Set i2c address to current
+                I2CAddress = address;
+                // Read dram device type byte
+                byte ramTypeByte = Eeprom.ReadByte(this, 2);
+                // SPD header for GetRamType
+                byte[] spdHeader = { 0x00, 0x00, ramTypeByte };
 
-                // Intel 90 series (except for X99) and older models before 100 series all support 256 byte EEPROM
-                if (modelNumber < 99) {
-                    return (UInt16)Ram.SpdSize.MINIMUM; // DDR3 and below
-                }
-
-                // Intel 200 series and up to before 600 series all support DDR4
-                if (modelNumber >= 200 && modelNumber < 600) {
-                    return (UInt16)(Ram.SpdSize.DDR4);
-                }
-
-                // Other platforms supporting multiple RAM types (Intel 100 series):
-                // Read first DIMM's EEPROM byte at offset 0x02
-                foreach (byte address in Scan()) {
-                    I2CAddress = address;
-                    return (UInt16)Spd.GetSpdSize(Spd.GetRamType(new byte[] { 0x00, 0x00, Eeprom.ReadByte(this, 2) }));
+                // Check if dram device type byte value is in the Ram.Type enum
+                if (Enum.IsDefined(typeof(Ram.Type), (Ram.Type)ramTypeByte)) {
+                    return (UInt16)Spd.GetSpdSize(Spd.GetRamType(spdHeader));
                 }
             }
 
