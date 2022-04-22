@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading;
 using UInt8 = System.Byte;
 
@@ -116,7 +115,7 @@ namespace SpdReaderWriterDll {
         /// Initialize SMBus with default settings
         /// </summary>
         public Smbus() {
-            Init();
+            Initialize();
         }
 
         /// <summary>
@@ -177,6 +176,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public enum PlatformVendorId : UInt16 {
              AMD  = 0x1022,
+             ATI  = 0x1002, // Former ATI vendor ID which is now owned by AMD, who has 2 vendor IDs
             Intel = 0x8086,
         }
 
@@ -186,66 +186,99 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public enum ChipsetDeviceId : UInt16 {
 
+            // Old
+            ICH      = 0x2410,
+            ICH0     = 0x2420,
+            ICH2     = 0x2440,
+            ICH2M    = 0x244C,
+            CICH     = 0x2450,
+            ICH3     = 0x2480,
+            ICH3M    = 0x248C,
+            ICH4     = 0x24C0,
+            ICH4M    = 0x24CC,
+            ICH5     = 0x24D0,
+            ICH6M    = 0x2641,
+            ICH6W    = 0x2642,
+            ICH7DH   = 0x27B0,
+            ICH7     = 0x27B8,
+            ICH7M    = 0x27B9,
+            ICH7MDH  = 0x27BD,
+            ICH8     = 0x2810,
+            ICH8ME   = 0x2811,
+            ICH8DH   = 0x2812,
+            ICH8DO   = 0x2814,
+            ICH8M    = 0x2815,
+            ICH9DH   = 0x2912,
+            ICH9DO   = 0x2914,
+            ICH9R    = 0x2916,
+            ICH9ME   = 0x2917,
+            ICH9     = 0x2918,
+            ICH9M    = 0x2919,
+            ICH10DO  = 0x3A14,
+            ICH10R   = 0x3A16,
+            ICH10    = 0x3A18,
+            ICH10D   = 0x3A1A,
+
             // DDR3
 
             #region LGA1156
-            H55   = 0x3B06,
-            H57   = 0x3B08,
-            P55   = 0x3B02,
-            Q57   = 0x3B0A,
+            H55      = 0x3B06,
+            H57      = 0x3B08,
+            P55      = 0x3B02,
+            Q57      = 0x3B0A,
             #endregion
 
             #region LGA1155
-            B65   = 0x1C50,
-            B75   = 0x1E49,
-            H61   = 0x1C5C,
-            H67   = 0x1C4A,
-            H77   = 0x1E4A,
-            P67   = 0x1C46,
-            Q65   = 0x1C4C,
-            Q67   = 0x1C4E,
-            Q75   = 0x1E48,
-            Q77   = 0x1E47,
-            Z68   = 0x1C44,
-            Z75   = 0x1E46,
-            Z77   = 0x1E44,
+            B65      = 0x1C50,
+            B75      = 0x1E49,
+            H61      = 0x1C5C,
+            H67      = 0x1C4A,
+            H77      = 0x1E4A,
+            P67      = 0x1C46,
+            Q65      = 0x1C4C,
+            Q67      = 0x1C4E,
+            Q75      = 0x1E48,
+            Q77      = 0x1E47,
+            Z68      = 0x1C44,
+            Z75      = 0x1E46,
+            Z77      = 0x1E44,
             #endregion
 
             #region LGA1150
-            B85   = 0x8C50,
-            H81   = 0x8C5C,
-            H87   = 0x8C4A,
-            H97   = 0x8CC6,
-            Q85   = 0x8C4C,
-            Q87   = 0x8C4E,
-            Z87   = 0x8C44,
-            Z97   = 0x8CC4,
+            B85      = 0x8C50,
+            H81      = 0x8C5C,
+            H87      = 0x8C4A,
+            H97      = 0x8CC6,
+            Q85      = 0x8C4C,
+            Q87      = 0x8C4E,
+            Z87      = 0x8C44,
+            Z97      = 0x8CC4,
             #endregion
 
             #region MOBILE 5/6/7/8/9 Series
-            HM55  = 0x3B09,
-            HM57  = 0x3B0B,
-            HM65  = 0x1C49,
-            HM67  = 0x1C4B,
-            HM70  = 0x1E5E,
-            HM75  = 0x1E5D,
-            HM76  = 0x1E59,
-            HM77  = 0x1E57,
-            HM86  = 0x8C49,
-            HM87  = 0x8C4B,
-            HM97  = 0x8CC3,
-            NM10  = 0x27BC,
-            NM70  = 0x1E5F,
-            PM55  = 0x3B03,
-            QM57  = 0x3B07,
-            QM67  = 0x1C4F,
-            QM77  = 0x1E55,
-            QM87  = 0x8C4F,
-            QS57  = 0x3B0F,
-            QS67  = 0x1C4D,
-            QS77  = 0x1E56,
-            UM67  = 0x1C47,
-            UM77  = 0x1E58,
+            HM55     = 0x3B09,
+            HM57     = 0x3B0B,
+            HM65     = 0x1C49,
+            HM67     = 0x1C4B,
+            HM70     = 0x1E5E,
+            HM75     = 0x1E5D,
+            HM76     = 0x1E59,
+            HM77     = 0x1E57,
+            HM86     = 0x8C49,
+            HM87     = 0x8C4B,
+            HM97     = 0x8CC3,
+            NM10     = 0x27BC,
+            NM70     = 0x1E5F,
+            PM55     = 0x3B03,
+            QM57     = 0x3B07,
+            QM67     = 0x1C4F,
+            QM77     = 0x1E55,
+            QM87     = 0x8C4F,
+            QS57     = 0x3B0F,
+            QS67     = 0x1C4D,
+            QS77     = 0x1E56,
+            UM67     = 0x1C47,
+            UM77     = 0x1E58,
             #endregion
 
             // DDR4
@@ -271,7 +304,7 @@ namespace SpdReaderWriterDll {
             H370  = 0xA304,
             HM170 = 0xA14E,
             HM175 = 0xA152,
-            HM370 = 0xA30D,
+            HM370 = 0xA30D, // aka HM470
             Q150  = 0xA147,
             Q170  = 0xA146,
             Q250  = 0xA2C7,
@@ -305,6 +338,7 @@ namespace SpdReaderWriterDll {
 
             #region LGA2066
             X299 = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
+            C422 = 0xA2D3, // Same as X299
             #endregion
         }
 
@@ -320,43 +354,54 @@ namespace SpdReaderWriterDll {
         /// Intel X299 SMBus controller register offsets
         /// </summary>
         public struct X299SmbusRegister {
-            public const byte ADDRESS  = 0x9D;
-            public const byte OFFSET   = 0x9C;
-            public const byte INPUT    = 0xB6;
-            public const byte COMMAND  = 0x9E;
-            public const byte OUTPUT   = 0xB4;
-            public const byte STATUS   = 0xA8;
-            public const byte DIMMCFG  = 0x94;
+            public const byte ADDRESS    = 0x9D;
+            public const byte OFFSET     = 0x9C;
+            public const byte INPUT      = 0xB6;
+            public const byte COMMAND    = 0x9E;
+            public const byte OUTPUT     = 0xB4;
+            public const byte STATUS     = 0xA8;
+            public const byte DIMMCFG    = 0x94;
         }
 
         /// <summary>
         /// Intel chipset SMBus controller register offsets
         /// </summary>
         public struct IntelSmbusRegister {
-            public const byte STATUS   = 0x00;
-            public const byte COMMAND  = 0x02;
-            public const byte OFFSET   = 0x03;
-            public const byte ADDRESS  = 0x04;
-            public const byte DATA     = 0x05;
+            public const byte SMBHSTSTS  = 0x00;
+            public const byte SMBHSTCNT  = 0x02;
+            public const byte SMBHSTCMD  = 0x03;
+            public const byte SMBHSTADD  = 0x04;
+            public const byte SMBHSTDAT0 = 0x05;
         }
 
         /// <summary>
         /// Indicates SMBus controller commands and modifiers
         /// </summary>
         public struct X299SmbusCommand {
+
+            /// <summary>
+            /// <see cref="X299SmbusRegister.COMMAND"/> value
+            /// </summary>
+            
             public const byte EXEC_CMD = 0x08; // 0b00001000
 
-            // X299SmbusRegister.COMMAND modifiers
-            public const byte MOD_WORD = 0x0A; // 0b00000010
+            /// <summary>
+            /// <see cref="X299SmbusRegister.COMMAND"/> modifiers to be OR'd with <see cref="X299SmbusCommand.EXEC_CMD"/>
+            /// </summary>
+            public const byte MOD_WORD = 0x02; // 0b00000010
             public const byte MOD_NEXT = 0x04; // 0b00000100
 
-            // X299SmbusRegister.ADDRESS modifiers
+            /// <summary>
+            /// <see cref="X299SmbusRegister.ADDRESS"/> modifiers
+            /// </summary>
+            
             public const byte READ     = 0x00; // 0b00000000
             public const byte WRITE    = 0x80; // 0b10000000
+
         }
 
         /// <summary>
-        /// Describes SMBus controller status codes at <see cref="X299SmbusRegister.STATUS">status register</see>
+        /// Describes X299 SMBus controller status codes at <see cref="X299SmbusRegister.STATUS">status register</see>
         /// </summary>
         public struct X299SmbusStatus {
             public const byte READY    = 0b00000000;
@@ -365,10 +410,11 @@ namespace SpdReaderWriterDll {
             public const byte NACK     = 0b00000010;
         }
 
+
         /// <summary>
         /// Initializes SMBus controller class
         /// </summary>
-        private void Init() {
+        private void Initialize() {
 
             try {
                 Driver = new WinRing0();
@@ -385,6 +431,7 @@ namespace SpdReaderWriterDll {
             if (deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         // Locate CPU SMBus controller
                         pciDevice = new PciDevice(PciDevice.FindDeviceById((UInt16)deviceInfo.vendorId, (UInt16)IntelCpuSmbusDeviceId.SKLX_SMBUS));
                         break;
@@ -413,17 +460,16 @@ namespace SpdReaderWriterDll {
 
                         break;
                 }
-
-                // Common properties
-                TotalSMBuses = (byte)FindBus().Length;
-                Addresses    = (byte)Scan().Length;
-                BusNumber    = 0;
-                MaxSpdSize   = GetMaxSpdSize();
             }
-
             else if (deviceInfo.vendorId == PlatformVendorId.AMD) {
                 //throw new NotSupportedException("No AMD support yet");
             }
+
+            // Common properties
+            TotalSMBuses = (byte)FindBus().Length;
+            Addresses    = (byte)Scan().Length;
+            BusNumber    = 0;
+            MaxSpdSize   = GetMaxSpdSize();
         }
 
         /// <summary>
@@ -468,6 +514,7 @@ namespace SpdReaderWriterDll {
 
                     switch (deviceInfo.deviceId) {
                         case ChipsetDeviceId.X299:
+                        case ChipsetDeviceId.C422:
                             // Save existing bus number
                             byte _currentBus = BusNumber;
 
@@ -590,7 +637,7 @@ namespace SpdReaderWriterDll {
                 SetSlaveAddress(slaveAddress);
                 SetSlaveOffset(0x00);
                 SetSlaveReadMode();
-                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData); // CmdQuick causes SMBus to lock out, requiring restart; CmdByte returns wrong data
+                Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByte); // CmdQuick causes SMBus to lock out, requiring restart
 
                 while (GetBusStatus() == SmbStatus.BUSY) { }
 
@@ -616,7 +663,7 @@ namespace SpdReaderWriterDll {
                     SetSlaveAddress(slaveAddress);
                     SetSlaveOffset(offset);
                     SetSlaveReadMode();
-                    Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByte);
+                    Execute(IntelSmbusCmd.Start | IntelSmbusCmd.CmdByteData);
 
                     while (GetBusStatus() == SmbStatus.BUSY) { }
 
@@ -693,6 +740,7 @@ namespace SpdReaderWriterDll {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         _pciDevice.WriteByte((UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4)), address);
                         break;
 
@@ -701,7 +749,7 @@ namespace SpdReaderWriterDll {
                             break;
                         }
 
-                        _ioPort.WriteByte(IntelSmbusRegister.ADDRESS, (byte)(address << 1));
+                        _ioPort.WriteByte(IntelSmbusRegister.SMBHSTADD, (byte)(address << 1));
                         break;
                 }
             }
@@ -720,6 +768,7 @@ namespace SpdReaderWriterDll {
                 switch (_deviceInfo.deviceId) {
 
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         _pciDevice.WriteByte((UInt8)(X299SmbusRegister.OFFSET + (_busNumber * 4)), (byte)offset);
                         break;
 
@@ -728,7 +777,7 @@ namespace SpdReaderWriterDll {
                             break;
                         }
 
-                        _ioPort.WriteByte(IntelSmbusRegister.OFFSET, (UInt8)offset);
+                        _ioPort.WriteByte(IntelSmbusRegister.SMBHSTCMD, (UInt8)offset);
                         break;
                 }
             }
@@ -745,6 +794,7 @@ namespace SpdReaderWriterDll {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         // Don't need to do anything
                         break;
 
@@ -755,8 +805,8 @@ namespace SpdReaderWriterDll {
 
                         // Set bit 0 to 1 to enable read
                         _ioPort.WriteByte(
-                            offset : IntelSmbusRegister.ADDRESS, 
-                             value : Data.SetBit(_ioPort.ReadByte(IntelSmbusRegister.ADDRESS), 0, true));
+                            offset : IntelSmbusRegister.SMBHSTADD, 
+                             value : Data.SetBit(_ioPort.ReadByte(IntelSmbusRegister.SMBHSTADD), 0, true));
                         break;
                 }
             }
@@ -769,6 +819,7 @@ namespace SpdReaderWriterDll {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         _pciDevice.WriteByte(
                             offset : (UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4)),
                              value : (byte)(_pciDevice.ReadByte((UInt8)(X299SmbusRegister.ADDRESS + (_busNumber * 4))) | X299SmbusCommand.WRITE));
@@ -792,6 +843,7 @@ namespace SpdReaderWriterDll {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         _pciDevice.WriteByte(
                             offset : (byte)(X299SmbusRegister.INPUT + (_busNumber * 4)), 
                              value : input);
@@ -802,7 +854,7 @@ namespace SpdReaderWriterDll {
                             break;
                         }
                         _ioPort.WriteByte(
-                            offset : IntelSmbusRegister.DATA, 
+                            offset : IntelSmbusRegister.SMBHSTDAT0, 
                              value : input);
                         break;
                 }
@@ -822,6 +874,7 @@ namespace SpdReaderWriterDll {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         return _pciDevice.ReadByte((byte)(X299SmbusRegister.OUTPUT + (_busNumber * 4)));
 
                     default:
@@ -829,7 +882,7 @@ namespace SpdReaderWriterDll {
                             break;
                         }
 
-                        return _ioPort.ReadByte(IntelSmbusRegister.DATA);
+                        return _ioPort.ReadByte(IntelSmbusRegister.SMBHSTDAT0);
                 }
             }
 
@@ -847,6 +900,7 @@ namespace SpdReaderWriterDll {
             if (_deviceInfo.vendorId == PlatformVendorId.Intel) {
                 switch (_deviceInfo.deviceId) {
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         _pciDevice.WriteByte(
                             offset : (byte)(X299SmbusRegister.COMMAND + (_busNumber * 4)),
                              value : X299SmbusCommand.EXEC_CMD);
@@ -861,9 +915,9 @@ namespace SpdReaderWriterDll {
                         // Clear last status
                         while (GetBusStatus() != SmbStatus.READY) {
                             _ioPort.WriteByte(
-                                offset : IntelSmbusRegister.STATUS,
+                                offset : IntelSmbusRegister.SMBHSTSTS,
                                  value : Data.SetBit(
-                                       input : _ioPort.ReadByte(offset: IntelSmbusRegister.STATUS), 
+                                       input : _ioPort.ReadByte(offset: IntelSmbusRegister.SMBHSTSTS), 
                                     position : 0, 
                                        value : true)); 
                             while (GetBusStatus() == SmbStatus.BUSY) { }
@@ -871,7 +925,7 @@ namespace SpdReaderWriterDll {
                         
                         // Execute
                         _ioPort.WriteByte(
-                            offset : IntelSmbusRegister.COMMAND,
+                            offset : IntelSmbusRegister.SMBHSTCNT,
                              value : cmd);
                         while (GetBusStatus() == SmbStatus.BUSY) { }
 
@@ -976,6 +1030,7 @@ namespace SpdReaderWriterDll {
                 switch (_deviceInfo.deviceId) {
 
                     case ChipsetDeviceId.X299:
+                    case ChipsetDeviceId.C422:
                         _status = _pciDevice.ReadByte((byte)(X299SmbusRegister.STATUS + (_busNumber * 4)));
                         if ((_status & X299SmbusStatus.BUSY) > 0) {
                             return SmbStatus.BUSY;
@@ -994,7 +1049,7 @@ namespace SpdReaderWriterDll {
                             break;
                         }
 
-                        _status = _ioPort.ReadByte(IntelSmbusRegister.STATUS);
+                        _status = _ioPort.ReadByte(IntelSmbusRegister.SMBHSTSTS);
 
                         // Check first 6 bits (SMSTS, FAIL, BERR, DERR, INTR, HBSY)
                         if (Data.GetByteFromBits(_status, 5) == 0) {
