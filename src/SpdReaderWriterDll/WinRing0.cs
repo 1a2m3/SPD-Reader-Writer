@@ -93,7 +93,7 @@ namespace SpdReaderWriterDll {
             }
 
             if (!(IsHandleOpen || OpenDriverHandle())) {
-                throw new Exception("Unable to open driver file handle");
+                throw new Exception("Unable to open driver handle");
             }
         }
 
@@ -116,7 +116,7 @@ namespace SpdReaderWriterDll {
 
             if (_disposeOnExit && refCount <= 1) {
                 StopDriver();
-                RemoveDriver(deleteFile: true);
+                RemoveDriver(deleteFile: false);
             }
 
             _deviceHandle = null;
@@ -136,9 +136,11 @@ namespace SpdReaderWriterDll {
 
             if (!(File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName)))) {
 
-                // Save driver to local file
                 try {
+                    // Save driver to local file
                     File.WriteAllBytes(_fileName, driverFileContents);
+                    // Set file's system attribute
+                    File.SetAttributes(_fileName, FileAttributes.System);
                 }
                 catch {
                     return false;
@@ -300,7 +302,7 @@ namespace SpdReaderWriterDll {
         /// Checks if the driver is installed
         /// </summary>
         /// <returns><see langref="true"/> if the driver is installed</returns>
-        public bool CheckDriver() {
+        public static bool CheckDriver() {
 
             _sc = new ServiceController(_name);
 
@@ -382,7 +384,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the operation succeeds</returns>
         private static bool DeviceIoControl<T>(UInt32 ioControlCode, object inputData, ref T outputData) {
 
-            if (_deviceHandle.IsInvalid || _deviceHandle.IsClosed) {
+            if (!_isReady) {
                 return false;
             }
 
@@ -413,7 +415,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the operation succeeds</returns>
         private static bool DeviceIoControl(UInt32 ioControlCode, object inputData) {
 
-            if (_deviceHandle.IsInvalid || _deviceHandle.IsClosed) {
+            if (!_isReady) {
                 return false;
             }
 
@@ -1120,7 +1122,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service controller for the driver
         /// </summary>
-        private ServiceController _sc;
+        private static ServiceController _sc;
+
+        /// <summary>
+        /// Driver ready state
+        /// </summary>
+        private static bool _isReady => _deviceHandle != null && !_deviceHandle.IsInvalid && !_deviceHandle.IsClosed;
 
         /// <summary>
         /// Service control manager pointer
@@ -1135,8 +1142,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private string _fileName => Path.GetTempPath() + Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
-
+        private string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
+                                    Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+        
         /// <summary>
         /// Indicates whether the driver service should be stopped and deleted on exit
         /// </summary>
@@ -1653,7 +1661,7 @@ namespace SpdReaderWriterDll {
             /// <param name="lpServiceName"></param>
             /// <param name="dwDesiredAccess"></param>
             /// <returns>If the function succeeds, the return value is a handle to the service. If the function fails, the return value is <see cref="IntPtr.Zero"/>.</returns>
-            [DllImport("advapi32.dll", EntryPoint = "OpenServiceW", SetLastError = true, CharSet = CharSet.Ansi)]
+            [DllImport("advapi32.dll", EntryPoint = "OpenServiceW", SetLastError = true, CharSet = CharSet.Unicode)]
             internal static extern IntPtr OpenService(IntPtr hSCManager, string lpServiceName, ServiceRights dwDesiredAccess);
 
             /// <summary>
