@@ -83,7 +83,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Word value</param>
-        public void WriteWord(UInt8 offset, byte value) {
+        public void WriteWord(UInt8 offset, UInt16 value) {
             Smbus._driver.WriteIoPortWord((UInt16)(BaseAddress + offset), value);
         }
 
@@ -92,7 +92,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Dword value</param>
-        public void WriteDword(UInt8 offset, byte value) {
+        public void WriteDword(UInt8 offset, UInt32 value) {
             Smbus._driver.WriteIoPortDword((UInt16)(BaseAddress + offset), value);
         }
 
