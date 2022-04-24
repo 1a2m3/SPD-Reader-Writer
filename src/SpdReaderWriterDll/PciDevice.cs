@@ -62,7 +62,7 @@ namespace SpdReaderWriterDll {
         /// Initializes PciDevice instance based on its memory address location
         /// </summary>
         /// <param name="memoryAddress">PCI device memory location</param>
-        public PciDevice(uint memoryAddress) {
+        public PciDevice(UInt32 memoryAddress) {
             PciInfo.BusNumber      = WinRing0.PciGetBus(memoryAddress);
             PciInfo.DeviceNumber   = WinRing0.PciGetDev(memoryAddress);
             PciInfo.FunctionNumber = WinRing0.PciGetFunc(memoryAddress);
