@@ -136,15 +136,19 @@ namespace SpdReaderWriterDll {
 
             if (!(File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName)))) {
 
+                // Save driver to local file
                 try {
-                    // Save driver to local file
                     File.WriteAllBytes(_fileName, driverFileContents);
-                    // Set file's system attribute
-                    File.SetAttributes(_fileName, FileAttributes.System);
                 }
                 catch {
                     return false;
                 }
+
+                // Set file's system attribute
+                try {
+                    File.SetAttributes(_fileName, FileAttributes.System);
+                }
+                finally { }
             }
 
             return File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName));
