@@ -124,17 +124,18 @@ namespace SpdReaderWriterDll {
         /// <returns> <see langword="true"/> if <paramref name="input"/> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
-            return (input.Length == (int)SpdSize.DDR5 ||
-                    input.Length == (int)SpdSize.DDR4 ||
-                    input.Length == (int)SpdSize.DDR3) &&
-                   (input.Length == (int)SpdSize.DDR5 && GetRamType(input) == Ram.Type.DDR5 ||
-                    input.Length == (int)SpdSize.DDR4 && GetRamType(input) == Ram.Type.DDR4 ||
-                    input.Length == (int)SpdSize.DDR3 &&
-                    (GetRamType(input) == Ram.Type.DDR3 ||
-                     GetRamType(input) == Ram.Type.DDR2 ||
-                     GetRamType(input) == Ram.Type.DDR ||
-                     GetRamType(input) == Ram.Type.SDRAM)
-                );
+            switch (input.Length) {
+                case (int)SpdSize.DDR5 when GetRamType(input) == Ram.Type.DDR5:
+                case (int)SpdSize.DDR4 when GetRamType(input) == Ram.Type.DDR4:
+                    return true;
+                case (int)SpdSize.MINIMUM:
+                    return GetRamType(input) == Ram.Type.DDR3 || 
+                           GetRamType(input) == Ram.Type.DDR2 || 
+                           GetRamType(input) == Ram.Type.DDR  ||
+                           GetRamType(input) == Ram.Type.SDRAM;
+                default:
+                    return false;
+            }
         }
 
         /// <summary>
