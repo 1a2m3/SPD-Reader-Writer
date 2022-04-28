@@ -71,14 +71,6 @@ namespace SpdReaderWriterDll {
         /// Initializes kernel driver
         /// </summary>
         public WinRing0() {
-            Initialize();
-        }
-
-        /// <summary>
-        /// Initializes kernel driver instance
-        /// </summary>
-        private void Initialize() {
-
             if (IsInstalled && IsServiceRunning) {
                 _disposeOnExit = false;
             }
@@ -148,7 +140,9 @@ namespace SpdReaderWriterDll {
                 try {
                     File.SetAttributes(_fileName, FileAttributes.System);
                 }
-                finally { }
+                finally {
+                    // Do nothing, driver will work regardless of file attributes set
+                }
             }
 
             return File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName));
@@ -1196,22 +1190,27 @@ namespace SpdReaderWriterDll {
             /// The requested sharing mode of the file or device
             /// </summary>
             internal enum FileShare {
+
                 /// <summary>
                 /// Prevents other processes from opening a file or device if they request delete, read, or write access.
                 /// </summary>
                 FILE_SHARE_EXCLUSIVE         = 0x00000000,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request delete access.
                 /// </summary>
                 FILE_SHARE_DELETE            = 0x00000004,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read access.
                 /// </summary>
                 FILE_SHARE_READ              = 0x00000001,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request write access.
                 /// </summary>
                 FILE_SHARE_WRITE             = 0x00000002,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read and write access.
                 /// </summary>
@@ -1222,22 +1221,27 @@ namespace SpdReaderWriterDll {
             /// An action to take on a file or device that exists or does not exist.
             /// </summary>
             internal enum FileMode {
+
                 /// <summary>
                 /// Creates a new file, only if it does not already exist.
                 /// </summary>
                 CREATE_NEW                   = 1,
+
                 /// <summary>
                 /// Creates a new file, always. 
                 /// </summary>
                 CREATE_ALWAYS                = 2,
+
                 /// <summary>
                 /// Opens a file or device, only if it exists. 
                 /// </summary>
                 OPEN_EXISTING                = 3,
+
                 /// <summary>
                 /// Opens a file, always. 
                 /// </summary>
                 OPEN_ALWAYS                  = 4,
+
                 /// <summary>
                 /// Opens a file and truncates it so that its size is zero bytes, only if it exists. 
                 /// </summary>
@@ -1250,80 +1254,99 @@ namespace SpdReaderWriterDll {
             /// All other file attributes override <see cref="FILE_ATTRIBUTE_NORMAL"/>.
             /// </summary>
             internal enum FileAttributes : UInt32 {
+
                 /// <summary>
                 /// The file is read only. Applications can read the file, but cannot write to or delete it.
                 /// </summary>
                 FILE_ATTRIBUTE_READONLY      = 0x1,
+
                 /// <summary>
                 /// The file is hidden. Do not include it in an ordinary directory listing. 
                 /// </summary>
                 FILE_ATTRIBUTE_HIDDEN        = 0x2,
+
                 /// <summary>
                 /// The file is part of or used exclusively by an operating system. 
                 /// </summary>
                 FILE_ATTRIBUTE_SYSTEM        = 0x4,
+
                 /// <summary>
                 /// The file should be archived. Applications use this attribute to mark files for backup or removal. 
                 /// </summary>
                 FILE_ATTRIBUTE_ARCHIVE       = 0x20,
+
                 /// <summary>
                 /// The file does not have other attributes set. This attribute is valid only if used alone. 
                 /// </summary>
                 FILE_ATTRIBUTE_NORMAL        = 0x80,
+
                 /// <summary>
                 /// The file is being used for temporary storage. 
                 /// </summary>
                 FILE_ATTRIBUTE_TEMPORARY     = 0x100,
+
                 /// <summary>
                 /// The data of a file is not immediately available. This attribute indicates that file data is physically moved to offline storage.
                 /// </summary>
                 FILE_ATTRIBUTE_OFFLINE       = 0x1000,
+
                 /// <summary>
                 /// The file or directory is encrypted. For a file, data is encrypted. For a directory, encryption is enabled for newly created files and subdirectories. 
                 /// </summary>
                 FILE_ATTRIBUTE_ENCRYPTED     = 0x4000,
+
                 /// <summary>
                 /// The file is being opened or created for a backup or restore operation. 
                 /// </summary>
                 FILE_FLAG_BACKUP_SEMANTICS   = 0x02000000,
+
                 /// <summary>
                 /// The file is to be deleted immediately after all of its handles are closed, which includes the specified handle and any other open or duplicated handles. 
                 /// </summary>
                 FILE_FLAG_DELETE_ON_CLOSE    = 0x04000000,
+
                 /// <summary>
                 /// The file or device is being opened with no system caching for data reads and writes. 
                 /// </summary>
                 FILE_FLAG_NO_BUFFERING       = 0x20000000,
+
                 /// <summary>
                 /// The file data is requested, but it should continue to be located in remote storage.
                 /// </summary>
                 FILE_FLAG_OPEN_NO_RECALL     = 0x00100000,
+
                 /// <summary>
                 /// Normal reparse point processing will not occur; <see cref="CreateFile"/> will attempt to open the reparse point.
                 /// When a file is opened, a file handle is returned, whether or not the filter that controls the reparse point is operational.
                 /// This flag cannot be used with the <see cref="FileMode.CREATE_ALWAYS"/> flag.
                 /// </summary>
                 FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000,
+
                 /// <summary>
                 /// The file or device is being opened or created for asynchronous I/O. 
                 /// </summary>
                 FILE_FLAG_OVERLAPPED         = 0x40000000,
+                
                 /// <summary>
                 /// Access will occur according to POSIX rules. This includes allowing multiple files with names, differing only in case, for file systems that support that naming. 
                 /// </summary>
                 FILE_FLAG_POSIX_SEMANTICS    = 0x01000000,
+
                 /// <summary>
                 /// Access is intended to be random. The system can use this as a hint to optimize file caching. 
                 /// </summary>
                 FILE_FLAG_RANDOM_ACCESS      = 0x10000000,
+
                 /// <summary>
                 /// The file or device is being opened with session awareness. 
                 /// </summary>
                 FILE_FLAG_SESSION_AWARE      = 0x00800000,
+
                 /// <summary>
                 /// Access is intended to be sequential from beginning to end.
                 /// </summary>
                 FILE_FLAG_SEQUENTIAL_SCAN    = 0x08000000,
+
                 /// <summary>
                 /// Write operations will not go through any intermediate cache, they will go directly to disk.
                 /// </summary>
@@ -1408,18 +1431,22 @@ namespace SpdReaderWriterDll {
             /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
             /// </summary>
             internal enum IOCTL_METHOD : uint {
+
                 /// <summary>
                 /// Specifies the buffered I/O method, which is typically used for transferring small amounts of data per request. 
                 /// </summary>
                 METHOD_BUFFERED   = 0,
+
                 /// <summary>
                 /// Specifies the direct I/O method, which is typically used for writing large amounts of data, using DMA or PIO, that must be transferred quickly.
                 /// </summary>
                 METHOD_IN_DIRECT  = 1,
+
                 /// <summary>
                 /// Specifies the direct I/O method, which is typically used for reading large amounts of data, using DMA or PIO, that must be transferred quickly.
                 /// </summary>
                 METHOD_OUT_DIRECT = 2,
+
                 /// <summary>
                 /// Specifies neither buffered nor direct I/O. The I/O manager does not provide any system buffers or MDLs.
                 /// </summary>
@@ -1430,18 +1457,22 @@ namespace SpdReaderWriterDll {
             /// Indicates the type of access that a caller must request when opening the file object that represents the device.
             /// </summary>
             internal enum IOCTL_ACCESS : byte {
+
                 /// <summary>
                 /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
                 /// </summary>
                 FILE_ANY_ACCESS   = 0,
+
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
                 /// </summary>
                 FILE_READ_DATA    = 1,
+
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
                 /// </summary>
                 FILE_WRITE_DATA   = 2,
+
                 /// <summary>
                 /// The caller must have both read and write access rights
                 /// </summary>
@@ -1533,30 +1564,37 @@ namespace SpdReaderWriterDll {
             /// The service type
             /// </summary>
             internal enum ServiceType : UInt32 {
+
                 /// <summary>
                 /// Driver service
                 /// </summary>
                 SERVICE_KERNEL_DRIVER       = 0x00000001,
+
                 /// <summary>
                 /// File system driver service
                 /// </summary>
                 SERVICE_FILE_SYSTEM_DRIVER  = 0x00000002,
+
                 /// <summary>
                 /// Reserved
                 /// </summary>
                 SERVICE_ADAPTER             = 0x00000004,
+
                 /// <summary>
                 /// Reserved
                 /// </summary>
                 SERVICE_RECOGNIZER_DRIVER   = 0x00000008,
+
                 /// <summary>
                 /// Service that runs in its own process
                 /// </summary>
                 SERVICE_WIN32_OWN_PROCESS   = 0x00000010,
+
                 /// <summary>
                 /// Service that shares a process with one or more other services
                 /// </summary>
                 SERVICE_WIN32_SHARE_PROCESS = 0x00000020,
+
                 /// <summary>
                 /// The service can interact with the desktop
                 /// </summary>
@@ -1571,18 +1609,22 @@ namespace SpdReaderWriterDll {
                 /// A device driver started by the system loader. This value is valid only for driver services
                 /// </summary>
                 SERVICE_BOOT_START          = 0x00000000,
+
                 /// <summary>
                 /// A device driver started by the IoInitSystem function. This value is valid only for driver services
                 /// </summary>
                 SERVICE_SYSTEM_START        = 0x00000001,
+
                 /// <summary>
                 /// A service started automatically by the service control manager during system startup
                 /// </summary>
                 SERVICE_AUTO_START          = 0x00000002,
+
                 /// <summary>
                 /// A service started by the service control manager when a process calls the <see cref="StartService"/> function
                 /// </summary>
-                SERVICE_DEMAND_START = 0x00000003,
+                SERVICE_DEMAND_START        = 0x00000003,
+
                 /// <summary>
                 /// A service that cannot be started. Attempts to start the service result in the error code ERROR_SERVICE_DISABLED
                 /// </summary>
@@ -1593,24 +1635,28 @@ namespace SpdReaderWriterDll {
             /// The severity of the error, and action taken, if this service fails to start
             /// </summary>
             internal enum ErrorControl : UInt32 {
-                /// <summary>
-                /// The startup program logs the error in the event log, if possible
-                /// </summary>
-                SERVICE_ERROR_CRITICAL      = 0x00000003,
+                
                 /// <summary>
                 /// The startup program ignores the error and continues the startup operation
                 /// </summary>
                 SERVICE_ERROR_IGNORE        = 0x00000000,
+                
                 /// <summary>
                 /// The startup program logs the error in the event log but continues the startup operation
                 /// </summary>
                 SERVICE_ERROR_NORMAL        = 0x00000001,
+                
                 /// <summary>
                 /// The startup program logs the error in the event log.
                 /// If the last-known-good configuration is being started, the startup operation continues.
                 /// Otherwise, the system is restarted with the last-known-good configuration.
                 /// </summary>
                 SERVICE_ERROR_SEVERE        = 0x00000002,
+
+                /// <summary>
+                /// The startup program logs the error in the event log, if possible
+                /// </summary>
+                SERVICE_ERROR_CRITICAL      = 0x00000003,
             }
 
             /// <summary>
@@ -1672,43 +1718,78 @@ namespace SpdReaderWriterDll {
             /// Specific access rights for a service
             /// </summary>
             internal enum ServiceRights : uint {
-                STANDARD_RIGHTS_REQUIRED     = 0xF0000,
+
                 /// <summary>
                 /// Required to call the QueryServiceConfig and QueryServiceConfig2 functions to query the service configuration.
                 /// </summary>
                 SERVICE_QUERY_CONFIG         = 0x00001,
+
                 /// <summary>
                 /// Required to call the ChangeServiceConfig or ChangeServiceConfig2 function to change the service configuration. 
                 /// </summary>
                 SERVICE_CHANGE_CONFIG        = 0x00002,
+
                 /// <summary>
                 /// Required to call the QueryServiceStatus or QueryServiceStatusEx function to ask the service control manager about the status of the service.
                 /// </summary>
                 SERVICE_QUERY_STATUS         = 0x00004,
+
                 /// <summary>
                 /// Required to call the EnumDependentServices function to enumerate all the services dependent on the service.
                 /// </summary>
                 SERVICE_ENUMERATE_DEPENDENTS = 0x00008,
+
+
                 /// <summary>
                 /// Required to call the <see cref="StartService"/> function to start the service.
                 /// </summary>
                 SERVICE_START                = 0x00010,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to stop the service.
                 /// </summary>
                 SERVICE_STOP                 = 0x00020,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to pause or continue the service.
                 /// </summary>
                 SERVICE_PAUSE_CONTINUE       = 0x00040,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to ask the service to report its status immediately.
                 /// </summary>
                 SERVICE_INTERROGATE          = 0x00080,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to specify a user-defined control code.
                 /// </summary>
                 SERVICE_USER_DEFINED_CONTROL = 0x00100,
+
+                /// <summary>
+                /// The right to delete the object.
+                /// </summary>
+                DELETE                       = 0x10000,
+
+                /// <summary>
+                /// The right to read the information in the object's security descriptor, not including the information in the system access control list (SACL).
+                /// </summary>
+                READ_CONTROL                 = 0x20000,
+
+                /// <summary>
+                /// The right to modify the discretionary access control list (DACL) in the object's security descriptor.
+                /// </summary>
+                WRITE_DAC                    = 0x40000,
+
+                /// <summary>
+                /// The right to change the owner in the object's security descriptor.
+                /// </summary>
+                WRITE_OWNER                  = 0x80000,
+
+                /// <summary>
+                /// Combines DELETE, READ_CONTROL, WRITE_DAC, and WRITE_OWNER access.
+                /// </summary>
+                STANDARD_RIGHTS_REQUIRED     = DELETE | READ_CONTROL | WRITE_DAC | WRITE_OWNER,
+
                 /// <summary>
                 /// Includes <see cref="STANDARD_RIGHTS_REQUIRED"/> in addition to all access rights in this table.
                 /// </summary>
@@ -1739,38 +1820,47 @@ namespace SpdReaderWriterDll {
             /// Control codes for <see cref="ControlService"/>
             /// </summary>
             internal enum ServiceControlCode : UInt32 {
+
                 /// <summary>
                 /// Notifies a paused service that it should resume.
                 /// </summary>
                 SERVICE_CONTROL_CONTINUE       = 0x00000003,
+
                 /// <summary>
                 /// Notifies a service that it should report its current status information to the service control manager.
                 /// </summary>
                 SERVICE_CONTROL_INTERROGATE    = 0x00000004,
+
                 /// <summary>
                 /// Notifies a network service that there is a new component for binding.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDADD     = 0x00000007,
+
                 /// <summary>
                 /// Notifies a network service that one of its bindings has been disabled.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDDISABLE = 0x0000000A,
+
                 /// <summary>
                 /// Notifies a network service that a disabled binding has been enabled.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDENABLE  = 0x00000009,
+
                 /// <summary>
                 /// Notifies a network service that a component for binding has been removed.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDREMOVE  = 0x00000008,
+
                 /// <summary>
                 /// Notifies a service that its startup parameters have changed.
                 /// </summary>
                 SERVICE_CONTROL_PARAMCHANGE    = 0x00000006,
+
                 /// <summary>
                 /// Notifies a service that it should pause.
                 /// </summary>
                 SERVICE_CONTROL_PAUSE          = 0x00000002,
+
                 /// <summary>
                 /// Notifies a service that it should stop.
                 /// </summary>
@@ -1795,26 +1885,32 @@ namespace SpdReaderWriterDll {
             /// The type of service for <see cref="ServiceStatus"/>.
             /// </summary>
             internal enum ServiceStatusServiceType : UInt32 {
+
                 /// <summary>
                 /// The service is a file system driver. 
                 /// </summary>
                 SERVICE_FILE_SYSTEM_DRIVER     = 0x00000002,
+
                 /// <summary>
                 /// The service is a device driver. 
                 /// </summary>
                 SERVICE_KERNEL_DRIVER          = 0x00000001,
+
                 /// <summary>
                 /// The service runs in its own process. 
                 /// </summary>
                 SERVICE_WIN32_OWN_PROCESS      = 0x00000010,
+
                 /// <summary>
                 /// The service shares a process with other services. 
                 /// </summary>
                 SERVICE_WIN32_SHARE_PROCESS    = 0x00000020,
+
                 /// <summary>
                 /// The service runs in its own process under the logged-on user account. 
                 /// </summary>
                 SERVICE_USER_OWN_PROCESS       = 0x00000050,
+
                 /// <summary>
                 /// The service shares a process with one or more other services that run under the logged-on user account. 
                 /// </summary>
@@ -1825,30 +1921,37 @@ namespace SpdReaderWriterDll {
             /// The current state of the service for <see cref="ServiceStatus"/>. 
             /// </summary>
             internal enum ServiceStatusCurrentState : UInt32 {
+
                 /// <summary>
                 /// The service continue is pending. 
                 /// </summary>
                 SERVICE_CONTINUE_PENDING       = 0x00000005,
+
                 /// <summary>
                 /// The service pause is pending. 
                 /// </summary>
                 SERVICE_PAUSE_PENDING          = 0x00000006,
+
                 /// <summary>
                 /// The service is paused.
                 /// </summary>
                 SERVICE_PAUSED                 = 0x00000007,
+
                 /// <summary>
                 /// The service is running. 
                 /// </summary>
                 SERVICE_RUNNING                = 0x00000004,
+
                 /// <summary>
                 /// The service is starting. 
                 /// </summary>
                 SERVICE_START_PENDING          = 0x00000002,
+
                 /// <summary>
                 /// The service is stopping. 
                 /// </summary>
                 SERVICE_STOP_PENDING           = 0x00000003,
+
                 /// <summary>
                 /// The service is not running. 
                 /// </summary>
@@ -1859,26 +1962,32 @@ namespace SpdReaderWriterDll {
             /// The control codes the service accepts and processes in its handler function for <see cref="ServiceStatus"/>.
             /// </summary>
             internal enum ServiceStatusControlsAccepted : UInt32 {
+
                 /// <summary>
                 /// The service is a network component that can accept changes in its binding without being stopped and restarted.
                 /// </summary>
                 SERVICE_ACCEPT_NETBINDCHANGE   = 0x00000010,
+
                 /// <summary>
                 /// The service can reread its startup parameters without being stopped and restarted.
                 /// </summary>
                 SERVICE_ACCEPT_PARAMCHANGE     = 0x00000008,
+
                 /// <summary>
                 /// The service can be paused and continued.
                 /// </summary>
                 SERVICE_ACCEPT_PAUSE_CONTINUE  = 0x00000002,
+
                 /// <summary>
                 /// The service can perform preshutdown tasks.
                 /// </summary>
                 SERVICE_ACCEPT_PRESHUTDOWN     = 0x00000100,
+
                 /// <summary>
                 /// The service is notified when system shutdown occurs.
                 /// </summary>
                 SERVICE_ACCEPT_SHUTDOWN        = 0x00000004,
+
                 /// <summary>
                 /// The service can be stopped.
                 /// </summary>
