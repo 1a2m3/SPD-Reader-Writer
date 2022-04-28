@@ -17,7 +17,7 @@ using UInt8 = System.Byte;
 namespace SpdReaderWriterDll {
 
     /// <summary>
-    /// Data class
+    /// Data class which works with bytes, bits, streams, and other types of data
     /// </summary>
     public class Data {
 
@@ -204,7 +204,16 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte array</param>
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString(byte[] input) {
-            return System.Text.Encoding.Default.GetString(input);
+            return System.Text.Encoding.Default.GetString(input).Trim();
+        }
+
+        /// <summary>
+        /// Converts char array to string
+        /// </summary>
+        /// <param name="input">Input char array</param>
+        /// <returns>Text string from <paramref name="input"/></returns>
+        public static string BytesToString(char[] input) {
+            return new string(input).Trim();
         }
     }
 }
