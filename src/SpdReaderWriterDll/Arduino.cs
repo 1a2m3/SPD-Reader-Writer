@@ -1084,7 +1084,7 @@ namespace SpdReaderWriterDll {
             lock (_portLock) {
                 try {
                     if (CurrentName == null) {
-                        CurrentName = Encoding.Default.GetString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16)).Split('\0')[0];
+                        CurrentName = Encoding.Default.GetString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16)).Trim();
                     }
                     return CurrentName;
                 }
