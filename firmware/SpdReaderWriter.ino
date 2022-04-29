@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20220417 // Version number (YYYYMMDD)
+#define VERSION 20220429 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -48,28 +48,28 @@
 
 // EEPROM page commands
 #pragma region EEPROM page commands
-#define SPA0 0x6C  // Set EE Page Address to 0 (addresses  00h to  FFh) (  0-255) (DDR4)
-#define SPA1 0x6E  // Set EE Page Address to 1 (addresses 100h to 1FFh) (256-511) (DDR4)
-#define RPA  0x6D  // Read EE Page Address                                        (DDR4)
+#define SPA0 0x6C  // Set EE Page Address to 0 (offsets  00h to  FFh) (  0-255) (DDR4)
+#define SPA1 0x6E  // Set EE Page Address to 1 (offsets 100h to 1FFh) (256-511) (DDR4)
+#define RPA  0x6D  // Read EE Page Address                                      (DDR4)
 #pragma endregion
 
 // EEPROM RSWP commands
 #pragma region EEPROM RSWP commands
-#define RPS0 0x63  // Read SWP0 status         (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
-#define RPS1 0x69  // Read SWP1 status         (addresses  80h to  FFh) (128-255) (DDR4)
-#define RPS2 0x6B  // Read SWP2 status         (addresses 100h to 17Fh) (256-383) (DDR4)
-#define RPS3 0x61  // Read SWP3 status         (addresses 180h to 1FFh) (384-511) (DDR4)
+#define RPS0 0x63  // Read SWP0 status         (offsets  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
+#define RPS1 0x69  // Read SWP1 status         (offsets  80h to  FFh) (128-255) (DDR4)
+#define RPS2 0x6B  // Read SWP2 status         (offsets 100h to 17Fh) (256-383) (DDR4)
+#define RPS3 0x61  // Read SWP3 status         (offsets 180h to 1FFh) (384-511) (DDR4)
 
-#define SWP0 0x62  // Set RSWP for block 0     (addresses  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2) *
-#define SWP1 0x68  // Set RSWP for block 1     (addresses  80h to  FFh) (128-255) (DDR4)
-#define SWP2 0x6A  // Set RSWP for block 2     (addresses 100h to 17Fh) (256-383) (DDR4)
-#define SWP3 0x60  // Set RSWP for block 3     (addresses 180h to 1FFh) (384-511) (DDR4)           *
+#define SWP0 0x62  // Set RSWP for block 0     (offsets  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2) *
+#define SWP1 0x68  // Set RSWP for block 1     (offsets  80h to  FFh) (128-255) (DDR4)
+#define SWP2 0x6A  // Set RSWP for block 2     (offsets 100h to 17Fh) (256-383) (DDR4)
+#define SWP3 0x60  // Set RSWP for block 3     (offsets 180h to 1FFh) (384-511) (DDR4)           *
 
-#define CWP  0x66  // Clear RSWP                                                  (DDR4/DDR3/DDR2) *
+#define CWP  0x66  // Clear RSWP                                                (DDR4/DDR3/DDR2) *
 #pragma endregion
 
 // EEPROM PSWP commands
-#define PWPB 0b0110  // PSWP Device Type Identifier Control Code (bits 7-4)       (DDR3/DDR2)
+#define PWPB 0b0110  // PSWP Device Type Identifier Control Code (bits 7-4)     (DDR3/DDR2)
 
 // EEPROM temperature sensor register commands
 #pragma region EEPROM temperature sensor register commands
@@ -428,10 +428,10 @@ void cmdName() {
   if (buffer[0] == GET) {
     String deviceName = getName();
     PORT.print(deviceName);
-    // Pad the response with \0's
+    // Pad the response with spaces
     if (deviceName.length() < NAMELENGTH) {
       for (int i = deviceName.length(); i < NAMELENGTH; i++) {
-        PORT.write(ZERO);
+        PORT.write(" ");
       }
     }
   }
