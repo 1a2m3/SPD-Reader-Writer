@@ -89,7 +89,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Finds PCI device by Vendor and Device ID
+        /// Finds PCI device by Vendor and Device IDs
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>

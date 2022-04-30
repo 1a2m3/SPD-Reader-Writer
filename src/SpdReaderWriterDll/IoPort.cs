@@ -35,6 +35,11 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// IO Port base address
+        /// </summary>
+        public UInt16 BaseAddress { get; set; }
+
+        /// <summary>
         /// IO port instance description
         /// </summary>
         /// <returns>Readable IO port instance description</returns>
@@ -95,10 +100,5 @@ namespace SpdReaderWriterDll {
         public void WriteDword(UInt8 offset, UInt32 value) {
             Smbus._driver.WriteIoPortDword((UInt16)(BaseAddress + offset), value);
         }
-
-        /// <summary>
-        /// IO Port base address
-        /// </summary>
-        public UInt16 BaseAddress { get; set; }
     }
 }
