@@ -135,14 +135,6 @@ namespace SpdReaderWriterDll {
                 catch {
                     return false;
                 }
-
-                // Set file's system attribute
-                try {
-                    File.SetAttributes(_fileName, FileAttributes.System);
-                }
-                finally {
-                    // Do nothing, driver will work regardless of file attributes set
-                }
             }
 
             return File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName));
@@ -1377,7 +1369,7 @@ namespace SpdReaderWriterDll {
                 IntPtr lpOverlapped);
 
             /// <summary>
-            /// IO control codes to be passed to <see cref="DeviceIoControl"/> method as dwIoControlCode parameter
+            /// WinRing0 IO control codes
             /// </summary>
             public struct IoControlCode {
                 /// <summary>
