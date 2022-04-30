@@ -246,6 +246,57 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Enables software write protection on all EEPROM blocks
+        /// </summary>
+        /// <param name="device">SMB device instance</param>
+        /// <returns><see langword="true"/> when the write protection has been enabled on all blocks</returns>
+        public static bool SetRswp(Smbus device) {
+            
+            for (byte i = 0; i <= 3; i++) {
+                if (SetRswp(device, i)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Enables software write protection on the specified EEPROM block 
+        /// </summary>
+        /// <param name="device">SMB device instance</param>
+        /// <param name="block">Block number to be write protected</param>
+        /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
+        public static bool SetRswp(Smbus device, UInt8 block) {
+
+            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.MINIMUM && block >= 1) {
+                throw new ArgumentOutOfRangeException(nameof(block));
+            }
+
+            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR4 && block >= 4) {
+                throw new ArgumentOutOfRangeException(nameof(block));
+            }
+
+            byte[] commands = { 
+                EepromCommand.SWP0, 
+                EepromCommand.SWP1, 
+                EepromCommand.SWP2, 
+                EepromCommand.SWP3,
+            };
+
+            return Smbus.WriteByte(device, (byte)(commands[block] >> 1));
+        }
+
+        /// <summary>
+        /// Clears EEPROM write protection 
+        /// </summary>
+        /// <param name="device">SMB device instance</param>
+        /// <returns><see langword="true"/> if the write protection has been disabled</returns>
+        public static bool ClearRswp(Smbus device) {
+            return Smbus.WriteByte(device, EepromCommand.CWP >> 1);
+        }
+
+        /// <summary>
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
         /// <param name="device">SMBus device instance</param>
@@ -455,7 +506,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be write protected</param>
-        /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/> </returns>
+        /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
         public static bool SetRswp(Arduino device, UInt8 block) {
             try {
                 return device.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
@@ -578,6 +629,13 @@ namespace SpdReaderWriterDll {
             internal const byte RPS1 = 0x69;
             internal const byte RPS2 = 0x6B;
             internal const byte RPS3 = 0x61;
+
+            internal const byte SWP0 = 0x62;
+            internal const byte SWP1 = 0x68;
+            internal const byte SWP2 = 0x6A;
+            internal const byte SWP3 = 0x60;
+
+            internal const byte CWP  = 0x66;
 
             // PSWP commands
             internal const byte PWPB = 0b0110;
