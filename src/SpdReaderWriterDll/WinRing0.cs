@@ -275,12 +275,14 @@ namespace SpdReaderWriterDll {
                     }
                 }
 
-                return _sc.Status == ServiceControllerStatus.Stopped || _sc.Status == ServiceControllerStatus.StopPending;
+                return _sc.Status == ServiceControllerStatus.Stopped || 
+                       _sc.Status == ServiceControllerStatus.StopPending;
             }
             catch {
                 try {
                     _sc = new ServiceController(_name);
-                    return _sc.Status == ServiceControllerStatus.Stopped || _sc.Status == ServiceControllerStatus.StopPending;
+                    return _sc.Status == ServiceControllerStatus.Stopped || 
+                           _sc.Status == ServiceControllerStatus.StopPending;
                 }
                 catch {
                     return true;
