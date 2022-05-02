@@ -224,10 +224,16 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets current device I2C clock mode
         /// </summary>
-        /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode, or <see langword="false"/> if it is in standard mode</returns>
+        /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode,
+        /// or <see langword="false"/> if it is running in standard mode</returns>
         public bool GetI2CClock() {
             return GetI2CClockPrivate();
         }
+
+        /// <summary>
+        /// Gets current device I2C clock
+        /// </summary>
+        public UInt16 I2CClock => (UInt16)(GetI2CClockPrivate() ? 400 : 100);
 
         /// <summary>
         /// Resets the device's settings to defaults
@@ -398,9 +404,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Device's firmware version
         /// </summary>
-        public int FirmwareVersion {
+        public string FirmwareVersion {
             get {
-                return GetFirmwareVersionPrivate();
+                return GetFirmwareVersionPrivate().ToString();
             }
         }
 
@@ -411,11 +417,6 @@ namespace SpdReaderWriterDll {
         public int GetFirmwareVersion() {
             return GetFirmwareVersionPrivate();
         }
-
-        /// <summary>
-        /// Device's current assigned user  name
-        /// </summary>
-        public string CurrentName;
 
         /// <summary>
         /// Device's user assigned name
@@ -1062,10 +1063,7 @@ namespace SpdReaderWriterDll {
                         // copy new name to byte array
                         Array.Copy(Encoding.ASCII.GetBytes(_name), 0, _nameCommand, 2, _name.Length);
                         
-                        if (ExecuteCommand(_nameCommand) == Response.SUCCESS) {
-                            CurrentName = _name;
-                            return true;
-                        }
+                        return ExecuteCommand(_nameCommand) == Response.SUCCESS;
                     }
                 }
                 catch {
@@ -1083,10 +1081,7 @@ namespace SpdReaderWriterDll {
         private string GetNamePrivate() {
             lock (_portLock) {
                 try {
-                    if (CurrentName == null) {
-                        CurrentName = Encoding.Default.GetString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16)).Trim();
-                    }
-                    return CurrentName;
+                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16));
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} name");
