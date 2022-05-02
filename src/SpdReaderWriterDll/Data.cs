@@ -181,20 +181,22 @@ namespace SpdReaderWriterDll {
         /// <param name="input">GZip contents byte array</param>
         /// <returns>Decompressed byte array</returns>
         public static byte[] DecompressGzip(byte[] input) {
-            using (GZipStream stream = new GZipStream(new MemoryStream(input), CompressionMode.Decompress)) {
-                const int size = 4096;
-                byte[] buffer = new byte[size];
-                using (MemoryStream memory = new MemoryStream()) {
+
+            using (MemoryStream outputStream = new MemoryStream()) {
+                using (GZipStream zipStream = new GZipStream(new MemoryStream(input), CompressionMode.Decompress)) {
+
+                    byte[] buffer = new byte[16384];
                     int count;
+
                     do {
-                        count = stream.Read(buffer, 0, size);
+                        count = zipStream.Read(buffer, 0, buffer.Length);
                         if (count > 0) {
-                            memory.Write(buffer, 0, count);
+                            outputStream.Write(buffer, 0, count);
                         }
                     } while (count > 0);
-
-                    return memory.ToArray();
                 }
+
+                return outputStream.ToArray();
             }
         }
 
