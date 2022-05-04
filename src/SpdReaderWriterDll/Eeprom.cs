@@ -61,6 +61,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Smbus device, UInt16 offset, byte value) {
+
             AdjustPageAddress(device, offset);
             return Smbus.WriteByte(device, device.I2CAddress, offset, value);
         }
@@ -211,6 +212,7 @@ namespace SpdReaderWriterDll {
         /// <param name="device">SMBus device instance</param>
         /// <returns><see langword="true"/> if some blocks are write protected or <see langword="false"/> when all blocks are writable</returns>
         public static bool GetRswp(Smbus device) {
+
             for (UInt8 i = 0; i <= 3; i++) {
                 if (GetRswp(device, i)) {
                     return true;

@@ -45,12 +45,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public enum SpdSize {
             UNKNOWN       = 0,
-            MINIMUM       = 256,
-            SDRAM         = 256,
-            DDR           = 256,
-            DDR2          = 256,
-            DDR2_FB_DIMM  = 256,
-            DDR3          = 256,
+            MINIMUM       = 256, //DDR3, DDR2, DDR, and SDRAM
             DDR4          = 512,
             DDR5          = 1024,
         }

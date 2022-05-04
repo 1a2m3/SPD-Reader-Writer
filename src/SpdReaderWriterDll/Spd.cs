@@ -88,7 +88,7 @@ namespace SpdReaderWriterDll {
             }
 
             if (device.Scan().Length != 0) {
-                return SpdSize.DDR3;
+                return SpdSize.MINIMUM;
             }
 
             return 0;            
