@@ -144,7 +144,7 @@ namespace SpdReaderWriterDll {
         /// Installs kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if the driver is successfully installed</returns>
-        public bool InstallDriver() {
+        private bool InstallDriver() {
 
             if (!ExtractDriver()) {
                 return false;
@@ -177,7 +177,7 @@ namespace SpdReaderWriterDll {
         /// Deletes kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully deleted</returns>
-        public bool RemoveDriver() {
+        private bool RemoveDriver() {
 
             if (_managerPtr == IntPtr.Zero) {
                 return false;
@@ -198,7 +198,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="deleteFile">Set to <see langref="true"/> to delete driver file, or <see langref="false"/> to keep it</param>
         /// <returns><see langref="true"/> if the driver service and the driver file are successfully deleted</returns>
-        public bool RemoveDriver(bool deleteFile) {
+        private bool RemoveDriver(bool deleteFile) {
             if (!deleteFile) {
                 return RemoveDriver();
             }
@@ -220,7 +220,7 @@ namespace SpdReaderWriterDll {
         /// Starts kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully started</returns>
-        public bool StartDriver() {
+        private bool StartDriver() {
 
             if (!IsInstalled) {
                 return false;
@@ -251,7 +251,7 @@ namespace SpdReaderWriterDll {
         /// Stops kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully stopped</returns>
-        public bool StopDriver() {
+        private bool StopDriver() {
 
             _sc = new ServiceController(_name);
 
@@ -294,7 +294,7 @@ namespace SpdReaderWriterDll {
         /// Checks if the driver is installed
         /// </summary>
         /// <returns><see langref="true"/> if the driver is installed</returns>
-        public static bool CheckDriver() {
+        private static bool CheckDriver() {
 
             _sc = new ServiceController(_name);
 
@@ -310,7 +310,7 @@ namespace SpdReaderWriterDll {
         /// Opens driver handle
         /// </summary>
         /// <returns><see langref="true"/> if driver handle is successfully opened</returns>
-        public bool OpenDriverHandle() {
+        private bool OpenDriverHandle() {
 
             IntPtr driverHandle = Kernel32.CreateFile(
                 lpFileName            : $@"\\.\{_name}",
@@ -335,7 +335,7 @@ namespace SpdReaderWriterDll {
         /// Closes kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver handle is successfully closed</returns>
-        public bool CloseDriverHandle() {
+        private bool CloseDriverHandle() {
             if (IsHandleOpen) {
                 _deviceHandle.Close();
                 _deviceHandle.Dispose();

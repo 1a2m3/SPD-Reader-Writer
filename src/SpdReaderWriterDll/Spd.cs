@@ -320,7 +320,6 @@ namespace SpdReaderWriterDll {
                 // Part number for Kingston DDR2 and DDR SPDs
                 case Ram.Type.DDR2 when GetModuleManufacturer(input).StartsWith("Kingston"):
                 case Ram.Type.DDR  when GetModuleManufacturer(input).StartsWith("Kingston"):
-                //case Ram.Type.SDRAM when GetModuleManufacturer(input).StartsWith("Kingston"):
                     modelNameStart = 0xF0;
                     modelNameEnd   = 0xFF;
                     break;
