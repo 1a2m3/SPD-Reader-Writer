@@ -1016,9 +1016,7 @@ namespace SpdReaderWriterDll {
                 try {
                     if (IsConnected) {
                         _version = Int32.Parse(
-                            Encoding.Default.GetString(
-                                ExecuteCommand(Command.GETVERSION, 8)
-                            )
+                            Data.BytesToString(ExecuteCommand(Command.GETVERSION, 8))
                         );
                     }
                 }
@@ -1062,7 +1060,7 @@ namespace SpdReaderWriterDll {
                         _nameCommand[1] = (byte)_name.Length;
                         // copy new name to byte array
                         Array.Copy(Encoding.ASCII.GetBytes(_name), 0, _nameCommand, 2, _name.Length);
-                        
+
                         return ExecuteCommand(_nameCommand) == Response.SUCCESS;
                     }
                 }
