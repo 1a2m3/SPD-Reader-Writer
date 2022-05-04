@@ -1054,11 +1054,11 @@ namespace SpdReaderWriterDll {
 
                         // Prepare a byte array containing cmd byte + name length + name
                         byte[] _nameCommand = new byte[1 + 1 + _name.Length];
-                        // command byte at position 0
+                        // Command byte at position 0
                         _nameCommand[0] = Command.NAME;
-                        // name length at position 1
+                        // Name length at position 1
                         _nameCommand[1] = (byte)_name.Length;
-                        // copy new name to byte array
+                        // Copy new name to byte array
                         Array.Copy(Encoding.ASCII.GetBytes(_name), 0, _nameCommand, 2, _name.Length);
 
                         return ExecuteCommand(_nameCommand) == Response.SUCCESS;
@@ -1079,12 +1079,16 @@ namespace SpdReaderWriterDll {
         private string GetNamePrivate() {
             lock (_portLock) {
                 try {
-                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16));
+                    if (IsConnected) {
+                        return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16));
+                    }
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} name");
                 }
             }
+
+            return null;
         }
 
         /// <summary>
