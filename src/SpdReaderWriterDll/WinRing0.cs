@@ -1733,7 +1733,6 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 SERVICE_ENUMERATE_DEPENDENTS = 0x00008,
 
-
                 /// <summary>
                 /// Required to call the <see cref="StartService"/> function to start the service.
                 /// </summary>
