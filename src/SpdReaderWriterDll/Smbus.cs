@@ -784,6 +784,10 @@ namespace SpdReaderWriterDll {
         /// <see cref="SmbStatus.Error"/> or <see cref="SmbStatus.Timeout"/></returns>
         private static bool ExecuteCommand(ref SmbusData smbusData) {
 
+            if (PlatformType == Platform.Unknown) {
+                return false;
+            }
+
             if (PlatformType == Platform.SkylakeX) {
                 // Set input for writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
