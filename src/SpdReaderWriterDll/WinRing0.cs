@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -6,7 +17,6 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
-using System.Threading;
 using Microsoft.Win32.SafeHandles;
 using SpdReaderWriterDll.Properties;
 using UInt8 = System.Byte;
@@ -16,12 +26,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Kernel driver (WinRing0) class
     /// </summary>
-    public class WinRing0 {
-
-        /// <summary>
-        /// Service operation timeout
-        /// </summary>
-        public static Int32 Timeout => _timeout;
+    public class WinRing0 : IDisposable {
 
         /// <summary>
         /// Describes driver installation state
@@ -66,39 +71,21 @@ namespace SpdReaderWriterDll {
         /// Initializes kernel driver
         /// </summary>
         public WinRing0() {
-            Initialize();
-        }
-
-        /// <summary>
-        /// Initializes kernel driver instance
-        /// </summary>
-        private void Initialize() {
-            int retryCount = 5;
-            int retry = 0;
-
-            while (!(IsInstalled || InstallDriver())) {
-                Thread.Sleep(IsInstalled ? 0 : Timeout);
-                if (++retry == retryCount) {
+            if (IsInstalled && IsServiceRunning) {
+                _disposeOnExit = false;
+            }
+            else {
+                if (!(IsInstalled || InstallDriver())) {
                     throw new Exception("Unable to install driver service");
                 }
-            }
 
-            retry = 0;
-
-            while (!(IsServiceRunning || StartDriver())) {
-                Thread.Sleep(IsServiceRunning ? 0 : Timeout);
-                if (++retry == retryCount) {
+                if (!(IsServiceRunning || StartDriver())) {
                     throw new Exception("Unable to start driver service");
                 }
             }
 
-            retry = 0;
-
-            while (!(IsHandleOpen || OpenDriverHandle())) {
-                Thread.Sleep(IsHandleOpen ? 0 : Timeout);
-                if (++retry == retryCount) {
-                    throw new Exception("Unable to open driver file handle");
-                }
+            if (!(IsHandleOpen || OpenDriverHandle())) {
+                throw new Exception("Unable to open driver handle");
             }
         }
 
@@ -106,19 +93,26 @@ namespace SpdReaderWriterDll {
         /// Kernel driver destructor
         /// </summary>
         ~WinRing0() {
-            Deinitialize();
+            Dispose();
         }
 
         /// <summary>
         /// Deinitializes kernel driver instance
         /// </summary>
-        internal void Deinitialize() {
+        public void Dispose() {
             CloseDriverHandle();
-            StopDriver();
-            RemoveDriver(true);
+
+            int refCount = 0;
+
+            DeviceIoControl(Kernel32.IoControlCode.GET_REFCOUNT, null, ref refCount);
+
+            if (_disposeOnExit && refCount <= 1) {
+                StopDriver();
+                RemoveDriver(deleteFile: false);
+            }
 
             _deviceHandle = null;
-            
+
             Advapi32.CloseServiceHandle(_servicePtr);
             Advapi32.CloseServiceHandle(_managerPtr);
         }
@@ -150,9 +144,7 @@ namespace SpdReaderWriterDll {
         /// Installs kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if the driver is successfully installed</returns>
-        public bool InstallDriver() {
-
-            _fileName = Path.GetTempPath() + Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+        private bool InstallDriver() {
 
             if (!ExtractDriver()) {
                 return false;
@@ -185,7 +177,7 @@ namespace SpdReaderWriterDll {
         /// Deletes kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully deleted</returns>
-        public bool RemoveDriver() {
+        private bool RemoveDriver() {
 
             if (_managerPtr == IntPtr.Zero) {
                 return false;
@@ -206,7 +198,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="deleteFile">Set to <see langref="true"/> to delete driver file, or <see langref="false"/> to keep it</param>
         /// <returns><see langref="true"/> if the driver service and the driver file are successfully deleted</returns>
-        public bool RemoveDriver(bool deleteFile) {
+        private bool RemoveDriver(bool deleteFile) {
             if (!deleteFile) {
                 return RemoveDriver();
             }
@@ -228,7 +220,7 @@ namespace SpdReaderWriterDll {
         /// Starts kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully started</returns>
-        public bool StartDriver() {
+        private bool StartDriver() {
 
             if (!IsInstalled) {
                 return false;
@@ -259,12 +251,13 @@ namespace SpdReaderWriterDll {
         /// Stops kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully stopped</returns>
-        public bool StopDriver() {
+        private bool StopDriver() {
 
             _sc = new ServiceController(_name);
 
             try {
                 if (_sc.Status != ServiceControllerStatus.Stopped) {
+
                     _sc.Stop();
 
                     // Wait for Stopped or StopPending
@@ -281,12 +274,15 @@ namespace SpdReaderWriterDll {
                         }
                     }
                 }
-                return _sc.Status == ServiceControllerStatus.Stopped || _sc.Status == ServiceControllerStatus.StopPending;
+
+                return _sc.Status == ServiceControllerStatus.Stopped || 
+                       _sc.Status == ServiceControllerStatus.StopPending;
             }
             catch {
                 try {
                     _sc = new ServiceController(_name);
-                    return _sc.Status == ServiceControllerStatus.Stopped || _sc.Status == ServiceControllerStatus.StopPending;
+                    return _sc.Status == ServiceControllerStatus.Stopped || 
+                           _sc.Status == ServiceControllerStatus.StopPending;
                 }
                 catch {
                     return true;
@@ -298,7 +294,7 @@ namespace SpdReaderWriterDll {
         /// Checks if the driver is installed
         /// </summary>
         /// <returns><see langref="true"/> if the driver is installed</returns>
-        public bool CheckDriver() {
+        private static bool CheckDriver() {
 
             _sc = new ServiceController(_name);
 
@@ -314,12 +310,12 @@ namespace SpdReaderWriterDll {
         /// Opens driver handle
         /// </summary>
         /// <returns><see langref="true"/> if driver handle is successfully opened</returns>
-        public bool OpenDriverHandle() {
+        private bool OpenDriverHandle() {
 
             IntPtr driverHandle = Kernel32.CreateFile(
                 lpFileName            : $@"\\.\{_name}",
                 dwDesiredAccess       : Kernel32.FileAccess.GENERIC_READWRITE,
-                dwShareMode           : Kernel32.FileShare.FILE_SHARE_NONE,
+                dwShareMode           : Kernel32.FileShare.FILE_SHARE_READWRITE,
                 lpSecurityAttributes  : IntPtr.Zero,
                 dwCreationDisposition : Kernel32.FileMode.OPEN_EXISTING,
                 dwFlagsAndAttributes  : Kernel32.FileAttributes.FILE_ATTRIBUTE_NORMAL,
@@ -339,14 +335,13 @@ namespace SpdReaderWriterDll {
         /// Closes kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver handle is successfully closed</returns>
-        public bool CloseDriverHandle() {
-
+        private bool CloseDriverHandle() {
             if (IsHandleOpen) {
                 _deviceHandle.Close();
                 _deviceHandle.Dispose();
             }
 
-            return IsHandleOpen;
+            return !IsHandleOpen;
         }
 
         /// <summary>
@@ -361,12 +356,12 @@ namespace SpdReaderWriterDll {
 
             UInt32 output = default;
 
-            DeviceIoControl<UInt32>(Kernel32.IoControlCode.GET_DRIVER_VERSION, null, ref output);
+            DeviceIoControl(Kernel32.IoControlCode.GET_DRIVER_VERSION, null, ref output);
 
             major    = (byte)(output >> 24);
             minor    = (byte)(output >> 16);
             revision = (byte)(output >> 8);
-            release  = (byte)output;
+            release  = (byte) output;
 
             return output;
         }
@@ -381,7 +376,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the operation succeeds</returns>
         private static bool DeviceIoControl<T>(UInt32 ioControlCode, object inputData, ref T outputData) {
 
-            if (_deviceHandle.IsInvalid || _deviceHandle.IsClosed) {
+            if (!_isReady) {
                 return false;
             }
 
@@ -412,7 +407,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the operation succeeds</returns>
         private static bool DeviceIoControl(UInt32 ioControlCode, object inputData) {
 
-            if (_deviceHandle.IsInvalid || _deviceHandle.IsClosed) {
+            if (!_isReady) {
                 return false;
             }
 
@@ -431,7 +426,7 @@ namespace SpdReaderWriterDll {
         }
 
         #region PCI device
-        
+
         /// <summary>
         /// Converts PCI Bus Number, Device Number, and Function Number to PCI Device Address
         /// </summary>
@@ -491,7 +486,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentOutOfRangeException();
             }
 
-            UInt32 pciAddress = 0xFFFF;
+            UInt32 pciAddress = UInt32.MaxValue;
             UInt32 count      = 0;
 
             if (vendorId == 0xFFFF || deviceId == 0xFFFF || index == 0) {
@@ -693,15 +688,9 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <returns>Returns a byte value read from the specified PCI configuration address</returns>
-        public byte ReadPciConfigByte(uint pciAddress, byte regAddress) {
+        public byte ReadPciConfigByte(UInt32 pciAddress, UInt32 regAddress) {
 
-            ReadPciConfigInput pciData = default;
-            pciData.PciAddress         = pciAddress;
-            pciData.RegAddress         = regAddress;
-
-            byte output = default;
-
-            DeviceIoControl<byte>(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            ReadPciConfigByteEx(pciAddress, regAddress, out byte output);
 
             return output;
         }
@@ -713,15 +702,15 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="output">Byte value read from the specified PCI configuration address</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadPciConfigByteEx(uint pciAddress, byte regAddress, out byte output) {
+        public bool ReadPciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, out byte output) {
 
             ReadPciConfigInput pciData = default;
             pciData.PciAddress         = pciAddress;
             pciData.RegAddress         = regAddress;
 
-            output = default;
+            output = byte.MaxValue;
 
-            return DeviceIoControl<byte>(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -730,15 +719,9 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <returns>Returns a UInt16 value read from the specified PCI configuration address.</returns>
-        public UInt16 ReadPciConfigWord(uint pciAddress, byte regAddress) {
+        public UInt16 ReadPciConfigWord(UInt32 pciAddress, UInt32 regAddress) {
 
-            ReadPciConfigInput pciData = default;
-            pciData.PciAddress         = pciAddress;
-            pciData.RegAddress         = regAddress;
-
-            UInt16 output = default;
-
-            DeviceIoControl<UInt16>(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            ReadPciConfigWordEx(pciAddress, regAddress, out UInt16 output);
 
             return output;
         }
@@ -750,15 +733,15 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="output">UInt16 value read from the specified PCI configuration address.</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadPciConfigWordEx(uint pciAddress, byte regAddress, out UInt16 output) {
+        public bool ReadPciConfigWordEx(UInt32 pciAddress, UInt32 regAddress, out UInt16 output) {
 
             ReadPciConfigInput pciData = default;
             pciData.PciAddress         = pciAddress;
             pciData.RegAddress         = regAddress;
 
-            output = default;
+            output = UInt16.MaxValue;
 
-            return DeviceIoControl<UInt16>(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -767,15 +750,9 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <returns>Returns a UInt32 value read from the specified PCI configuration address.</returns>
-        public UInt32 ReadPciConfigDword(uint pciAddress, byte regAddress) {
+        public UInt32 ReadPciConfigDword(UInt32 pciAddress, UInt32 regAddress) {
 
-            ReadPciConfigInput pciData = default;
-            pciData.PciAddress         = pciAddress;
-            pciData.RegAddress         = regAddress;
-
-            UInt32 output = default;
-
-            DeviceIoControl<UInt32>(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            ReadPciConfigDwordEx(pciAddress, regAddress, out UInt32 output);
 
             return output;
         }
@@ -787,15 +764,15 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="output">UInt32 value read from the specified PCI configuration address.</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadPciConfigDwordEx(uint pciAddress, byte regAddress, out UInt32 output) {
+        public bool ReadPciConfigDwordEx(UInt32 pciAddress, UInt32 regAddress, out UInt32 output) {
 
             ReadPciConfigInput pciData = default;
             pciData.PciAddress         = pciAddress;
             pciData.RegAddress         = regAddress;
 
-            output = default;
+            output = UInt32.MaxValue;
 
-            return DeviceIoControl<UInt32>(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -804,7 +781,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Byte value to write to the configuration register</param>
-        public void WritePciConfigByte(uint pciAddress, byte regAddress, byte value) {
+        public void WritePciConfigByte(UInt32 pciAddress, UInt32 regAddress, byte value) {
             WritePciConfigByteEx(pciAddress, regAddress, value);
         }
 
@@ -815,7 +792,7 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Byte value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WritePciConfigByteEx(uint pciAddress, byte regAddress, byte value) {
+        public bool WritePciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, byte value) {
 
             WritePciConfigInputByte pciData = default;
             pciData.PciAddress              = pciAddress;
@@ -831,7 +808,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">UInt16 value to write to the configuration register</param>
-        public void WritePciConfigWord(uint pciAddress, byte regAddress, UInt16 value) {
+        public void WritePciConfigWord(UInt32 pciAddress, UInt32 regAddress, UInt16 value) {
             WritePciConfigWordEx(pciAddress, regAddress, value);
         }
 
@@ -842,7 +819,7 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Word value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WritePciConfigWordEx(uint pciAddress, byte regAddress, UInt16 value) {
+        public bool WritePciConfigWordEx(UInt32 pciAddress, UInt32 regAddress, UInt16 value) {
 
             // Check UInt16 boundary alignment
             if ((regAddress & 1) != 0) {
@@ -863,7 +840,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">UInt32 value to write to the configuration register</param>
-        public void WritePciConfigDword(uint pciAddress, byte regAddress, UInt32 value) {
+        public void WritePciConfigDword(UInt32 pciAddress, UInt32 regAddress, UInt32 value) {
             WritePciConfigDwordEx(pciAddress, regAddress, value);
         }
 
@@ -874,7 +851,7 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">UInt32 value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WritePciConfigDwordEx(uint pciAddress, byte regAddress, UInt32 value) {
+        public bool WritePciConfigDwordEx(UInt32 pciAddress, UInt32 regAddress, UInt32 value) {
 
             // Check UInt32 boundary alignment
             if ((regAddress & 3) != 0) {
@@ -954,11 +931,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Byte value read from the specified <paramref name="port">I/O port address</paramref></returns>
         public byte ReadIoPortByte(UInt16 port) {
 
-            ReadIoPortInput portData = default;
-            portData.PortNumber      = port;
-            byte output              = default;
-
-            DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_BYTE, portData, ref output);
+            ReadIoPortByteEx(port, out byte output);
 
             return output;
         }
@@ -973,7 +946,7 @@ namespace SpdReaderWriterDll {
 
             ReadIoPortInput portData = default;
             portData.PortNumber      = port;
-            output                   = default;
+            output                   = byte.MaxValue;
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_BYTE, portData, ref output);
         }
@@ -985,11 +958,7 @@ namespace SpdReaderWriterDll {
         /// <returns>UInt16 value read from the specified <paramref name="port">I/O port address</paramref></returns>
         public UInt16 ReadIoPortWord(UInt16 port) {
 
-            ReadIoPortInput portData = default;
-            portData.PortNumber      = port;
-            UInt16 output            = default;
-
-            DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_WORD, portData, ref output);
+            ReadIoPortWordEx(port, out UInt16 output);
 
             return output;
         }
@@ -1004,7 +973,7 @@ namespace SpdReaderWriterDll {
 
             ReadIoPortInput portData = default;
             portData.PortNumber      = port;
-            output                   = default;
+            output                   = UInt16.MaxValue;
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_WORD, portData, ref output);
         }
@@ -1016,11 +985,7 @@ namespace SpdReaderWriterDll {
         /// <returns>UInt32 value read from the specified <paramref name="port">I/O port address</paramref></returns>
         public UInt32 ReadIoPortDword(UInt16 port) {
 
-            ReadIoPortInput portData = default;
-            portData.PortNumber      = port;
-            UInt32 output            = default;
-
-            DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_DWORD, portData, ref output);
+            ReadIoPortDwordEx(port, out UInt32 output);
 
             return output;
         }
@@ -1035,7 +1000,7 @@ namespace SpdReaderWriterDll {
 
             ReadIoPortInput portData = default;
             portData.PortNumber      = port;
-            output                   = default;
+            output                   = UInt32.MaxValue;
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_DWORD, portData, ref output);
         }
@@ -1115,6 +1080,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address used by <see cref="DeviceIoControl"/> for reading from an I/O port
         /// </summary>
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct ReadIoPortInput {
             public UInt32 PortNumber;
         }
@@ -1122,6 +1088,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// IO Port address and value used by <see cref="DeviceIoControl"/> for writing to an I/O port
         /// </summary>
+        [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WriteIoPortInput {
             public UInt32 PortNumber;
             public UInt32 Value;
@@ -1137,7 +1104,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service operation timeout
         /// </summary>
-        private static Int32 _timeout = 1000;
+        private static readonly Int32 _timeout = 1000;
 
         /// <summary>
         /// IO device handle
@@ -1147,15 +1114,17 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service controller for the driver
         /// </summary>
-        private ServiceController _sc;
+        private static ServiceController _sc;
+
+        /// <summary>
+        /// Driver ready state
+        /// </summary>
+        private static bool _isReady => _deviceHandle != null && !_deviceHandle.IsInvalid && !_deviceHandle.IsClosed;
 
         /// <summary>
         /// Service control manager pointer
         /// </summary>
-        private IntPtr _managerPtr = Advapi32.OpenSCManager(
-            machineName  : null,
-            databaseName : null,
-            dwAccess     : Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
+        private IntPtr _managerPtr = Advapi32.OpenSCManager(dwAccess: Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
 
         /// <summary>
         /// Service object pointer
@@ -1165,17 +1134,18 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private string _fileName;
+        private string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
+                                    Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+        
+        /// <summary>
+        /// Indicates whether the driver service should be stopped and deleted on exit
+        /// </summary>
+        private bool _disposeOnExit = true;
 
         /// <summary>
         /// Windows NT Kernel BASE API
         /// </summary>
         private class Kernel32 {
-
-            /// <summary>
-            /// Windows NT BASE API Client DLL file name
-            /// </summary>
-            private const string kernel32 = "kernel32.dll";
 
             /// <summary>
             /// Creates or opens a file or I/O device.
@@ -1188,7 +1158,7 @@ namespace SpdReaderWriterDll {
             /// <param name="dwFlagsAndAttributes">The file or device attributes and flags.</param>
             /// <param name="hTemplateFile">A valid handle to a template file with the <see cref="FileAccess.GENERIC_READ"/> access right.</param>
             /// <returns>If the function succeeds, the return value is an open handle to the specified file, device, named pipe, or mail slot.</returns>
-            [DllImport(kernel32, CharSet = CharSet.Auto, SetLastError = true)]
+            [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
             internal static extern IntPtr CreateFile(
                 [MarshalAs(UnmanagedType.LPTStr)] string lpFileName,
                 [MarshalAs(UnmanagedType.U4)] FileAccess dwDesiredAccess,
@@ -1214,44 +1184,58 @@ namespace SpdReaderWriterDll {
             /// The requested sharing mode of the file or device
             /// </summary>
             internal enum FileShare {
+
                 /// <summary>
                 /// Prevents other processes from opening a file or device if they request delete, read, or write access.
                 /// </summary>
-                FILE_SHARE_NONE              = 0x00000000,
+                FILE_SHARE_EXCLUSIVE         = 0x00000000,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request delete access.
                 /// </summary>
                 FILE_SHARE_DELETE            = 0x00000004,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read access.
                 /// </summary>
                 FILE_SHARE_READ              = 0x00000001,
+
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request write access.
                 /// </summary>
                 FILE_SHARE_WRITE             = 0x00000002,
+
+                /// <summary>
+                /// Enables subsequent open operations on a file or device to request read and write access.
+                /// </summary>
+                FILE_SHARE_READWRITE = FILE_SHARE_READ | FILE_SHARE_WRITE,
             }
 
             /// <summary>
             /// An action to take on a file or device that exists or does not exist.
             /// </summary>
             internal enum FileMode {
+
                 /// <summary>
                 /// Creates a new file, only if it does not already exist.
                 /// </summary>
                 CREATE_NEW                   = 1,
+
                 /// <summary>
                 /// Creates a new file, always. 
                 /// </summary>
                 CREATE_ALWAYS                = 2,
+
                 /// <summary>
                 /// Opens a file or device, only if it exists. 
                 /// </summary>
                 OPEN_EXISTING                = 3,
+
                 /// <summary>
                 /// Opens a file, always. 
                 /// </summary>
                 OPEN_ALWAYS                  = 4,
+
                 /// <summary>
                 /// Opens a file and truncates it so that its size is zero bytes, only if it exists. 
                 /// </summary>
@@ -1264,80 +1248,99 @@ namespace SpdReaderWriterDll {
             /// All other file attributes override <see cref="FILE_ATTRIBUTE_NORMAL"/>.
             /// </summary>
             internal enum FileAttributes : UInt32 {
+
                 /// <summary>
                 /// The file is read only. Applications can read the file, but cannot write to or delete it.
                 /// </summary>
                 FILE_ATTRIBUTE_READONLY      = 0x1,
+
                 /// <summary>
                 /// The file is hidden. Do not include it in an ordinary directory listing. 
                 /// </summary>
                 FILE_ATTRIBUTE_HIDDEN        = 0x2,
+
                 /// <summary>
                 /// The file is part of or used exclusively by an operating system. 
                 /// </summary>
                 FILE_ATTRIBUTE_SYSTEM        = 0x4,
+
                 /// <summary>
                 /// The file should be archived. Applications use this attribute to mark files for backup or removal. 
                 /// </summary>
                 FILE_ATTRIBUTE_ARCHIVE       = 0x20,
+
                 /// <summary>
                 /// The file does not have other attributes set. This attribute is valid only if used alone. 
                 /// </summary>
                 FILE_ATTRIBUTE_NORMAL        = 0x80,
+
                 /// <summary>
                 /// The file is being used for temporary storage. 
                 /// </summary>
                 FILE_ATTRIBUTE_TEMPORARY     = 0x100,
+
                 /// <summary>
                 /// The data of a file is not immediately available. This attribute indicates that file data is physically moved to offline storage.
                 /// </summary>
                 FILE_ATTRIBUTE_OFFLINE       = 0x1000,
+
                 /// <summary>
                 /// The file or directory is encrypted. For a file, data is encrypted. For a directory, encryption is enabled for newly created files and subdirectories. 
                 /// </summary>
                 FILE_ATTRIBUTE_ENCRYPTED     = 0x4000,
+
                 /// <summary>
                 /// The file is being opened or created for a backup or restore operation. 
                 /// </summary>
                 FILE_FLAG_BACKUP_SEMANTICS   = 0x02000000,
+
                 /// <summary>
                 /// The file is to be deleted immediately after all of its handles are closed, which includes the specified handle and any other open or duplicated handles. 
                 /// </summary>
                 FILE_FLAG_DELETE_ON_CLOSE    = 0x04000000,
+
                 /// <summary>
                 /// The file or device is being opened with no system caching for data reads and writes. 
                 /// </summary>
                 FILE_FLAG_NO_BUFFERING       = 0x20000000,
+
                 /// <summary>
                 /// The file data is requested, but it should continue to be located in remote storage.
                 /// </summary>
                 FILE_FLAG_OPEN_NO_RECALL     = 0x00100000,
+
                 /// <summary>
                 /// Normal reparse point processing will not occur; <see cref="CreateFile"/> will attempt to open the reparse point.
                 /// When a file is opened, a file handle is returned, whether or not the filter that controls the reparse point is operational.
                 /// This flag cannot be used with the <see cref="FileMode.CREATE_ALWAYS"/> flag.
                 /// </summary>
                 FILE_FLAG_OPEN_REPARSE_POINT = 0x00200000,
+
                 /// <summary>
                 /// The file or device is being opened or created for asynchronous I/O. 
                 /// </summary>
                 FILE_FLAG_OVERLAPPED         = 0x40000000,
+                
                 /// <summary>
                 /// Access will occur according to POSIX rules. This includes allowing multiple files with names, differing only in case, for file systems that support that naming. 
                 /// </summary>
                 FILE_FLAG_POSIX_SEMANTICS    = 0x01000000,
+
                 /// <summary>
                 /// Access is intended to be random. The system can use this as a hint to optimize file caching. 
                 /// </summary>
                 FILE_FLAG_RANDOM_ACCESS      = 0x10000000,
+
                 /// <summary>
                 /// The file or device is being opened with session awareness. 
                 /// </summary>
                 FILE_FLAG_SESSION_AWARE      = 0x00800000,
+
                 /// <summary>
                 /// Access is intended to be sequential from beginning to end.
                 /// </summary>
                 FILE_FLAG_SEQUENTIAL_SCAN    = 0x08000000,
+
                 /// <summary>
                 /// Write operations will not go through any intermediate cache, they will go directly to disk.
                 /// </summary>
@@ -1356,7 +1359,7 @@ namespace SpdReaderWriterDll {
             /// <param name="lpBytesReturned">A pointer to a variable that receives the size of the data stored in the output buffer, in bytes.</param>
             /// <param name="lpOverlapped">A pointer to an OVERLAPPED structure.</param>
             /// <returns>If the operation completes successfully, the return value is nonzero (<see lang="true"/>). If the operation fails or is pending, the return value is zero.</returns>
-            [DllImport(kernel32, ExactSpelling = true, SetLastError = true, CharSet = CharSet.Auto)]
+            [DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true, CharSet = CharSet.Auto)]
             internal static extern bool DeviceIoControl(
                 SafeFileHandle hDevice,
                 uint dwIoControlCode,
@@ -1368,7 +1371,7 @@ namespace SpdReaderWriterDll {
                 IntPtr lpOverlapped);
 
             /// <summary>
-            /// IO control codes to be passed to <see cref="DeviceIoControl"/> method as dwIoControlCode parameter
+            /// WinRing0 IO control codes
             /// </summary>
             public struct IoControlCode {
                 /// <summary>
@@ -1422,18 +1425,22 @@ namespace SpdReaderWriterDll {
             /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
             /// </summary>
             internal enum IOCTL_METHOD : uint {
+
                 /// <summary>
                 /// Specifies the buffered I/O method, which is typically used for transferring small amounts of data per request. 
                 /// </summary>
                 METHOD_BUFFERED   = 0,
+
                 /// <summary>
                 /// Specifies the direct I/O method, which is typically used for writing large amounts of data, using DMA or PIO, that must be transferred quickly.
                 /// </summary>
                 METHOD_IN_DIRECT  = 1,
+
                 /// <summary>
                 /// Specifies the direct I/O method, which is typically used for reading large amounts of data, using DMA or PIO, that must be transferred quickly.
                 /// </summary>
                 METHOD_OUT_DIRECT = 2,
+
                 /// <summary>
                 /// Specifies neither buffered nor direct I/O. The I/O manager does not provide any system buffers or MDLs.
                 /// </summary>
@@ -1444,23 +1451,34 @@ namespace SpdReaderWriterDll {
             /// Indicates the type of access that a caller must request when opening the file object that represents the device.
             /// </summary>
             internal enum IOCTL_ACCESS : byte {
+
                 /// <summary>
                 /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
                 /// </summary>
                 FILE_ANY_ACCESS   = 0,
+
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
                 /// </summary>
                 FILE_READ_DATA    = 1,
+
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
                 /// </summary>
                 FILE_WRITE_DATA   = 2,
+
                 /// <summary>
                 /// The caller must have both read and write access rights
                 /// </summary>
                 FILE_READ_WRITE_DATA = FILE_READ_DATA | FILE_WRITE_DATA,
             }
+
+            /// <summary>
+            /// Retrieves the calling thread's last-error code value.
+            /// </summary>
+            /// <returns>Calling thread's last-error code</returns>
+            [DllImport("kernel32.dll")]
+            internal static extern UInt16 GetLastError();
         }
 
         /// <summary>
@@ -1469,27 +1487,31 @@ namespace SpdReaderWriterDll {
         private static class Advapi32 {
 
             /// <summary>
-            /// Advanced Windows 32 Base API file name
-            /// </summary>
-            private const string advapi32 = "advapi32.dll";
-
-            /// <summary>
             /// Establishes a connection to the service control manager on <paramref name="machineName"/> and opens the specified service control manager <paramref name="databaseName"/>.
             /// </summary>
             /// <param name="machineName">The name of the target computer</param>
             /// <param name="databaseName">The name of the service control manager database</param>
             /// <param name="dwAccess">The access to the service control manager</param>
             /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
-            [DllImport(advapi32, EntryPoint = "OpenSCManagerW", ExactSpelling = true, CharSet = CharSet.Unicode, SetLastError = true)]
+            [DllImport("advapi32.dll", EntryPoint = "OpenSCManagerW", ExactSpelling = true, CharSet = CharSet.Unicode, SetLastError = true)]
             internal static extern IntPtr OpenSCManager(
                 string machineName,
                 string databaseName,
                 ServiceAccessRights dwAccess);
 
             /// <summary>
+            /// Establishes a connection to the service control manager on local computer and opens the specified service control manager SERVICES_ACTIVE_DATABASE database.
+            /// </summary>
+            /// <param name="dwAccess">The access to the service control manager</param>
+            /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
+            internal static IntPtr OpenSCManager(ServiceAccessRights dwAccess) {
+                return OpenSCManager(null, null, dwAccess);
+            }
+
+            /// <summary>
             /// Service Security and Access Rights for the Service Control Manager
             /// </summary>
-            internal enum ServiceAccessRights {
+            internal enum ServiceAccessRights : UInt32 {
                 SC_MANAGER_ALL_ACCESS         = 0xF003F,
                 SC_MANAGER_CREATE_SERVICE     = 0x00002,
                 SC_MANAGER_CONNECT            = 0x00001,
@@ -1516,7 +1538,7 @@ namespace SpdReaderWriterDll {
             /// <param name="lpServiceStartName">The name of the account under which the service should run</param>
             /// <param name="lpPassword">The password to the account name specified by the <paramref name="lpServiceStartName"/> parameter</param>
             /// <returns>If the function succeeds, the return value is a handle to the service.</returns>
-            [DllImport(advapi32, SetLastError = true, CharSet = CharSet.Auto)]
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
             internal static extern IntPtr CreateService(
                 IntPtr hSCManager,
                 string lpServiceName,
@@ -1535,31 +1557,38 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The service type
             /// </summary>
-            internal enum ServiceType : UInt16 {
+            internal enum ServiceType : UInt32 {
+
                 /// <summary>
                 /// Driver service
                 /// </summary>
                 SERVICE_KERNEL_DRIVER       = 0x00000001,
+
                 /// <summary>
                 /// File system driver service
                 /// </summary>
                 SERVICE_FILE_SYSTEM_DRIVER  = 0x00000002,
+
                 /// <summary>
                 /// Reserved
                 /// </summary>
                 SERVICE_ADAPTER             = 0x00000004,
+
                 /// <summary>
                 /// Reserved
                 /// </summary>
                 SERVICE_RECOGNIZER_DRIVER   = 0x00000008,
+
                 /// <summary>
                 /// Service that runs in its own process
                 /// </summary>
                 SERVICE_WIN32_OWN_PROCESS   = 0x00000010,
+
                 /// <summary>
                 /// Service that shares a process with one or more other services
                 /// </summary>
                 SERVICE_WIN32_SHARE_PROCESS = 0x00000020,
+
                 /// <summary>
                 /// The service can interact with the desktop
                 /// </summary>
@@ -1569,23 +1598,27 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The service start options
             /// </summary>
-            internal enum StartType : UInt16 {
+            internal enum StartType : UInt32 {
                 /// <summary>
                 /// A device driver started by the system loader. This value is valid only for driver services
                 /// </summary>
                 SERVICE_BOOT_START          = 0x00000000,
+
                 /// <summary>
                 /// A device driver started by the IoInitSystem function. This value is valid only for driver services
                 /// </summary>
                 SERVICE_SYSTEM_START        = 0x00000001,
+
                 /// <summary>
                 /// A service started automatically by the service control manager during system startup
                 /// </summary>
                 SERVICE_AUTO_START          = 0x00000002,
+
                 /// <summary>
-                /// A service started by the service control manager when a process calls the StartService function
+                /// A service started by the service control manager when a process calls the <see cref="StartService"/> function
                 /// </summary>
                 SERVICE_DEMAND_START        = 0x00000003,
+
                 /// <summary>
                 /// A service that cannot be started. Attempts to start the service result in the error code ERROR_SERVICE_DISABLED
                 /// </summary>
@@ -1595,25 +1628,29 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
             /// </summary>
-            internal enum ErrorControl : UInt16 {
-                /// <summary>
-                /// The startup program logs the error in the event log, if possible
-                /// </summary>
-                SERVICE_ERROR_CRITICAL      = 0x00000003,
+            internal enum ErrorControl : UInt32 {
+                
                 /// <summary>
                 /// The startup program ignores the error and continues the startup operation
                 /// </summary>
                 SERVICE_ERROR_IGNORE        = 0x00000000,
+                
                 /// <summary>
                 /// The startup program logs the error in the event log but continues the startup operation
                 /// </summary>
                 SERVICE_ERROR_NORMAL        = 0x00000001,
+                
                 /// <summary>
                 /// The startup program logs the error in the event log.
                 /// If the last-known-good configuration is being started, the startup operation continues.
                 /// Otherwise, the system is restarted with the last-known-good configuration.
                 /// </summary>
                 SERVICE_ERROR_SEVERE        = 0x00000002,
+
+                /// <summary>
+                /// The startup program logs the error in the event log, if possible
+                /// </summary>
+                SERVICE_ERROR_CRITICAL      = 0x00000003,
             }
 
             /// <summary>
@@ -1640,7 +1677,7 @@ namespace SpdReaderWriterDll {
             /// <param name="hService">A handle to the service.
             /// This handle is returned by the <see cref="OpenService"/> or <see cref="CreateService"/> function, and it must have the DELETE access right.</param>
             /// <returns><see langref="true"/> if the function succeeds</returns>
-            [DllImport(advapi32, SetLastError = true)]
+            [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             public static extern bool DeleteService(IntPtr hService);
 
@@ -1653,7 +1690,7 @@ namespace SpdReaderWriterDll {
             /// <param name="dwNumServiceArgs">The number of strings in the <paramref name="lpServiceArgVectors"/> array.</param>
             /// <param name="lpServiceArgVectors">The null-terminated strings to be passed to the ServiceMain function for the service as arguments.</param>
             /// <returns><see langref="true"/> if the function succeeds</returns>
-            [DllImport(advapi32, SetLastError = true)]
+            [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool StartService(
                 IntPtr hService,
@@ -1668,50 +1705,84 @@ namespace SpdReaderWriterDll {
             /// <param name="lpServiceName"></param>
             /// <param name="dwDesiredAccess"></param>
             /// <returns>If the function succeeds, the return value is a handle to the service. If the function fails, the return value is <see cref="IntPtr.Zero"/>.</returns>
-            [DllImport(advapi32, EntryPoint = "OpenServiceA", SetLastError = true, CharSet = CharSet.Ansi)]
+            [DllImport("advapi32.dll", EntryPoint = "OpenServiceW", SetLastError = true, CharSet = CharSet.Unicode)]
             internal static extern IntPtr OpenService(IntPtr hSCManager, string lpServiceName, ServiceRights dwDesiredAccess);
 
             /// <summary>
             /// Specific access rights for a service
             /// </summary>
             internal enum ServiceRights : uint {
-                STANDARD_RIGHTS_REQUIRED     = 0xF0000,
+
                 /// <summary>
                 /// Required to call the QueryServiceConfig and QueryServiceConfig2 functions to query the service configuration.
                 /// </summary>
                 SERVICE_QUERY_CONFIG         = 0x00001,
+
                 /// <summary>
                 /// Required to call the ChangeServiceConfig or ChangeServiceConfig2 function to change the service configuration. 
                 /// </summary>
                 SERVICE_CHANGE_CONFIG        = 0x00002,
+
                 /// <summary>
                 /// Required to call the QueryServiceStatus or QueryServiceStatusEx function to ask the service control manager about the status of the service.
                 /// </summary>
                 SERVICE_QUERY_STATUS         = 0x00004,
+
                 /// <summary>
                 /// Required to call the EnumDependentServices function to enumerate all the services dependent on the service.
                 /// </summary>
                 SERVICE_ENUMERATE_DEPENDENTS = 0x00008,
+
                 /// <summary>
                 /// Required to call the <see cref="StartService"/> function to start the service.
                 /// </summary>
                 SERVICE_START                = 0x00010,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to stop the service.
                 /// </summary>
                 SERVICE_STOP                 = 0x00020,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to pause or continue the service.
                 /// </summary>
                 SERVICE_PAUSE_CONTINUE       = 0x00040,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to ask the service to report its status immediately.
                 /// </summary>
                 SERVICE_INTERROGATE          = 0x00080,
+
                 /// <summary>
                 /// Required to call the <see cref="ControlService"/> function to specify a user-defined control code.
                 /// </summary>
                 SERVICE_USER_DEFINED_CONTROL = 0x00100,
+
+                /// <summary>
+                /// The right to delete the object.
+                /// </summary>
+                DELETE                       = 0x10000,
+
+                /// <summary>
+                /// The right to read the information in the object's security descriptor, not including the information in the system access control list (SACL).
+                /// </summary>
+                READ_CONTROL                 = 0x20000,
+
+                /// <summary>
+                /// The right to modify the discretionary access control list (DACL) in the object's security descriptor.
+                /// </summary>
+                WRITE_DAC                    = 0x40000,
+
+                /// <summary>
+                /// The right to change the owner in the object's security descriptor.
+                /// </summary>
+                WRITE_OWNER                  = 0x80000,
+
+                /// <summary>
+                /// Combines DELETE, READ_CONTROL, WRITE_DAC, and WRITE_OWNER access.
+                /// </summary>
+                STANDARD_RIGHTS_REQUIRED     = DELETE | READ_CONTROL | WRITE_DAC | WRITE_OWNER,
+
                 /// <summary>
                 /// Includes <see cref="STANDARD_RIGHTS_REQUIRED"/> in addition to all access rights in this table.
                 /// </summary>
@@ -1734,7 +1805,7 @@ namespace SpdReaderWriterDll {
             /// <param name="dwControlCode">This parameter can be one of the <see cref="ServiceControlCode"/> control codes.</param>
             /// <param name="lpServiceStatus">A pointer to a <see cref="ServiceStatus"/> structure that receives the latest service status information.</param>
             /// <returns><see langref="true"/> if the function succeeds</returns>
-            [DllImport(advapi32, SetLastError = true)]
+            [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool ControlService(IntPtr hService, ServiceControlCode dwControlCode, ref ServiceStatus lpServiceStatus);
 
@@ -1742,38 +1813,47 @@ namespace SpdReaderWriterDll {
             /// Control codes for <see cref="ControlService"/>
             /// </summary>
             internal enum ServiceControlCode : UInt32 {
+
                 /// <summary>
                 /// Notifies a paused service that it should resume.
                 /// </summary>
                 SERVICE_CONTROL_CONTINUE       = 0x00000003,
+
                 /// <summary>
                 /// Notifies a service that it should report its current status information to the service control manager.
                 /// </summary>
                 SERVICE_CONTROL_INTERROGATE    = 0x00000004,
+
                 /// <summary>
                 /// Notifies a network service that there is a new component for binding.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDADD     = 0x00000007,
+
                 /// <summary>
                 /// Notifies a network service that one of its bindings has been disabled.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDDISABLE = 0x0000000A,
+
                 /// <summary>
                 /// Notifies a network service that a disabled binding has been enabled.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDENABLE  = 0x00000009,
+
                 /// <summary>
                 /// Notifies a network service that a component for binding has been removed.
                 /// </summary>
                 SERVICE_CONTROL_NETBINDREMOVE  = 0x00000008,
+
                 /// <summary>
                 /// Notifies a service that its startup parameters have changed.
                 /// </summary>
                 SERVICE_CONTROL_PARAMCHANGE    = 0x00000006,
+
                 /// <summary>
                 /// Notifies a service that it should pause.
                 /// </summary>
                 SERVICE_CONTROL_PAUSE          = 0x00000002,
+
                 /// <summary>
                 /// Notifies a service that it should stop.
                 /// </summary>
@@ -1797,27 +1877,33 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The type of service for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusServiceType {
+            internal enum ServiceStatusServiceType : UInt32 {
+
                 /// <summary>
                 /// The service is a file system driver. 
                 /// </summary>
                 SERVICE_FILE_SYSTEM_DRIVER     = 0x00000002,
+
                 /// <summary>
                 /// The service is a device driver. 
                 /// </summary>
                 SERVICE_KERNEL_DRIVER          = 0x00000001,
+
                 /// <summary>
                 /// The service runs in its own process. 
                 /// </summary>
                 SERVICE_WIN32_OWN_PROCESS      = 0x00000010,
+
                 /// <summary>
                 /// The service shares a process with other services. 
                 /// </summary>
                 SERVICE_WIN32_SHARE_PROCESS    = 0x00000020,
+
                 /// <summary>
                 /// The service runs in its own process under the logged-on user account. 
                 /// </summary>
                 SERVICE_USER_OWN_PROCESS       = 0x00000050,
+
                 /// <summary>
                 /// The service shares a process with one or more other services that run under the logged-on user account. 
                 /// </summary>
@@ -1827,31 +1913,38 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The current state of the service for <see cref="ServiceStatus"/>. 
             /// </summary>
-            internal enum ServiceStatusCurrentState {
+            internal enum ServiceStatusCurrentState : UInt32 {
+
                 /// <summary>
                 /// The service continue is pending. 
                 /// </summary>
                 SERVICE_CONTINUE_PENDING       = 0x00000005,
+
                 /// <summary>
                 /// The service pause is pending. 
                 /// </summary>
                 SERVICE_PAUSE_PENDING          = 0x00000006,
+
                 /// <summary>
                 /// The service is paused.
                 /// </summary>
                 SERVICE_PAUSED                 = 0x00000007,
+
                 /// <summary>
                 /// The service is running. 
                 /// </summary>
                 SERVICE_RUNNING                = 0x00000004,
+
                 /// <summary>
                 /// The service is starting. 
                 /// </summary>
                 SERVICE_START_PENDING          = 0x00000002,
+
                 /// <summary>
                 /// The service is stopping. 
                 /// </summary>
                 SERVICE_STOP_PENDING           = 0x00000003,
+
                 /// <summary>
                 /// The service is not running. 
                 /// </summary>
@@ -1861,27 +1954,33 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The control codes the service accepts and processes in its handler function for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusControlsAccepted {
+            internal enum ServiceStatusControlsAccepted : UInt32 {
+
                 /// <summary>
-                /// The service is a network component that can accept changes in its binding without being stopped and restarted. 
+                /// The service is a network component that can accept changes in its binding without being stopped and restarted.
                 /// </summary>
                 SERVICE_ACCEPT_NETBINDCHANGE   = 0x00000010,
+
                 /// <summary>
-                /// The service can reread its startup parameters without being stopped and restarted. 
+                /// The service can reread its startup parameters without being stopped and restarted.
                 /// </summary>
                 SERVICE_ACCEPT_PARAMCHANGE     = 0x00000008,
+
                 /// <summary>
-                /// The service can be paused and continued. 
+                /// The service can be paused and continued.
                 /// </summary>
                 SERVICE_ACCEPT_PAUSE_CONTINUE  = 0x00000002,
+
                 /// <summary>
-                /// The service can perform preshutdown tasks. 
+                /// The service can perform preshutdown tasks.
                 /// </summary>
                 SERVICE_ACCEPT_PRESHUTDOWN     = 0x00000100,
+
                 /// <summary>
                 /// The service is notified when system shutdown occurs.
                 /// </summary>
                 SERVICE_ACCEPT_SHUTDOWN        = 0x00000004,
+
                 /// <summary>
                 /// The service can be stopped.
                 /// </summary>
@@ -1892,10 +1991,10 @@ namespace SpdReaderWriterDll {
             /// Closes a handle to a service control manager or service object
             /// </summary>
             /// <param name="hSCObject">A handle to the service control manager object or the service object to close.
-            /// Handles to service control manager objects are returned by the <see cref="OpenSCManager"/> function,
+            /// Handles to service control manager objects are returned by the <see cref="OpenSCManager(string,string,ServiceAccessRights)"/> function,
             /// and handles to service objects are returned by either the <see cref="OpenService"/> or <see cref="CreateService"/> function.</param>
             /// <returns><see langref="true"/> if the function succeeds</returns>
-            [DllImport(advapi32, SetLastError = true)]
+            [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool CloseServiceHandle(IntPtr hSCObject);
         }
