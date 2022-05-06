@@ -1,3 +1,14 @@
+/*
+    Arduino based EEPROM SPD reader and writer
+   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+   For overclockers and PC hardware enthusiasts
+
+   Repos:   https://github.com/1a2m3/SPD-Reader-Writer
+   Support: https://forums.evga.com/FindPost/3053544
+   Donate:  https://paypal.me/mik4rt3m
+
+*/
+
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -39,7 +50,7 @@ namespace SpdReaderWriter {
 
         static void Main(string[] args) {
 
-            Program.Args = args;
+            Args = args;
 
             try {
                 if (IsAdmin()) {
@@ -69,10 +80,9 @@ namespace SpdReaderWriter {
             }
 
             // Wait for input to prevent application from closing automatically
-            if (Debugger.IsAttached || args.Length == 0) {
-                Console.WriteLine("\nPress [enter] to quit.\n");
-                Console.ReadLine();
-            }
+            if (!Debugger.IsAttached && args.Length != 0) return;
+            Console.WriteLine("\nPress [enter] to quit.\n");
+            Console.ReadLine();
         }
 
         static void Welcome() {
@@ -92,6 +102,7 @@ namespace SpdReaderWriter {
                 "Command line parameters:",
                 "",
                 "{0} /?",
+                "{0} /find",
                 "{0} /find <all|arduino|smbus>",
                 "{0} /scan <PORTNAME>",
                 "{0} /scan <SMBUS#>",
@@ -168,6 +179,7 @@ namespace SpdReaderWriter {
                         break;
 
                     case "/firmware":
+                    case "/savefirmware":
                         SaveFirmware();
                         break;
 
@@ -226,6 +238,7 @@ namespace SpdReaderWriter {
         private static void EnablePswp() {
 
             Connect();
+
             if (Eeprom.SetPswp(Reader)) {
                 Console.WriteLine($"Permanent write protection enabled on {Reader.PortName}:{Reader.I2CAddress}");
             }
@@ -457,6 +470,9 @@ namespace SpdReaderWriter {
                     Int32.TryParse(Args[1], out i);
                     if (i != -1) {
                         addresses = Smbus.Scan();
+                    }
+                    else {
+                        throw new Exception("SMBus number should be specified in decimal notation.");
                     }
                 }
 
