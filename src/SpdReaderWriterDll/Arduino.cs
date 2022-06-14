@@ -556,7 +556,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Bitmask value representing RAM type supported defined in Ram.Bitmask enum
+        /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
         /// </summary>
         public byte RamTypeSupport {
             get {
@@ -744,7 +744,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets initial supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Response.RswpSupport"/> struct</returns>
         private byte GetRamTypeSupportPrivate() {
             lock (_portLock) {
                 try {
@@ -768,7 +768,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Ram.BitMask"/> struct</returns>
+        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Response.RswpSupport"/> struct</returns>
         private byte RswpRetestPrivate() {
             lock (_portLock) {
                 try {
@@ -1080,7 +1080,7 @@ namespace SpdReaderWriterDll {
             lock (_portLock) {
                 try {
                     if (IsConnected) {
-                        return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, 16));
+                        return Data.BytesToString(ExecuteCommandPrivate(new[] { Command.NAME, Command.GET }, 16));
                     }
                 }
                 catch {
