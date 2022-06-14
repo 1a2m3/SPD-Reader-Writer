@@ -52,7 +52,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public byte ReadByte(UInt8 offset) {
+        public byte ReadByte(UInt16 offset) {
             return Smbus._driver.ReadIoPortByte((UInt16)(BaseAddress + offset));
         }
 
@@ -61,7 +61,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public UInt16 ReadWord(UInt8 offset) {
+        public UInt16 ReadWord(UInt16 offset) {
             return Smbus._driver.ReadIoPortWord((UInt16)(BaseAddress + offset));
         }
 
@@ -70,7 +70,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public UInt32 ReadDword(UInt8 offset) {
+        public UInt32 ReadDword(UInt16 offset) {
             return Smbus._driver.ReadIoPortDword((UInt16)(BaseAddress + offset));
         }
 
@@ -79,7 +79,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Byte value</param>
-        public void WriteByte(UInt8 offset, byte value) {
+        public void WriteByte(UInt16 offset, byte value) {
             Smbus._driver.WriteIoPortByte((UInt16)(BaseAddress + offset), value);
         }
 
@@ -88,7 +88,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Word value</param>
-        public void WriteWord(UInt8 offset, UInt16 value) {
+        public void WriteWord(UInt16 offset, UInt16 value) {
             Smbus._driver.WriteIoPortWord((UInt16)(BaseAddress + offset), value);
         }
 
@@ -97,7 +97,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Dword value</param>
-        public void WriteDword(UInt8 offset, UInt32 value) {
+        public void WriteDword(UInt16 offset, UInt32 value) {
             Smbus._driver.WriteIoPortDword((UInt16)(BaseAddress + offset), value);
         }
     }

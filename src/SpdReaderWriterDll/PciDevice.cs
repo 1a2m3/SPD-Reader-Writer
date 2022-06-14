@@ -45,6 +45,7 @@ namespace SpdReaderWriterDll {
             public const byte VendorId                = 0x00;
             public const byte DeviceId                = 0x02;
             public const byte Status                  = 0x06;
+            public const byte RevisionId              = 0x08;
             public const byte SubType                 = 0x0A;
             public const byte BaseType                = 0x0B;
             public static readonly byte[] BaseAddress = { 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24 };
@@ -141,20 +142,19 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Returns PCI device's vendor ID
+        /// PCI device's vendor ID
         /// </summary>
-        /// <returns>Vendor ID</returns>
-        public UInt16 GetVendorId() {
-            return ReadWord(RegisterOffset.VendorId);
-        }
+        public UInt16 VendorId => ReadWord(RegisterOffset.VendorId);
 
         /// <summary>
-        /// Returns PCI device's ID
+        /// PCI device's ID
         /// </summary>
-        /// <returns>Device ID</returns>
-        public UInt16 GetDeviceId() {
-            return ReadWord(RegisterOffset.DeviceId);
-        }
+        public UInt16 DeviceId => ReadWord(RegisterOffset.DeviceId);
+
+        /// <summary>
+        /// PCI device's Revision ID
+        /// </summary>
+        public UInt16 RevisionId => ReadByte(RegisterOffset.RevisionId);
 
         /// <summary>
         /// Read byte from PCI device memory space
