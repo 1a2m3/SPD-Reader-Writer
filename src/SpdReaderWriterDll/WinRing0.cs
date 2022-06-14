@@ -489,14 +489,14 @@ namespace SpdReaderWriterDll {
             UInt32 pciAddress = UInt32.MaxValue;
             UInt32 count      = 0;
 
-            if (vendorId == 0xFFFF || deviceId == 0xFFFF || index == 0) {
+            if (vendorId == default || deviceId == default || index == 0) {
                 return pciAddress;
             }
 
             for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
                 for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == 0xFFFF) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt32.MaxValue) {
                         continue;
                     }
 
@@ -543,7 +543,7 @@ namespace SpdReaderWriterDll {
 
             UInt32 count = 0;
 
-            if (vendorId == 0xFFFF || deviceId == 0xFFFF || vendorId == 0x0000 || deviceId == 0x0000) {
+            if (vendorId == default || deviceId == default) {
                 return new UInt32[0];
             }
 
@@ -557,7 +557,7 @@ namespace SpdReaderWriterDll {
 
                 for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == 0xFFFF) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt16.MaxValue) {
                         continue;
                     }
 
@@ -600,7 +600,7 @@ namespace SpdReaderWriterDll {
             for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
                 for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == 0xFFFF) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt16.MaxValue) {
                         continue;
                     }
 
@@ -659,7 +659,7 @@ namespace SpdReaderWriterDll {
             for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
                 for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == 0xFFFF) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt16.MaxValue) {
                         continue;
                     }
 
@@ -704,11 +704,12 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool ReadPciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, out byte output) {
 
-            ReadPciConfigInput pciData = default;
-            pciData.PciAddress         = pciAddress;
-            pciData.RegAddress         = regAddress;
-
-            output = byte.MaxValue;
+            output = UInt8.MaxValue;
+            
+            ReadPciConfigInput pciData = new ReadPciConfigInput {
+                PciAddress = pciAddress,
+                RegAddress = regAddress,
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
         }
@@ -735,11 +736,12 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool ReadPciConfigWordEx(UInt32 pciAddress, UInt32 regAddress, out UInt16 output) {
 
-            ReadPciConfigInput pciData = default;
-            pciData.PciAddress         = pciAddress;
-            pciData.RegAddress         = regAddress;
-
             output = UInt16.MaxValue;
+            
+            ReadPciConfigInput pciData = new ReadPciConfigInput {
+                PciAddress = pciAddress,
+                RegAddress = regAddress
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
         }
@@ -766,11 +768,12 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool ReadPciConfigDwordEx(UInt32 pciAddress, UInt32 regAddress, out UInt32 output) {
 
-            ReadPciConfigInput pciData = default;
-            pciData.PciAddress         = pciAddress;
-            pciData.RegAddress         = regAddress;
-
             output = UInt32.MaxValue;
+            
+            ReadPciConfigInput pciData = new ReadPciConfigInput {
+                PciAddress = pciAddress,
+                RegAddress = regAddress
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
         }
@@ -794,10 +797,11 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WritePciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, byte value) {
 
-            WritePciConfigInputByte pciData = default;
-            pciData.PciAddress              = pciAddress;
-            pciData.RegAddress              = regAddress;
-            pciData.Value                   = value;
+            WritePciConfigInputByte pciData = new WritePciConfigInputByte {
+                PciAddress = pciAddress,
+                RegAddress = regAddress,
+                Value      = value
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
         }
@@ -826,10 +830,11 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            WritePciConfigInputWord pciData = default;
-            pciData.PciAddress              = pciAddress;
-            pciData.RegAddress              = regAddress;
-            pciData.Value                   = value;
+            WritePciConfigInputWord pciData = new WritePciConfigInputWord {
+                PciAddress = pciAddress,
+                RegAddress = regAddress,
+                Value      = value
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
         }
@@ -858,10 +863,11 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            WritePciConfigInputDword pciData = default;
-            pciData.PciAddress               = pciAddress;
-            pciData.RegAddress               = regAddress;
-            pciData.Value                    = value;
+            WritePciConfigInputDword pciData = new WritePciConfigInputDword {
+                PciAddress = pciAddress,
+                RegAddress = regAddress,
+                Value      = value
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
         }
@@ -944,9 +950,11 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool ReadIoPortByteEx(UInt16 port, out byte output) {
 
-            ReadIoPortInput portData = default;
-            portData.PortNumber      = port;
-            output                   = byte.MaxValue;
+            output = UInt8.MaxValue;
+
+            ReadIoPortInput portData = new ReadIoPortInput {
+                PortNumber = port
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_BYTE, portData, ref output);
         }
@@ -971,9 +979,11 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool ReadIoPortWordEx(UInt16 port, out UInt16 output) {
 
-            ReadIoPortInput portData = default;
-            portData.PortNumber      = port;
-            output                   = UInt16.MaxValue;
+            output = UInt16.MaxValue;
+
+            ReadIoPortInput portData = new ReadIoPortInput {
+                PortNumber = port
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_WORD, portData, ref output);
         }
@@ -998,10 +1008,12 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool ReadIoPortDwordEx(UInt16 port, out UInt32 output) {
 
-            ReadIoPortInput portData = default;
-            portData.PortNumber      = port;
-            output                   = UInt32.MaxValue;
+            output = UInt32.MaxValue;
 
+            ReadIoPortInput portData = new ReadIoPortInput {
+                PortNumber = port
+            };
+            
             return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_DWORD, portData, ref output);
         }
 
@@ -1022,9 +1034,10 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WriteIoPortByteEx(UInt16 port, byte value) {
 
-            WriteIoPortInput portData = default;
-            portData.PortNumber       = port;
-            portData.Value            = value;
+            WriteIoPortInput portData = new WriteIoPortInput {
+                PortNumber = port,
+                Value      = value
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_BYTE, portData);
         }
@@ -1046,9 +1059,10 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WriteIoPortWordEx(UInt16 port, UInt16 value) {
 
-            WriteIoPortInput portData = default;
-            portData.PortNumber       = port;
-            portData.Value            = value;
+            WriteIoPortInput portData = new WriteIoPortInput {
+                PortNumber = port,
+                Value      = value
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_WORD, portData);
         }
@@ -1070,9 +1084,10 @@ namespace SpdReaderWriterDll {
         /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool WriteIoPortDwordEx(UInt16 port, UInt32 value) {
 
-            WriteIoPortInput portData = default;
-            portData.PortNumber       = port;
-            portData.Value            = value;
+            WriteIoPortInput portData = new WriteIoPortInput {
+                PortNumber = port,
+                Value      = value
+            };
 
             return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_DWORD, portData);
         }
@@ -1377,28 +1392,28 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Winring0 Device type code
                 /// </summary>
-                public static readonly UInt32 DEVICE_TYPE = 40000;                                                           // 0x9C40
+                public static readonly UInt32 DEVICE_TYPE = 0x9C40;     // 40000
 
-                public static UInt32 GET_DRIVER_VERSION   = CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402000
-                public static UInt32 GET_REFCOUNT         = CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402004
-                public static UInt32 READ_MSR             = CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402084
-                public static UInt32 WRITE_MSR            = CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402088
-                public static UInt32 READ_PMC             = CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C40208C
-                public static UInt32 HALT                 = CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS); // 0x9C402090
-                public static UInt32 READ_IO_PORT         = CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060C4
-                public static UInt32 WRITE_IO_PORT        = CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0C8
-                public static UInt32 READ_IO_PORT_BYTE    = CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060CC
-                public static UInt32 READ_IO_PORT_WORD    = CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060D0
-                public static UInt32 READ_IO_PORT_DWORD   = CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C4060D4
-                public static UInt32 WRITE_IO_PORT_BYTE   = CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0D8
-                public static UInt32 WRITE_IO_PORT_WORD   = CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0DC
-                public static UInt32 WRITE_IO_PORT_DWORD  = CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A0E0
-                public static UInt32 READ_MEMORY          = CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C406104
-                public static UInt32 WRITE_MEMORY         = CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A108
-                public static UInt32 READ_PCI_CONFIG      = CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA);  // 0x9C406144
-                public static UInt32 WRITE_PCI_CONFIG     = CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA); // 0x9C40A148
+                public static UInt32 GET_DRIVER_VERSION   = 0x9C402000; // CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 GET_REFCOUNT         = 0x9C402004; // CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 READ_MSR             = 0x9C402084; // CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WRITE_MSR            = 0x9C402088; // CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 READ_PMC             = 0x9C40208C; // CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 HALT                 = 0x9C402090; // CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 READ_IO_PORT         = 0x9C4060C4; // CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WRITE_IO_PORT        = 0x9C40A0C8; // CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 READ_IO_PORT_BYTE    = 0x9C4060CC; // CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 READ_IO_PORT_WORD    = 0x9C4060D0; // CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 READ_IO_PORT_DWORD   = 0x9C4060D4; // CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WRITE_IO_PORT_BYTE   = 0x9C40A0D8; // CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WRITE_IO_PORT_WORD   = 0x9C40A0DC; // CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WRITE_IO_PORT_DWORD  = 0x9C40A0E0; // CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 READ_MEMORY          = 0x9C406104; // CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WRITE_MEMORY         = 0x9C40A108; // CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 READ_PCI_CONFIG      = 0x9C406144; // CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WRITE_PCI_CONFIG     = 0x9C40A148; // CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA);
             }
-            
+
             /// <summary>
             /// Defines a new IO Control Code based on function and desired access parameters only
             /// </summary>
