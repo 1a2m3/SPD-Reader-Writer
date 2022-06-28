@@ -337,7 +337,7 @@ namespace SpdReaderWriterDll {
             #region LGA2066
             X299 = 0xA2D2, // CPU SMBus x2 (8086h:2085h)
             C422 = 0xA2D3, // Same as X299
-            #endregion            
+            #endregion
 
             // AMD FCH
             FCH = 0x790B, // AM4/ZEN
