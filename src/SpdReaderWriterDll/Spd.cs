@@ -148,7 +148,7 @@ namespace SpdReaderWriterDll {
 
             switch (GetRamType(input)) {
                 case Ram.Type.DDR5:
-                    manufacturerId = (UInt16)(input[0x200] << 8 | input[0x201]);
+                    manufacturerId = (UInt16)((UInt16)(input[0x200] << 8 | input[0x201]) & 0x7FFF);
                     break;
                 case Ram.Type.DDR4:
                     manufacturerId = (UInt16)((input[0x140] << 8 | input[0x141]) & 0x7FFF);
@@ -226,7 +226,6 @@ namespace SpdReaderWriterDll {
                 case 0x0325: return "Kingmax Semiconductor";
                 case 0x0198: return "Kingston";
                 case 0x06A7: return "KINGXCON";
-                case 0x0798: return "KLEVV";
                 case 0x09C2: return "Kllisre";
                 case 0x0A76: return "Lexar Co Limited";
                 case 0x09A2: return "MAXSUN";
