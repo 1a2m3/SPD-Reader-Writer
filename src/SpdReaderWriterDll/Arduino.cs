@@ -61,12 +61,12 @@ namespace SpdReaderWriterDll {
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        /// <param name="spdSize">Total EEPROM size</param>
-        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Ram.SpdSize spdSize) {
+        /// <param name="dataLength">Total EEPROM size</param>
+        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Spd.DataLength dataLength) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
-            SpdSize      = spdSize;
+            DataLength   = dataLength;
         }
 
         /// <summary>
@@ -525,7 +525,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// EEPROM size
         /// </summary>
-        public Ram.SpdSize SpdSize;
+        public Spd.DataLength DataLength;
 
         /// <summary>
         /// Number of bytes to be read from the device

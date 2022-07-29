@@ -546,11 +546,9 @@ namespace SpdReaderWriterDll {
                         byte smb_en_status = (byte)(smba_en_lo & 0x10);
 
                         UInt16 piix4_smba; // Primary bus
-                        UInt16 piix4_smba_alt; // Alternative (secondary) bus
 
                         if (smb_en_status > 0) {
                             piix4_smba = (UInt16)(smba_en_hi << 8); // 0x0B00
-                            piix4_smba_alt = (UInt16)(piix4_smba | 0x20); // 0x0B20
 
                             if (piix4_smba != 0x00) {
                                 ioPort = new IoPort(piix4_smba);
@@ -565,7 +563,7 @@ namespace SpdReaderWriterDll {
             BusNumber         = 0;
             byte[] scanResult = Scan();
             Addresses         = scanResult;
-            MaxSpdSize        = scanResult.Length > 0 ? GetMaxSpdSize(scanResult[0]) : (UInt16)Ram.SpdSize.UNKNOWN;
+            MaxSpdSize        = scanResult.Length > 0 ? GetMaxSpdSize(scanResult[0]) : (UInt16)Spd.DataLength.UNKNOWN;
             SMBuses           = FindBus();
         }
 
@@ -1227,9 +1225,9 @@ namespace SpdReaderWriterDll {
             byte[] spdHeader = { 0x00, 0x00, ramTypeByte };
 
             // Check if dram device type byte value is in the Ram.Type enum
-            return (UInt16)(Enum.IsDefined(typeof(Ram.Type), (Ram.Type)ramTypeByte)
+            return (UInt16)(Enum.IsDefined(typeof(Spd.RamType), (Spd.RamType)ramTypeByte)
                 ? Spd.GetSpdSize(Spd.GetRamType(spdHeader))
-                : Ram.SpdSize.MINIMUM); // DDR3 and older
+                : Spd.DataLength.MINIMUM); // DDR3 and older
         }
     }
 }
