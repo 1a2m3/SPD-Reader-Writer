@@ -10,8 +10,8 @@
 */
 
 using System;
+using System.ComponentModel;
 using System.IO;
-using static SpdReaderWriterDll.Ram;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -26,7 +26,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>RAM Type</returns>
-        public static Ram.Type GetRamType(Arduino device) {
+        public static RamType GetRamType(Arduino device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -37,11 +37,11 @@ namespace SpdReaderWriterDll {
             }
 
             if (device.DetectDdr5()) {
-                return Ram.Type.DDR5;
+                return RamType.DDR5;
             }
 
             if (device.DetectDdr4()) {
-                return Ram.Type.DDR4;
+                return RamType.DDR4;
             }
 
             // Byte at offset 0x02 in SPD indicates RAM type
@@ -58,10 +58,10 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">SPD dump</param>
         /// <returns>RAM Type</returns>
-        public static Ram.Type GetRamType(byte[] input) {
+        public static RamType GetRamType(byte[] input) {
 
             // Byte at offset 0x02 in SPD indicates RAM type
-            return input.Length >= 3 && Enum.IsDefined(typeof(Ram.Type), (Ram.Type)input[0x02]) ? (Ram.Type)input[0x02] : Ram.Type.UNKNOWN;
+            return input.Length >= 3 && Enum.IsDefined(typeof(RamType), (RamType)input[0x02]) ? (RamType)input[0x02] : RamType.UNKNOWN;
         }
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
-        public static SpdSize GetSpdSize(Arduino device) {
+        public static DataLength GetSpdSize(Arduino device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -80,15 +80,15 @@ namespace SpdReaderWriterDll {
             }
 
             if (device.DetectDdr5()) {
-                return SpdSize.DDR5;
+                return DataLength.DDR5;
             }
 
             if (device.DetectDdr4()) { 
-                return SpdSize.DDR4;
+                return DataLength.DDR4;
             }
 
             if (device.Scan().Length != 0) {
-                return SpdSize.MINIMUM;
+                return DataLength.MINIMUM;
             }
 
             return 0;            
@@ -99,21 +99,21 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="ramType">Ram Type</param>
         /// <returns>SPD size</returns>
-        public static SpdSize GetSpdSize(Ram.Type ramType) {
+        public static DataLength GetSpdSize(RamType ramType) {
 
             switch (ramType) {
-                case Ram.Type.SDRAM:
-                case Ram.Type.DDR:
-                case Ram.Type.DDR2:
-                case Ram.Type.DDR2_FB_DIMM:
-                case Ram.Type.DDR3:
-                    return SpdSize.MINIMUM;
-                case Ram.Type.DDR4:
-                    return SpdSize.DDR4;
-                case Ram.Type.DDR5:
-                    return SpdSize.DDR5;
+                case RamType.SDRAM:
+                case RamType.DDR:
+                case RamType.DDR2:
+                case RamType.DDR2_FB_DIMM:
+                case RamType.DDR3:
+                    return DataLength.MINIMUM;
+                case RamType.DDR4:
+                    return DataLength.DDR4;
+                case RamType.DDR5:
+                    return DataLength.DDR5;
                 default:
-                    return SpdSize.UNKNOWN;
+                    return DataLength.UNKNOWN;
             }
         }
 
@@ -125,14 +125,14 @@ namespace SpdReaderWriterDll {
         public static bool ValidateSpd(byte[] input) {
 
             switch (input.Length) {
-                case (int)SpdSize.DDR5 when GetRamType(input) == Ram.Type.DDR5:
-                case (int)SpdSize.DDR4 when GetRamType(input) == Ram.Type.DDR4:
+                case (int)DataLength.DDR5 when GetRamType(input) == RamType.DDR5:
+                case (int)DataLength.DDR4 when GetRamType(input) == RamType.DDR4:
                     return true;
-                case (int)SpdSize.MINIMUM:
-                    return GetRamType(input) == Ram.Type.DDR3 || 
-                           GetRamType(input) == Ram.Type.DDR2 || 
-                           GetRamType(input) == Ram.Type.DDR  ||
-                           GetRamType(input) == Ram.Type.SDRAM;
+                case (int)DataLength.MINIMUM:
+                    return GetRamType(input) == RamType.DDR3 || 
+                           GetRamType(input) == RamType.DDR2 || 
+                           GetRamType(input) == RamType.DDR  ||
+                           GetRamType(input) == RamType.SDRAM;
                 default:
                     return false;
             }
@@ -147,14 +147,14 @@ namespace SpdReaderWriterDll {
             UInt16 manufacturerId = 0;
 
             switch (GetRamType(input)) {
-                case Ram.Type.DDR5:
+                case RamType.DDR5:
                     manufacturerId = (UInt16)((UInt16)(input[0x200] << 8 | input[0x201]) & 0x7FFF);
                     break;
-                case Ram.Type.DDR4:
+                case RamType.DDR4:
                     manufacturerId = (UInt16)((input[0x140] << 8 | input[0x141]) & 0x7FFF);
                     break;
-                case Ram.Type.DDR3:
-                case Ram.Type.DDR2_FB_DIMM:
+                case RamType.DDR3:
+                case RamType.DDR2_FB_DIMM:
                     manufacturerId = (UInt16)((input[0x75] << 8 | input[0x76]) & 0x7FFF);
                     break;
 
@@ -299,27 +299,27 @@ namespace SpdReaderWriterDll {
             switch (GetRamType(input)) {
 
                 // Part number location for DDR5 SPDs
-                case Ram.Type.DDR5:
+                case RamType.DDR5:
                     modelNameStart = 0x209;
                     modelNameEnd   = 0x226;
                     break;
 
                 // Part number location for DDR4 SPDs
-                case Ram.Type.DDR4:
+                case RamType.DDR4:
                     modelNameStart = 0x149;
                     modelNameEnd   = 0x15C;
                     break;
 
                 // Part number location for DDR3 SPDs
-                case Ram.Type.DDR3:
-                case Ram.Type.DDR2_FB_DIMM:
+                case RamType.DDR3:
+                case RamType.DDR2_FB_DIMM:
                     modelNameStart = 0x80;
                     modelNameEnd   = 0x91;
                     break;
 
                 // Part number for Kingston DDR2 and DDR SPDs
-                case Ram.Type.DDR2 when GetModuleManufacturer(input).StartsWith("Kingston"):
-                case Ram.Type.DDR  when GetModuleManufacturer(input).StartsWith("Kingston"):
+                case RamType.DDR2 when GetModuleManufacturer(input).StartsWith("Kingston"):
+                case RamType.DDR  when GetModuleManufacturer(input).StartsWith("Kingston"):
                     modelNameStart = 0xF0;
                     modelNameEnd   = 0xFF;
                     break;
@@ -342,6 +342,38 @@ namespace SpdReaderWriterDll {
             }
 
             return Data.BytesToString(chars);
+        }
+
+        /// <summary>
+        /// Defines basic memory type byte value
+        /// </summary>
+        public enum RamType {
+            UNKNOWN       = 0x00,
+            SDRAM         = 0x04,
+            DDR           = 0x07,
+            DDR2          = 0x08,
+            [Description("DDR2 FB DIMM")]
+            DDR2_FB_DIMM  = 0x09,
+            DDR3          = 0x0B,
+            LPDDR3        = 0x0F,
+            DDR4          = 0x0C,
+            DDR4E         = 0x0E,
+            LPDDR4        = 0x10,
+            LPDDR4X       = 0x11,
+            DDR5          = 0x12,
+            LPDDR5        = 0x13,
+            [Description("DDR5 NVDIMM-P")]
+            DDR5_NVDIMM_P = 0x14,
+        }
+
+        /// <summary>
+        /// Defines SPD sizes
+        /// </summary>
+        public enum DataLength {
+            UNKNOWN       = 0,
+            MINIMUM       = 256, //DDR3, DDR2, DDR, and SDRAM
+            DDR4          = 512,
+            DDR5          = 1024,
         }
     }
 }
