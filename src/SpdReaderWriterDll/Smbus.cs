@@ -584,8 +584,6 @@ namespace SpdReaderWriterDll {
                 case VendorId.AMD:
                     pciDevice = new PciDevice(PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus));
 
-                    // Ported partially from piix4_setup_sb800_smba() from drivers/i2c/busses/i2c-piix4.c
-
                     // AMD AM4, AM1, FM1, FM2(+)
                     if ((pciDevice.DeviceId == (UInt16)DeviceId.FCH && pciDevice.RevisionId >= 0x49) ||
                         (pciDevice.DeviceId == (UInt16)DeviceId.Hudson2 && pciDevice.RevisionId >= 0x41)) {
@@ -594,7 +592,7 @@ namespace SpdReaderWriterDll {
                         const UInt16 SB800_PIIX4_SMB_IDX = 0xCD6;
                         const UInt16 SB800_PIIX4_SMB_DAT = 0xCD7;
 
-                        byte smb_en = 0x00; // AMD && (Hudson2 && revision >= 0x41 || FCH && revision >= 0x49)
+                        byte smb_en = 0x00;
 
                         IoPort _ioPort = new IoPort();
 
