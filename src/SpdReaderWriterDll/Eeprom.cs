@@ -157,12 +157,12 @@ namespace SpdReaderWriterDll {
         /// <param name="eepromPageNumber">Page number</param>
         private static void SetPageAddress(Smbus device, UInt8 eepromPageNumber) {
 
-            if (device.MaxSpdSize != 0 && device.MaxSpdSize < (UInt16)Ram.SpdSize.DDR4) {
+            if (device.MaxSpdSize != 0 && device.MaxSpdSize < (UInt16)Spd.DataLength.DDR4) {
                 return;
             }
 
-            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR4 && eepromPageNumber > 1 ||
-                device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR5 && eepromPageNumber > 15) {
+            if (device.MaxSpdSize == (UInt16)Spd.DataLength.DDR4 && eepromPageNumber > 1 ||
+                device.MaxSpdSize == (UInt16)Spd.DataLength.DDR5 && eepromPageNumber > 15) {
                 throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
             }
 
@@ -185,19 +185,19 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte position</param>
         private static void AdjustPageAddress(Smbus device, UInt16 offset) {
 
-            if (device.MaxSpdSize >= (UInt16)Ram.SpdSize.MINIMUM) {
+            if (device.MaxSpdSize >= (UInt16)Spd.DataLength.MINIMUM) {
                 if (offset > device.MaxSpdSize) {
                     throw new IndexOutOfRangeException($"Invalid offset");
                 }
 
-                if (device.MaxSpdSize < (UInt16)Spd.GetSpdSize(Ram.Type.DDR4)) {
+                if (device.MaxSpdSize < (UInt16)Spd.GetSpdSize(Spd.RamType.DDR4)) {
                     return;
                 }
             }
 
             byte targetPage = 0;
 
-            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR4) {
+            if (device.MaxSpdSize == (UInt16)Spd.DataLength.DDR4) {
                 targetPage = (byte)(offset >> 8);
             }
 
@@ -271,11 +271,11 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
         public static bool SetRswp(Smbus device, UInt8 block) {
 
-            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.MINIMUM && block >= 1) {
+            if (device.MaxSpdSize == (UInt16)Spd.DataLength.MINIMUM && block >= 1) {
                 throw new ArgumentOutOfRangeException(nameof(block));
             }
 
-            if (device.MaxSpdSize == (UInt16)Ram.SpdSize.DDR4 && block >= 4) {
+            if (device.MaxSpdSize == (UInt16)Spd.DataLength.DDR4 && block >= 4) {
                 throw new ArgumentOutOfRangeException(nameof(block));
             }
 
@@ -318,7 +318,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Arduino device, UInt16 offset) {
-            if (offset > (int)Ram.SpdSize.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
 
@@ -343,7 +343,7 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Arduino device, UInt16 offset, UInt8 count) {
-            if (offset > (int)Ram.SpdSize.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
             if (count == 0) {
@@ -372,7 +372,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte value) {
-            if (offset > (int)Ram.SpdSize.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
             try {
@@ -397,7 +397,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte[] value) {
-            if (offset > (int)Ram.SpdSize.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
             if (value.Length > 16 || value.Length == 0) {
@@ -447,7 +447,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if page read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
         public static bool UpdateByte(Arduino device, UInt16 offset, byte[] value) {
-            if (offset > (int)Ram.SpdSize.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid offset");
             }
             if (value.Length > 16 || value.Length == 0) {
