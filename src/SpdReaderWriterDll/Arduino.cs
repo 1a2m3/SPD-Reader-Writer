@@ -23,7 +23,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
     /// </summary>
-    public class Arduino {
+    public class Arduino : IDisposable {
 
         /// <summary>
         /// Initializes the SPD reader/writer device
@@ -89,7 +89,7 @@ namespace SpdReaderWriterDll {
         /// Device class destructor
         /// </summary>
         ~Arduino() {
-            DisposePrivate();
+            Dispose();
         }
 
         /// <summary>
@@ -136,7 +136,52 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if the connection is established</returns>
         public bool Connect() {
-            return ConnectPrivate();
+            lock (_portLock) {
+                if (!IsConnected) {
+                    _sp = new SerialPort {
+                        // New connection settings
+                        PortName = PortName,
+                        BaudRate = PortSettings.BaudRate,
+                        DtrEnable = PortSettings.DtrEnable,
+                        RtsEnable = PortSettings.RtsEnable
+                    };
+
+                    // Event to handle Data Reception
+                    _sp.DataReceived += DataReceivedHandler;
+
+                    // Event to handle Errors
+                    _sp.ErrorReceived += ErrorReceivedHandler;
+
+                    // Test the connection
+                    try {
+                        // Establish a connection
+                        _sp.Open();
+
+                        // Set valid state to true to allow Communication Test to execute
+                        _isValid = true;
+                        try {
+                            _isValid = Test();
+                        }
+                        catch {
+                            _isValid = false;
+                            Dispose();
+                        }
+
+                        if (!_isValid) {
+                            try {
+                                Dispose();
+                            }
+                            finally {
+                                throw new Exception("Invalid device");
+                            }
+                        }
+                    }
+                    catch (Exception ex) {
+                        throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
+                    }
+                }
+            }
+            return IsConnected;
         }
 
         /// <summary>
@@ -144,14 +189,40 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> once the device is disconnected</returns>
         public bool Disconnect() {
-            return DisconnectPrivate(this);
+            lock (_portLock) {
+                if (IsConnected) {
+                    try {
+                        // Remove handlers
+                        _sp.DataReceived -= DataReceivedHandler;
+                        _sp.ErrorReceived -= ErrorReceivedHandler;
+                        // Close connection
+                        _sp.Close();
+                        // Reset valid state
+                        _isValid = false;
+                    }
+                    catch (Exception ex) {
+                        throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
+                    }
+
+                }
+
+                return !IsConnected;
+            }
         }
 
         /// <summary>
         /// Disposes device instance
         /// </summary>
         public void Dispose() {
-            DisposePrivate();
+            lock (_portLock) {
+                if (_sp != null && _sp.IsOpen) {
+                    _sp.Close();
+                    _sp = null;
+                }
+                DataReceiving = false;
+                IsValid = false;
+                ResponseData.Clear();
+            }
         }
 
         /// <summary>
@@ -159,32 +230,54 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if the device responds properly to a test command</returns>
         public bool Test() {
-            return TestPrivate();
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(Command.TESTCOMM) == Response.WELCOME;
+                }
+                catch {
+                    throw new Exception($"Unable to test {PortName}");
+                }
+            }
         }
 
         /// <summary>
         /// Gets supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Response.RswpSupport"/> struct</returns>
         public byte GetRamTypeSupport() {
-            return GetRamTypeSupportPrivate();
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(Command.RSWPREPORT);
+                }
+                catch {
+                    throw new Exception($"Unable to get {PortName} supported RAM");
+                }
+            }
         }
 
         /// <summary>
         /// Test if the device supports RAM type RSWP at firmware level
         /// </summary>
         /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true"/> if the device supports <see cref="Ram.Type"/> RSWP at firmware level</returns>
+        /// <returns><see langword="true"/> if the device supports <see cref="Response.RswpSupport"/> RSWP at firmware level</returns>
         public bool GetRamTypeSupport(byte ramTypeBitmask) {
-            return GetRamTypeSupportPrivate(ramTypeBitmask);
+            return (GetRamTypeSupport() & ramTypeBitmask) == ramTypeBitmask;
         }
 
         /// <summary>
         /// Re-evaluate device's RSWP capabilities
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Ram.Type"/> struct</returns>
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Response.RswpSupport"/> struct</returns>
         public byte RswpRetest() {
-            return RswpRetestPrivate();
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(Command.RETESTRSWP);
+                }
+                catch {
+                    throw new Exception($"Unable to get {PortName} supported RAM");
+                }
+            }
         }
 
         /// <summary>
@@ -200,7 +293,30 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>An array of addresses on the device's I2C bus</returns>
         public UInt8[] Scan() {
-            return ScanPrivate();
+            Queue<UInt8> addresses = new Queue<UInt8>();
+
+            lock (_portLock) {
+                try {
+                    if (IsConnected) {
+                        byte response = Scan(true);
+
+                        if (response == Response.NULL) {
+                            return new byte[0];
+                        }
+
+                        for (UInt8 i = 0; i <= 7; i++) {
+                            if (Data.GetBit(response, i)) {
+                                addresses.Enqueue((byte)(80 + i));
+                            }
+                        }
+                    }
+                }
+                catch {
+                    throw new Exception($"Unable to scan I2C bus on {PortName}");
+                }
+            }
+
+            return addresses.ToArray();
         }
 
         /// <summary>
@@ -209,7 +325,20 @@ namespace SpdReaderWriterDll {
         /// <param name="bitmask">Enable bitmask response</param>
         /// <returns>A bitmask representing available addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
         public UInt8 Scan(bool bitmask) {
-            return ScanPrivate(bitmask);
+            if (bitmask) {
+                lock (_portLock) {
+                    try {
+                        if (IsConnected) {
+                            return ExecuteCommand(Command.SCANBUS);
+                        }
+                    }
+                    catch {
+                        throw new Exception($"Unable to scan I2C bus on {PortName}");
+                    }
+                }
+            }
+
+            return 0;
         }
 
         /// <summary>
@@ -218,7 +347,15 @@ namespace SpdReaderWriterDll {
         /// <param name="fastMode">Fast mode or standard mode</param>
         /// <returns><see langword="true"/> if the operation is successful</returns>
         public bool SetI2CClock(bool fastMode) {
-            return SetI2CClockPrivate(fastMode);
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToInt(fastMode) }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to set I2C clock mode on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -227,44 +364,65 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode,
         /// or <see langword="false"/> if it is running in standard mode</returns>
         public bool GetI2CClock() {
-            return GetI2CClockPrivate();
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.I2CCLOCK, Command.GET }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to get I2C clock mode on {PortName}");
+                }
+            }
         }
 
         /// <summary>
         /// Gets current device I2C clock
         /// </summary>
-        public UInt16 I2CClock => (UInt16)(GetI2CClockPrivate() ? 400 : 100);
+        public UInt16 I2CClock => (UInt16)(GetI2CClock() ? 400 : 100);
 
         /// <summary>
         /// Resets the device's settings to defaults
         /// </summary>
         /// <returns><see langword="true"/> once the device's settings are successfully reset to defaults</returns>
         public bool FactoryReset() {
-            return FactoryResetPrivate(this);
+            lock (_portLock) {
+                try {
+                    if (IsConnected &&
+                        ExecuteCommand(new[] { Command.FACTORYRESET }) == Response.SUCCESS) {
+
+                        return true;
+                    }
+
+                    return false;
+                }
+                catch {
+                    throw new Exception($"Unable to reset device settings on {PortName}");
+                }
+            }
         }
 
         /// <summary>
         /// Gets or sets SA1 control pin
         /// </summary>
         public bool PIN_SA1 {
-            get => GetConfigPinPrivate(Pin.Name.SA1_SWITCH);
-            set => SetConfigPinPrivate(Pin.Name.SA1_SWITCH, value);
+            get => GetConfigPin(Pin.Name.SA1_SWITCH);
+            set => SetConfigPin(Pin.Name.SA1_SWITCH, value);
         }
 
         /// <summary>
         /// Gets or sets DDR5 offline mode control pin
         /// </summary>
         public bool PIN_OFFLINE {
-            get => GetConfigPinPrivate(Pin.Name.OFFLINE_MODE_SWITCH);
-            set => SetOfflineModePrivate(value);
+            get => GetConfigPin(Pin.Name.OFFLINE_MODE_SWITCH);
+            set => SetOfflineMode(value);
         }
 
         /// <summary>
         /// Gets or sets High voltage control pin
         /// </summary>
         public bool PIN_VHV {
-            get => GetHighVoltagePrivate();
-            set => SetHighVoltagePrivate(value);
+            get => GetHighVoltage();
+            set => SetHighVoltage(value);
         }
 
         /// <summary>
@@ -273,7 +431,15 @@ namespace SpdReaderWriterDll {
         /// <param name="state">High voltage supply state</param>
         /// <returns><see langword="true"/> when operation is successful</returns>
         public bool SetHighVoltage(bool state) {
-            return SetHighVoltagePrivate(state);
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to set High Voltage state on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -281,7 +447,15 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if high voltage is applied to pin SA0</returns>
         public bool GetHighVoltage() {
-            return GetHighVoltagePrivate();
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Command.GET }) == Response.ON;
+                }
+                catch {
+                    throw new Exception($"Unable to get High Voltage state on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -291,7 +465,15 @@ namespace SpdReaderWriterDll {
         /// <param name="state">Pin state</param>
         /// <returns><see langword="true"/> if the config pin has been set</returns>
         public bool SetConfigPin(byte pin, bool state) {
-            return SetConfigPinPrivate(pin, state);
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToInt(state) }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to set config pin state on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -299,7 +481,15 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if pin is high, or <see langword="false"/> when pin is low</returns>
         public bool GetConfigPin(byte pin) {
-            return GetConfigPinPrivate(pin) == Pin.State.ON;
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Command.GET }) == Response.ON;
+                }
+                catch {
+                    throw new Exception($"Unable to get config pin state on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -308,7 +498,14 @@ namespace SpdReaderWriterDll {
         /// <param name="state">Offline mode state</param>
         /// <returns><see langword="true"/> when operation completes successfully</returns>
         public bool SetOfflineMode(bool state) {
-            return SetOfflineModePrivate(state);
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to set offline mode on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -316,7 +513,14 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> when DDR5 is in offline mode</returns>
         public bool GetOfflineMode() {
-            return GetOfflineModePrivate();
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Command.GET }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to get offline mode status on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -337,7 +541,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress() {
-            return I2CAddress != 0 && ProbeAddressPrivate(I2CAddress);
+            return I2CAddress != 0 && ProbeAddress(I2CAddress);
         }
 
         /// <summary>
@@ -346,21 +550,55 @@ namespace SpdReaderWriterDll {
         /// <param name="address">EEPROM address</param>
         /// <returns><see langword="true"/> if EEPROM is detected at the specified address</returns>
         public bool ProbeAddress(UInt8 address) {
-            return ProbeAddressPrivate(address);
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.PROBEADDRESS, address }) == Response.ACK;
+                }
+                catch {
+                    throw new Exception($"Unable to probe address {address} on {PortName}");
+                }
+            }
         }
 
         /// <summary>
         /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
         /// </summary>
         public void ClearBuffer() {
-            ClearBufferPrivate();
+            lock (_portLock) {
+                try {
+                    if (IsConnected) {
+                        // Clear response data
+                        if (ResponseData.Count > 0) {
+                            ResponseData.Clear();
+                        }
+
+                        // Clear receive buffer
+                        if (BytesToRead > 0) {
+                            _sp.DiscardInBuffer();
+                        }
+
+                        // Clear transmit buffer
+                        if (BytesToWrite > 0) {
+                            _sp.DiscardOutBuffer();
+                        }
+                    }
+                }
+                catch {
+                    throw new Exception($"Unable to clear {PortName} buffer");
+                }
+            }
         }
 
         /// <summary>
         /// Clears serial port buffers and causes any buffered data to be written
         /// </summary>
         public void FlushBuffer() {
-            FlushBufferPrivate();
+            lock (_portLock) {
+                if (IsConnected) {
+                    _sp.BaseStream.Flush();
+                }
+            }
         }
 
         /// <summary>
@@ -369,7 +607,7 @@ namespace SpdReaderWriterDll {
         /// <param name="command">Byte to be sent to the device</param>
         /// <returns>A byte received from the device in response</returns>
         public byte ExecuteCommand(byte command) {
-            return ExecuteCommandPrivate(new []{ command }, 1)[0];
+            return ExecuteCommand(this, new []{ command }, 1)[0];
         }
 
         /// <summary>
@@ -378,7 +616,7 @@ namespace SpdReaderWriterDll {
         /// <param name="command">Bytes to be sent to the device</param>
         /// <returns>A byte received from the device in response</returns>
         public byte ExecuteCommand(byte[] command) {
-            return ExecuteCommandPrivate(command, 1)[0];
+            return ExecuteCommand(this, command, 1)[0];
         }
 
         /// <summary>
@@ -388,7 +626,7 @@ namespace SpdReaderWriterDll {
         /// <param name="length">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
         public byte[] ExecuteCommand(byte command, uint length) {
-            return ExecuteCommandPrivate(new[] { command }, length);
+            return ExecuteCommand(this, new[] { command }, length);
         }
 
         /// <summary>
@@ -398,32 +636,41 @@ namespace SpdReaderWriterDll {
         /// <param name="length">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
         public byte[] ExecuteCommand(byte[] command, uint length) {
-            return ExecuteCommandPrivate(command, length);
+            return ExecuteCommand(this, command, length);
         }
 
         /// <summary>
         /// Device's firmware version
         /// </summary>
-        public string FirmwareVersion {
-            get {
-                return GetFirmwareVersionPrivate().ToString();
-            }
-        }
+        public string FirmwareVersion => GetFirmwareVersion().ToString();
 
         /// <summary>
         /// Get device's firmware version 
         /// </summary>
         /// <returns>Firmware version number</returns>
         public int GetFirmwareVersion() {
-            return GetFirmwareVersionPrivate();
+            int version = 0;
+            lock (_portLock) {
+                try {
+                    if (IsConnected) {
+                        version = Int32.Parse(
+                            Data.BytesToString(ExecuteCommand(Command.GETVERSION, 8))
+                        );
+                    }
+                }
+                catch {
+                    throw new Exception($"Unable to get firmware version on {PortName}");
+                }
+            }
+            return version;
         }
 
         /// <summary>
         /// Device's user assigned name
         /// </summary>
         public string Name {
-            get => GetNamePrivate();
-            set => SetNamePrivate(value);
+            get => GetName();
+            set => SetName(value);
         }
 
         /// <summary>
@@ -432,7 +679,43 @@ namespace SpdReaderWriterDll {
         /// <param name="name">Device name</param>
         /// <returns><see langword="true"/> when the device name is set</returns>
         public bool SetName(string name) {
-            return SetNamePrivate(name);
+            if (name == null) {
+                throw new ArgumentNullException("Name can't be null");
+            }
+            if (name == "") {
+                throw new ArgumentException("Name can't be blank");
+            }
+            if (name.Length > 16) {
+                throw new ArgumentException("Name can't be longer than 16 characters");
+            }
+
+            lock (_portLock) {
+                try {
+                    if (IsConnected) {
+                        string newName = name.Trim();
+
+                        if (newName == GetName()) {
+                            return false;
+                        }
+
+                        // Prepare a byte array containing cmd byte + name length + name
+                        byte[] nameCommand = new byte[1 + 1 + newName.Length];
+                        // Command byte at position 0
+                        nameCommand[0] = Command.NAME;
+                        // Name length at position 1
+                        nameCommand[1] = (byte)newName.Length;
+                        // Copy new name to byte array
+                        Array.Copy(Encoding.ASCII.GetBytes(newName), 0, nameCommand, 2, newName.Length);
+
+                        return ExecuteCommand(nameCommand) == Response.SUCCESS;
+                    }
+                }
+                catch {
+                    throw new Exception($"Unable to assign name to {PortName}");
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -440,7 +723,18 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>Device's name</returns>
         public string GetName() {
-            return GetNamePrivate();
+            lock (_portLock) {
+                try {
+                    if (IsConnected) {
+                        return Data.BytesToString(ExecuteCommand(this, new[] { Command.NAME, Command.GET }, 16));
+                    }
+                }
+                catch {
+                    throw new Exception($"Unable to get {PortName} name");
+                }
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -448,7 +742,27 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>An array of serial port names which have valid devices connected to</returns>
         public string[] Find() {
-            return FindPrivate();
+            Stack<string> result = new Stack<string>();
+
+            lock (_findLock) {
+                foreach (string portName in SerialPort.GetPortNames().Distinct().ToArray()) {
+
+                    Arduino device = new Arduino(PortSettings, portName);
+                    try {
+                        lock (device._portLock) {
+                            if (device.Connect()) {
+                                device.Dispose();
+                                result.Push(portName);
+                            }
+                        }
+                    }
+                    catch {
+                        continue;
+                    }
+                }
+            }
+
+            return result.ToArray();
         }
 
         /// <summary>
@@ -478,7 +792,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if DDR4 is found</returns>
         public bool DetectDdr4() {
-            return DetectDdr4Private(I2CAddress);
+            return DetectDdr4(I2CAddress);
         }
 
         /// <summary>
@@ -487,7 +801,15 @@ namespace SpdReaderWriterDll {
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true"/> if DDR4 is found at <see cref="address"/></returns>
         public bool DetectDdr4(UInt8 address) {
-            return DetectDdr4Private(address);
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.DDR4DETECT, address }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Error detecting DDR4 on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -495,7 +817,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if DDR5 is found</returns>
         public bool DetectDdr5() {
-            return DetectDdr5Private(I2CAddress);
+            return DetectDdr5(I2CAddress);
         }
 
         /// <summary>
@@ -504,7 +826,15 @@ namespace SpdReaderWriterDll {
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true"/> if DDR5 is found at <see cref="address"/></returns>
         public bool DetectDdr5(UInt8 address) {
-            return DetectDdr5Private(address);
+            lock (_portLock) {
+                try {
+                    return IsConnected &&
+                           ExecuteCommand(new[] { Command.DDR5DETECT, address }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Error detecting DDR5 on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -561,7 +891,7 @@ namespace SpdReaderWriterDll {
         public byte RamTypeSupport {
             get {
                 try {
-                    return GetRamTypeSupportPrivate();
+                    return GetRamTypeSupport();
                 }
                 catch {
                     throw new Exception("Unable to get supported RAM type");
@@ -630,578 +960,18 @@ namespace SpdReaderWriterDll {
         private bool _isValid;
 
         /// <summary>
-        /// Attempts to establish a connection with the device
-        /// </summary>
-        /// <returns><see langword="true"/> if the connection is established</returns>
-        private bool ConnectPrivate() {
-            lock (_portLock) {
-                if (!IsConnected) {
-                    _sp = new SerialPort {
-                        // New connection settings
-                        PortName  = PortName,
-                        BaudRate  = PortSettings.BaudRate,
-                        DtrEnable = PortSettings.DtrEnable,
-                        RtsEnable = PortSettings.RtsEnable
-                    };
-
-                    // Event to handle Data Reception
-                    _sp.DataReceived += DataReceivedHandler;
-
-                    // Event to handle Errors
-                    _sp.ErrorReceived += ErrorReceivedHandler;
-
-                    // Test the connection
-                    try {
-                        // Establish a connection
-                        _sp.Open();
-
-                        // Set valid state to true to allow Communication Test to execute
-                        _isValid = true;
-                        try {
-                            _isValid = TestPrivate();
-                        }
-                        catch {
-                            _isValid = false;
-                            DisposePrivate();
-                        }
-
-                        if (!_isValid) {
-                            try {
-                                DisposePrivate();
-                            }
-                            finally {
-                                throw new Exception("Invalid device");
-                            }
-                        }
-                    }
-                    catch (Exception ex) {
-                        throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
-                    }
-                }
-            }
-            return IsConnected;
-        }
-
-        /// <summary>
-        /// Disconnect from the device
-        /// </summary>
-        /// <returns><see langword="true"/> once the device is disconnected</returns>
-        private bool DisconnectPrivate(Arduino device) {
-            lock (_portLock) {
-                if (IsConnected) {
-                    try {
-                        // Remove handlers
-                        _sp.DataReceived  -= DataReceivedHandler;
-                        _sp.ErrorReceived -= ErrorReceivedHandler;
-                        // Close connection
-                        _sp.Close();
-                        // Reset valid state
-                        _isValid = false;
-
-                        device = null;
-                    }
-                    catch (Exception ex) {
-                        throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
-                    }  
-                    
-                }
-
-                return !IsConnected;
-            }
-        }
-
-        /// <summary>
-        /// Disposes device instance
-        /// </summary>
-        private void DisposePrivate() {
-            lock (_portLock) {
-                if (_sp != null && _sp.IsOpen) {
-                    _sp.Close();
-                    _sp = null;
-                }
-                DataReceiving = false;
-                IsValid       = false;
-                ResponseData.Clear();
-            }
-        }
-
-        /// <summary>
-        /// Tests if the device is able to communicate
-        /// </summary>
-        /// <returns><see langword="true"/> if the device responds to a test command</returns>
-        private bool TestPrivate() {
-            lock (_portLock) {
-                try {
-                    return IsConnected && 
-                           ExecuteCommand(Command.TESTCOMM) == Response.WELCOME;
-                }
-                catch {
-                    throw new Exception($"Unable to test {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets initial supported RAM type(s)
-        /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Response.RswpSupport"/> struct</returns>
-        private byte GetRamTypeSupportPrivate() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand(Command.RSWPREPORT);
-                }
-                catch {
-                    throw new Exception($"Unable to get {PortName} supported RAM");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Test if the device supports RAM type at firmware level
-        /// </summary>
-        /// <param name="ramTypeBitmask">RAM type bitmask</param>
-        /// <returns><see langword="true"/> if the device supports <see cref="Ram.Type"/> at firmware level</returns>
-        private bool GetRamTypeSupportPrivate(byte ramTypeBitmask) {
-            return (GetRamTypeSupportPrivate() & ramTypeBitmask) == ramTypeBitmask;
-        }
-
-        /// <summary>
-        /// Re-evaluate device's RSWP capabilities
-        /// </summary>
-        /// <returns>A bitmask representing available RSWP RAM support defined in the <see cref="Response.RswpSupport"/> struct</returns>
-        private byte RswpRetestPrivate() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand(Command.RETESTRSWP);
-                }
-                catch {
-                    throw new Exception($"Unable to get {PortName} supported RAM");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Sets DDR5 offline mode 
-        /// </summary>
-        /// <param name="state">Offline mode state</param>
-        /// <returns><see langword="true"/> when operation is successful</returns>
-        private bool SetOfflineModePrivate(bool state) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to set offline mode on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets DDR5 offline mode status
-        /// </summary>
-        /// <returns><see langword="true"/> when DDR5 is in offline mode</returns>
-        private bool GetOfflineModePrivate() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Command.GET }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to get offline mode status on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Scans for EEPROM addresses on the device's I2C bus
-        /// </summary>
-        /// <returns>An array of EEPROM addresses present on the device's I2C bus</returns>
-        private UInt8[] ScanPrivate() {
-            Queue<UInt8> addresses = new Queue<UInt8>();
-
-            lock (_portLock) {
-                try {
-                    if (IsConnected) {
-                        byte _response = ScanPrivate(true);
-
-                        if (_response == Response.NULL) {
-                            return new byte[0];
-                        }
-
-                        for (UInt8 i = 0; i <= 7; i++) {
-                            if (Data.GetBit(_response, i)) {
-                                addresses.Enqueue((byte)(80 + i));
-                            }
-                        }
-                    }
-                }
-                catch {
-                    throw new Exception($"Unable to scan I2C bus on {PortName}");
-                }
-            }
-
-            return addresses.ToArray();
-        }
-
-        /// <summary>
-        /// Scans for EEPROM addresses on the device's I2C bus
-        /// </summary>
-        /// <param name="bitmask">Enable bitmask response</param>
-        /// <returns>A bitmask representing available EEPROM addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
-        private UInt8 ScanPrivate(bool bitmask) {
-            if (bitmask) {
-                lock (_portLock) {
-                    try {
-                        if (IsConnected) {
-                            return ExecuteCommand(Command.SCANBUS);
-                        }
-                    }
-                    catch {
-                        throw new Exception($"Unable to scan I2C bus on {PortName}");
-                    }
-                }
-            }
-
-            return 0;
-        }
-
-        /// <summary>
-        /// Sets clock frequency for I2C communication
-        /// </summary>
-        /// <param name="fastMode">Fast mode or standard mode</param>
-        /// <returns><see langword="true"/> if the operation is successful</returns>
-        private bool SetI2CClockPrivate(bool fastMode) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToInt(fastMode) }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to set I2C clock mode on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get current device I2C clock mode
-        /// </summary>
-        /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode, or <see langword="false"/> if it is in standard mode</returns>
-        private bool GetI2CClockPrivate() {
-
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.I2CCLOCK, Command.GET }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to get I2C clock mode on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Resets the device's settings to defaults
-        /// </summary>
-        /// <returns><see langword="true"/> once the device's settings are successfully reset to defaults</returns>
-        private bool FactoryResetPrivate(Arduino device) {
-
-            lock (_portLock) {
-                try {
-                    if (IsConnected &&
-                        ExecuteCommand(new[] { Command.FACTORYRESET }) == Response.SUCCESS) {
-                        device = null;
-
-                        return true;
-                    }
-
-                    return false;
-                }
-                catch {
-                    throw new Exception($"Unable to reset device settings on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Sets specified configuration pin to desired state
-        /// </summary>
-        /// <param name="pin">Config pin</param>
-        /// <param name="state">Config pin state</param>
-        /// <returns><see langword="true"/> if the config pin has been set</returns>
-        private bool SetConfigPinPrivate(byte pin, bool state) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToInt(state) }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to set config pin state on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get specified configuration pin state
-        /// </summary>
-        /// <param name="pin">Config pin</param>
-        /// <returns><see langword="true"/> if pin is high, or <see langword="false"/> when pin is low</returns>
-        private bool GetConfigPinPrivate(byte pin) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.PINCONTROL, pin, Command.GET }) == Response.ON;
-                }
-                catch {
-                    throw new Exception($"Unable to get config pin state on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Sets high voltage on or off on pin SA0
-        /// </summary>
-        /// <param name="state">High voltage supply state</param>
-        /// <returns><see langword="true"/> if operation is completed</returns>
-        private bool SetHighVoltagePrivate(bool state) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToInt(state) }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to set High Voltage state on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets high voltage state on pin SA0
-        /// </summary>
-        /// <returns><see langword="true"/> if high voltage is applied to pin SA0</returns>
-        private bool GetHighVoltagePrivate() {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Command.GET }) == Response.ON;
-                }
-                catch {
-                    throw new Exception($"Unable to get High Voltage state on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Tests if the address is present on the device's I2C bus
-        /// </summary>
-        /// <param name="address">EEPROM address</param>
-        /// <returns><see langword="true"/> if the address is accessible</returns>
-        private bool ProbeAddressPrivate(UInt8 address) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.PROBEADDRESS, address }) == Response.ACK;
-                }
-                catch {
-                    throw new Exception($"Unable to probe address {address} on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Get Device's firmware version 
-        /// </summary>
-        /// <returns>Firmware version number</returns>
-        private int GetFirmwareVersionPrivate() {
-            int _version = 0;
-            lock (_portLock) {
-                try {
-                    if (IsConnected) {
-                        _version = Int32.Parse(
-                            Data.BytesToString(ExecuteCommand(Command.GETVERSION, 8))
-                        );
-                    }
-                }
-                catch {
-                    throw new Exception($"Unable to get firmware version on {PortName}");
-                }
-            }
-            return _version;
-        }
-
-        /// <summary>
-        /// Assigns a name to the Device
-        /// </summary>
-        /// <param name="name">Device name</param>
-        /// <returns><see langword="true"/> when the device name is set</returns>
-        private bool SetNamePrivate(string name) {
-            if (name == null) {
-                throw new ArgumentNullException("Name can't be null");
-            }
-            if (name == "") {
-                throw new ArgumentException("Name can't be blank");
-            }
-            if (name.Length > 16) {
-                throw new ArgumentException("Name can't be longer than 16 characters");
-            }
-
-            lock (_portLock) {
-                try {
-                    if (IsConnected) {
-                        string _name = name.Trim();
-
-                        if (_name == GetNamePrivate()) {
-                            return false;
-                        }
-
-                        // Prepare a byte array containing cmd byte + name length + name
-                        byte[] _nameCommand = new byte[1 + 1 + _name.Length];
-                        // Command byte at position 0
-                        _nameCommand[0] = Command.NAME;
-                        // Name length at position 1
-                        _nameCommand[1] = (byte)_name.Length;
-                        // Copy new name to byte array
-                        Array.Copy(Encoding.ASCII.GetBytes(_name), 0, _nameCommand, 2, _name.Length);
-
-                        return ExecuteCommand(_nameCommand) == Response.SUCCESS;
-                    }
-                }
-                catch {
-                    throw new Exception($"Unable to assign name to {PortName}");
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Gets Device's name
-        /// </summary>
-        /// <returns>Device's name</returns>
-        private string GetNamePrivate() {
-            lock (_portLock) {
-                try {
-                    if (IsConnected) {
-                        return Data.BytesToString(ExecuteCommandPrivate(new[] { Command.NAME, Command.GET }, 16));
-                    }
-                }
-                catch {
-                    throw new Exception($"Unable to get {PortName} name");
-                }
-            }
-
-            return null;
-        }
-
-        /// <summary>
-        /// Finds devices connected to computer 
-        /// </summary>
-        /// <returns>An array of serial port names which have valid devices connected to</returns>
-        private string[] FindPrivate() {
-            Stack<string> result = new Stack<string>();
-
-            lock (_findLock) {
-                foreach (string portName in SerialPort.GetPortNames().Distinct().ToArray()) {
-
-                    Arduino device = new Arduino(PortSettings, portName);
-                    try {
-                        lock (device._portLock) {
-                            if (device.ConnectPrivate()) {
-                                device.DisposePrivate();
-                                result.Push(portName);
-                            }
-                        }
-                    }
-                    catch {
-                        continue;
-                    }
-                }
-            }
-
-            return result.ToArray();
-        }
-
-        /// <summary>
-        /// Detects if DDR4 RAM is present on the device's I2C bus
-        /// </summary>
-        /// <param name="address">I2C address</param>
-        /// <returns><see langword="true"/> if DDR4 is found</returns>
-        private bool DetectDdr4Private(UInt8 address) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.DDR4DETECT, address }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Error detecting DDR4 on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Detects if DDR5 RAM is present on the device's I2C bus
-        /// </summary>
-        /// <param name="address">I2C address</param>
-        /// <returns><see langword="true"/> if DDR5 is found</returns>
-        private bool DetectDdr5Private(UInt8 address) {
-            lock (_portLock) {
-                try {
-                    return IsConnected &&
-                           ExecuteCommand(new[] { Command.DDR5DETECT, address }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Error detecting DDR5 on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
-        /// </summary>
-        private void ClearBufferPrivate() {
-            lock (_portLock) {
-                try {
-                    if (IsConnected) {
-                        // Clear response data
-                        if (ResponseData.Count > 0) {
-                            ResponseData.Clear();
-                        }
-
-                        // Clear receive buffer
-                        if (BytesToRead > 0) {
-                            _sp.DiscardInBuffer();
-                        }
-
-                        // Clear transmit buffer
-                        if (BytesToWrite > 0) {
-                            _sp.DiscardOutBuffer();
-                        }
-                    }
-                }
-                catch {
-                    throw new Exception($"Unable to clear {PortName} buffer");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Clears serial port buffers and causes any buffered data to be written
-        /// </summary>
-        private void FlushBufferPrivate() {
-            lock (_portLock) {
-                if (IsConnected) {
-                    _sp.BaseStream.Flush();
-                }
-            }
-        }
-
-        /// <summary>
         /// Executes commands on the device.
         /// </summary>
         /// <param name="command">Bytes to be sent to the device</param>
         /// <param name="responseLength">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
-        private byte[] ExecuteCommandPrivate(byte[] command, uint responseLength) {
+        private byte[] ExecuteCommand(Arduino device, byte[] command, uint responseLength) {
             if (command.Length == 0) {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
+            }
+
+            if (!device.IsConnected) {
+                throw new InvalidOperationException("Device is not connected");
             }
 
             byte[] response = new byte[responseLength];
@@ -1211,13 +981,13 @@ namespace SpdReaderWriterDll {
                     // Check connection
                     if (IsConnected) {
                         // Clear input and output buffers
-                        ClearBufferPrivate();
+                        ClearBuffer();
 
                         // Send the command to device
                         _sp.Write(command, 0, command.Length);
 
                         // Flush the buffer
-                        FlushBufferPrivate();
+                        FlushBuffer();
 
                         // Check response length
                         if (responseLength == 0) {
@@ -1243,9 +1013,10 @@ namespace SpdReaderWriterDll {
                                 break;
                             }
                         }
+
                         return response;
                     }
-                    throw new TimeoutException("Response timeout");
+                    throw new TimeoutException($"{PortName} response timeout");
                 }
                 catch {
                     throw new IOException($"{PortName} failed to execute command {command}");
