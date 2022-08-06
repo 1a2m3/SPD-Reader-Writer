@@ -24,7 +24,6 @@ namespace SpdReaderWriterDll {
         /// PCI Base Class codes
         /// </summary>
         public struct BaseClass {
-            public const byte Memory                  = 0x05;
             public const byte Bridge                  = 0x06;
             public const byte Serial                  = 0x0C;
         }
@@ -35,7 +34,6 @@ namespace SpdReaderWriterDll {
         public struct SubClass {
             public const byte Isa                     = 0x01;
             public const byte Smbus                   = 0x05;
-            public const byte I3C                     = 0x0A; // MIPI I3C Host Controller Interface
         }
 
         /// <summary>
