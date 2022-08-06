@@ -990,13 +990,12 @@ namespace SpdReaderWriterDll {
                 // Wait after writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
                     Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
-                        ? ExecutionDelay.WriteDelay
+                        ? ExecutionDelay.WriteDelay * 2
                         : ExecutionDelay.WaitDelay);
                 }
 
                 // Wait for completion
                 if (!WaitForStatus(statuses: new[] { SmbStatus.Success, SmbStatus.Error }, 1000)) {
-                    
                     smbusData.Status = SmbStatus.Timeout;
                     return false;
                 }
