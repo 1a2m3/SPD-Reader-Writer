@@ -196,53 +196,21 @@ namespace SpdReaderWriterDll {
                 0x61, 0x62, 0xE3, 0x64, 0xE5, 0xE6, 0x67, 0x68, 0xE9, 0xEA, 0x6B, 0xEC, 0x6D, 0x6E, 0xEF, 0x70,
                 0xF1, 0xF2, 0x73, 0xF4, 0x75, 0x76, 0xF7, 0xF8, 0x79, 0x7A, 0xFB, 0x7C, 0xFD, 0xFE };
 
-            // Manufacturer's names table
-            UInt8 continuationCodeCount = 14;
-            string[,] manufacturerNameTable = new string[continuationCodeCount, manufacturerCodeTable.Length];
-            
             // Decompress database
-            byte[] idTableCharArray = Data.DecompressGzip(Resources.jedecManufacturersIds);
-
-            // Fill 14 continuation code groups of 126 manufacturers each
             const byte separatorByte = 0x00;
-
-            UInt16 charCnt = 0;
-            UInt16 nameStartPos = 0;
-
-            for (byte i = 0; i < continuationCodeCount; i++) {
-                for (byte j = 0; j < manufacturerCodeTable.Length;) {
-                    
-                    if (idTableCharArray[charCnt] == separatorByte ||
-                        charCnt == idTableCharArray.Length - 1) {
-                        
-                        byte[] nameCharArray = new byte[charCnt - nameStartPos + (charCnt == idTableCharArray.Length - 1 ? 1 : 0)];
-
-                        Array.Copy(
-                            sourceArray      : idTableCharArray,
-                            sourceIndex      : nameStartPos,
-                            destinationArray : nameCharArray, 
-                            destinationIndex : 0,
-                            length           : nameCharArray.Length);
-                        
-                        manufacturerNameTable[i,j] = Data.BytesToString(nameCharArray);
-                        nameStartPos = (UInt16)(charCnt + 1);
-
-                        j++;
-                    }
-
-                    if (++charCnt == idTableCharArray.Length) {
-                        break;
-                    }
-                }
-            }
+            byte[] idTableCharArray = Data.DecompressGzip(Resources.jedecManufacturersIds);
+            string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
 
             // Lookup name by continuation code and manufacturer's ID
             byte spdContinuationCode = (byte)((manufacturerId >> 8) & 0xFF);
             byte spdManufacturerCode = (byte)(manufacturerId & 0xFF);
 
-            for (int i = 0; i < manufacturerCodeTable.Length; i++) {
+            byte startIndex = (byte)((spdManufacturerCode - 1) & 0x0F);
+
+            for (byte i = startIndex; i < manufacturerCodeTable.Length; i += 0x10) {
+                int j = spdContinuationCode * manufacturerCodeTable.Length + i;
                 if (spdManufacturerCode == manufacturerCodeTable[i]) {
-                    return manufacturerNameTable[spdContinuationCode, i];
+                    return j < names.Length ? names[j] : "";
                 }
             }
 

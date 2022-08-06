@@ -285,7 +285,7 @@ namespace SpdReaderWriter {
                 Reader.I2CAddress);
 
             if (inputFile.Length > (int)Spd.GetSpdSize(Reader)) {
-                throw new Exception($"File \"{filePath}\" is larger than {Reader.SpdSize} bytes.");
+                throw new Exception($"File \"{filePath}\" is larger than {Reader.DataLength} bytes.");
             }
 
             int bytesWritten = 0;
@@ -425,7 +425,7 @@ namespace SpdReaderWriter {
 
             }
             else { // No block number specified, protect all available
-                if (Spd.GetRamType(Reader) == Ram.Type.DDR4) {
+                if (Spd.GetRamType(Reader) == Spd.RamType.DDR4) {
                     block = new[] { 0, 1, 2, 3 };
                 }
                 else { // DDR3 + DDR2
@@ -583,10 +583,10 @@ namespace SpdReaderWriter {
             ConsoleColor[] colors = {
                 ConsoleColor.DarkGray,
                 ConsoleColor.Gray,
-                ConsoleColor.Red,
                 ConsoleColor.DarkRed,
-                ConsoleColor.DarkYellow,
+                ConsoleColor.Red,
                 ConsoleColor.Yellow,
+                ConsoleColor.DarkYellow,
                 ConsoleColor.Green,
                 ConsoleColor.DarkGreen,
                 ConsoleColor.DarkCyan,
