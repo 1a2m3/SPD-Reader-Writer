@@ -318,8 +318,8 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Arduino device, UInt16 offset) {
-            if (offset > (int)Spd.DataLength.DDR5) {
-                throw new IndexOutOfRangeException($"Invalid offset");
+            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
             try {
@@ -343,9 +343,10 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Arduino device, UInt16 offset, UInt8 count) {
-            if (offset > (int)Spd.DataLength.DDR5) {
-                throw new IndexOutOfRangeException($"Invalid offset");
+            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
+
             if (count == 0) {
                 throw new Exception($"No bytes to read");
             }
@@ -372,9 +373,10 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte value) {
-            if (offset > (int)Spd.DataLength.DDR5) {
-                throw new IndexOutOfRangeException($"Invalid offset");
+            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
+
             try {
                 return device.ExecuteCommand(new[] {
                     Arduino.Command.WRITEBYTE,
@@ -397,9 +399,10 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte[] value) {
-            if (offset > (int)Spd.DataLength.DDR5) {
-                throw new IndexOutOfRangeException($"Invalid offset");
+            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
+
             if (value.Length > 16 || value.Length == 0) {
                 throw new Exception($"Invalid page size ({value.Length})");
             }
@@ -447,9 +450,10 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if page read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
         public static bool UpdateByte(Arduino device, UInt16 offset, byte[] value) {
-            if (offset > (int)Spd.DataLength.DDR5) {
-                throw new IndexOutOfRangeException($"Invalid offset");
+            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+                throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
+
             if (value.Length > 16 || value.Length == 0) {
                 throw new Exception($"Invalid page size ({value.Length})");
             }
