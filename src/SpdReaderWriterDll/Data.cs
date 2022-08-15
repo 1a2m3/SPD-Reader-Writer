@@ -28,24 +28,16 @@ namespace SpdReaderWriterDll {
         /// <param name="poly">Polynomial value</param>
         /// <returns>A calculated checksum</returns>
         public static UInt16 Crc16(byte[] input, UInt16 poly) {
-            UInt16[] table = new UInt16[256];
-            UInt16   crc   = 0;
 
-            for (int i = 0; i < table.Length; ++i) {
+            UInt16 crc = 0;
 
-                UInt16 temp = 0;
-                UInt16 a = (UInt16)(i << 8);
+            for (UInt16 i = 0; i < input.Length; i++) {
 
-                for (UInt8 j = 0; j < 8; ++j) {
-                    temp = (UInt16)(((temp ^ a) & 0x8000) != 0 ? (temp << 1) ^ poly : temp << 1);
-                    a <<= 1;
+                crc ^= (UInt16)(input[i] << 8);
+
+                for (UInt8 j = 0; j < 8; j++) {
+                    crc = (UInt16)((crc & 0x8000) != 0 ? (crc << 1) ^ poly : crc << 1);
                 }
-
-                table[i] = temp;
-            }
-
-            for (int i = 0; i < input.Length; ++i) {
-                crc = (UInt16)((crc << 8) ^ table[(crc >> 8) ^ (0xFF & input[i])]);
             }
 
             return crc;
@@ -56,8 +48,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
         /// <returns>A calculated checksum</returns>
-        public static UInt16 Crc(byte[] input) {
-            UInt16 crc = 0;
+        public static UInt8 Crc(byte[] input) {
+            UInt8 crc = 0;
 
             for (int i = 0; i < input.Length; i++) {
                 crc += input[i];
@@ -215,7 +207,44 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input char array</param>
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString(char[] input) {
-            return new string(input).Trim();
+
+            string output = "";
+
+            // Process ASCII printable characters only
+            foreach (char b in input) {
+                if (0x20 <= b && b <= 0x7E) {
+                    output += b.ToString();
+                }
+            }
+
+            return output;
+        }
+
+        /// <summary>
+        /// Converts byte to a Binary Coded Decimal (BCD)
+        /// </summary>
+        /// <param name="input">Input byte</param>
+        /// <returns>Binary Coded Decimal</returns>
+        /// <example>0x38 is converted to 38</example>
+        public static UInt8 ByteToBinaryCodedDecimal(byte input) {
+            return (UInt8)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
+        }
+
+        /// <summary>
+        /// Converts Binary Coded Decimal (BCD) to a byte
+        /// </summary>
+        /// <param name="input">Binary Coded Decimal</param>
+        /// <returns>Binary Coded Decimal Byte</returns>
+        /// <example>14 is converted to 0x14</example>
+        public static byte BinaryCodedDecimalToByte(UInt8 input) {
+            if (input > 99) {
+                throw new ArgumentOutOfRangeException(nameof(input));
+            }
+
+            UInt8 tens = (UInt8)(input / 10);
+            UInt8 ones = (UInt8)(input - tens * 10);
+
+            return (byte)((ones & 0xF) | (tens << 4));
         }
     }
 }
