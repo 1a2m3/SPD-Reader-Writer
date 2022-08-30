@@ -12,6 +12,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -49,13 +50,42 @@ namespace SpdReaderWriterDll {
         /// <param name="input">A byte array to be checked</param>
         /// <returns>A calculated checksum</returns>
         public static UInt8 Crc(byte[] input) {
+
             UInt8 crc = 0;
 
-            for (int i = 0; i < input.Length; i++) {
-                crc += input[i];
+            foreach (byte b in input) {
+                crc += b;
             }
 
             return crc;
+        }
+
+        /// <summary>
+        /// Calculates parity bit
+        /// </summary>
+        /// <param name="input">Input data</param>
+        /// <param name="parityType">Parity type</param>
+        /// <returns>Parity bit</returns>
+        public static byte GetParity(object input, Parity parityType) {
+
+            int bitCount = Marshal.SizeOf(input) * 8;
+            UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
+
+            byte result = 0;
+
+            for (int i = 0; i < bitCount; i++) {
+                result ^= (byte)((value >> i) & 0x01);
+            }
+
+            return (byte)(result ^ (~(byte)parityType & 0x01));
+        }
+
+        /// <summary>
+        /// Parity type
+        /// </summary>
+        public enum Parity : byte {
+            Odd  = 0,
+            Even = 1
         }
 
         /// <summary>
@@ -64,14 +94,12 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns><see langword="true"/> if bit is set to 1 at <paramref name="position"/></returns>
-        public static bool GetBit(byte input, UInt8 position) {
+        public static bool GetBit(object input, UInt8 position) {
 
-            if (position > 7) {
-                throw new ArgumentOutOfRangeException(nameof(position));
-            }
+            int bitCount = Marshal.SizeOf(input) * 8;
+            UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
 
-            //return ((1 << position) & input) != 0;
-            return ((input >> position) & 1) == 1;
+            return ((value >> position) & 1) == 1;
         }
 
         /// <summary>
@@ -121,8 +149,8 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns>Byte matching bit pattern at <paramref name="input"/> position of all bits</returns>
-        public static byte GetByteFromBits(byte input, UInt8 position) {
-            return GetByteFromBits(input, position, (byte)(position + 1));
+        public static byte SubByte(byte input, UInt8 position) {
+            return SubByte(input, position, (byte)(position + 1));
         }
 
         /// <summary>
@@ -132,7 +160,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read to the right of <paramref name="position"/> </param>
         /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
-        public static byte GetByteFromBits(byte input, UInt8 position, UInt8 count) {
+        public static byte SubByte(byte input, UInt8 position, UInt8 count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -153,7 +181,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Boolean input</param>
         /// <returns>1 if the input is <see langword="true"/>, or 0, when the input is <see langword="false"/></returns>
-        public static UInt8 BoolToInt(bool input) {
+        public static UInt8 BoolToNum(bool input) {
             return (UInt8)(input ? 1 : 0);
         }
 
