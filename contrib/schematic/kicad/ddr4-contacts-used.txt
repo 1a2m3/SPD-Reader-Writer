@@ -1,0 +1,17 @@
+Vddspd - 284
+GND - 283
+SA0 - 139
+SA1 - 140
+SA2 - 238
+SCL - 141
+SDA - 285
+
+  module top
+139 - SA0
+140 - SA1
+141 - SCL
+  module bottom
+238 - SA2
+283 - GND
+284 - Vddspd
+285 - SDA
