@@ -16,11 +16,11 @@ using SpdReaderWriterDll.Properties;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
-    
+
     /// <summary>
     /// SPD class to deal with SPD data
     /// </summary>
-    public class Spd {
+    public partial class Spd {
 
         /// <summary>
         /// Gets RAM type present on the device's I2C bus
@@ -84,15 +84,11 @@ namespace SpdReaderWriterDll {
                 return DataLength.DDR5;
             }
 
-            if (device.DetectDdr4()) { 
+            if (device.DetectDdr4()) {
                 return DataLength.DDR4;
             }
 
-            if (device.Scan().Length != 0) {
-                return DataLength.MINIMUM;
-            }
-
-            return 0;            
+            return device.Scan().Length > 0 ? DataLength.Minimum : DataLength.Unknown;
         }
 
         /// <summary>
@@ -108,13 +104,13 @@ namespace SpdReaderWriterDll {
                 case RamType.DDR2:
                 case RamType.DDR2_FB_DIMM:
                 case RamType.DDR3:
-                    return DataLength.MINIMUM;
+                    return DataLength.Minimum;
                 case RamType.DDR4:
                     return DataLength.DDR4;
                 case RamType.DDR5:
                     return DataLength.DDR5;
                 default:
-                    return DataLength.UNKNOWN;
+                    return DataLength.Unknown;
             }
         }
 
@@ -129,9 +125,9 @@ namespace SpdReaderWriterDll {
                 case (int)DataLength.DDR5 when GetRamType(input) == RamType.DDR5:
                 case (int)DataLength.DDR4 when GetRamType(input) == RamType.DDR4:
                     return true;
-                case (int)DataLength.MINIMUM:
-                    return GetRamType(input) == RamType.DDR3 || 
-                           GetRamType(input) == RamType.DDR2 || 
+                case (int)DataLength.Minimum:
+                    return GetRamType(input) == RamType.DDR3 ||
+                           GetRamType(input) == RamType.DDR2 ||
                            GetRamType(input) == RamType.DDR  ||
                            GetRamType(input) == RamType.SDRAM;
                 default:
@@ -144,7 +140,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">SPD contents</param>
         /// <returns>Manufacturer's name</returns>
-        public static string GetModuleManufacturer(byte[] input) {
+        public static string GetManufacturerName(byte[] input) {
             UInt16 manufacturerId = 0;
 
             switch (GetRamType(input)) {
@@ -185,16 +181,25 @@ namespace SpdReaderWriterDll {
                     break;
             }
 
+            return GetManufacturerName(manufacturerId);
+        }
+
+        /// <summary>
+        /// Gets manufacturer from ID codes
+        /// </summary>
+        /// <param name="input">MSB and LSB of ID Code</param>
+        /// <returns>Manufacturer's name</returns>
+        public static string GetManufacturerName(UInt16 input) {
+
             // Manufacturer's identification code table
-            UInt8[] manufacturerCodeTable = {
-                0x01, 0x02, 0x83, 0x04, 0x85, 0x86, 0x07, 0x08, 0x89, 0x8A, 0x0B, 0x8C, 0x0D, 0x0E, 0x8F, 0x10,
-                0x91, 0x92, 0x13, 0x94, 0x15, 0x16, 0x97, 0x98, 0x19, 0x1A, 0x9B, 0x1C, 0x9D, 0x9E, 0x1F, 0x20,
-                0xA1, 0xA2, 0x23, 0xA4, 0x25, 0x26, 0xA7, 0xA8, 0x29, 0x2A, 0xAB, 0x2C, 0xAD, 0xAE, 0x2F, 0xB0,
-                0x31, 0x32, 0xB3, 0x34, 0xB5, 0xB6, 0x37, 0x38, 0xB9, 0xBA, 0x3B, 0xBC, 0x3D, 0x3E, 0xBF, 0x40,
-                0xC1, 0xC2, 0x43, 0xC4, 0x45, 0x46, 0xC7, 0xC8, 0x49, 0x4A, 0xCB, 0x4C, 0xCD, 0xCE, 0x4F, 0xD0,
-                0x51, 0x52, 0xD3, 0x54, 0xD5, 0xD6, 0x57, 0x58, 0xD9, 0xDA, 0x5B, 0xDC, 0x5D, 0x5E, 0xDF, 0xE0,
-                0x61, 0x62, 0xE3, 0x64, 0xE5, 0xE6, 0x67, 0x68, 0xE9, 0xEA, 0x6B, 0xEC, 0x6D, 0x6E, 0xEF, 0x70,
-                0xF1, 0xF2, 0x73, 0xF4, 0x75, 0x76, 0xF7, 0xF8, 0x79, 0x7A, 0xFB, 0x7C, 0xFD, 0xFE };
+
+            int codeTableCount = 126;
+
+            //UInt8[] manufacturerCodeTable = new byte[codeTableCount];
+            //for (UInt8 i = 0; i < 126; i++) {
+            //    byte code = (byte)(i + 1);
+            //    manufacturerCodeTable[i] = (byte)(code | Data.GetParity(code, Data.Parity.Odd) << 7);
+            //}
 
             // Decompress database
             const byte separatorByte = 0x00;
@@ -202,20 +207,12 @@ namespace SpdReaderWriterDll {
             string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
 
             // Lookup name by continuation code and manufacturer's ID
-            byte spdContinuationCode = (byte)((manufacturerId >> 8) & 0xFF);
-            byte spdManufacturerCode = (byte)(manufacturerId & 0xFF);
+            byte spdContinuationCode = (byte)((input >> 8) & 0x7F);
+            byte spdManufacturerCode = (byte)(input & 0x7F); // Ignore parity bit
 
-            byte startIndex = (byte)((spdManufacturerCode - 1) & 0x0F);
+            UInt16 index = (UInt16)(codeTableCount * spdContinuationCode + spdManufacturerCode - 1);
 
-            for (byte i = startIndex; i < manufacturerCodeTable.Length; i += 0x10) {
-                int j = spdContinuationCode * manufacturerCodeTable.Length + i;
-                if (spdManufacturerCode == manufacturerCodeTable[i]) {
-                    return j < names.Length ? names[j] : "";
-                }
-            }
-
-            // Unknown
-            return "";
+            return index < names.Length ? names[index] : "";
         }
 
         /// <summary>
@@ -225,53 +222,50 @@ namespace SpdReaderWriterDll {
         /// <returns>Model part number</returns>
         public static string GetModulePartNumberName(byte[] input) {
 
-            int modelNameStart;
-            int modelNameEnd;
+            int[] modelNameLocation = new int[2];
 
             switch (GetRamType(input)) {
 
                 // Part number location for DDR5 SPDs
                 case RamType.DDR5:
-                    modelNameStart = 0x209;
-                    modelNameEnd   = 0x226;
+                    modelNameLocation = new[] { 0x209, 0x226 };
                     break;
 
                 // Part number location for DDR4 SPDs
                 case RamType.DDR4:
-                    modelNameStart = 0x149;
-                    modelNameEnd   = 0x15C;
+                    modelNameLocation = new[] { 0x149, 0x15C };
                     break;
 
                 // Part number location for DDR3 SPDs
                 case RamType.DDR3:
                 case RamType.DDR2_FB_DIMM:
-                    modelNameStart = 0x80;
-                    modelNameEnd   = 0x91;
+                    modelNameLocation = new[] { 0x80, 0x91 };
                     break;
 
                 // Part number for Kingston DDR2 and DDR SPDs
-                case RamType.DDR2 when GetModuleManufacturer(input).StartsWith("Kingston"):
-                case RamType.DDR  when GetModuleManufacturer(input).StartsWith("Kingston"):
-                    modelNameStart = 0xF0;
-                    modelNameEnd   = 0xFF;
+                case RamType.DDR2 when GetManufacturerName(input).StartsWith("Kingston"):
+                case RamType.DDR when GetManufacturerName(input).StartsWith("Kingston"):
+                    modelNameLocation = new[] { 0xF0, 0xFF };
                     break;
 
                 // Part number location for DDR2 and older RAM SPDs
                 default:
-                    modelNameStart = 0x49;
-                    modelNameEnd   = 0x5A;
+                    modelNameLocation = new[] { 0x49, 0x5A };
                     break;
             }
 
-            if (input.Length < modelNameEnd) {
+            if (input.Length < modelNameLocation[1]) {
                 throw new InvalidDataException("Incomplete SPD Data");
             }
 
-            char[] chars = new char[modelNameEnd - modelNameStart + 1];
+            char[] chars = new char[modelNameLocation[1] - modelNameLocation[0] + 1];
 
-            for (int i = 0; i < chars.Length; i++) {
-                chars[i] = (char)input[modelNameStart + i];
-            }
+            Array.Copy(
+                sourceArray: input,
+                sourceIndex: modelNameLocation[0],
+                destinationArray: chars,
+                destinationIndex: 0,
+                length: chars.Length);
 
             return Data.BytesToString(chars);
         }
@@ -284,7 +278,7 @@ namespace SpdReaderWriterDll {
             SDRAM         = 0x04,
             DDR           = 0x07,
             DDR2          = 0x08,
-            [Description("DDR2 FB DIMM")]
+            [Description("DDR2 Fully-Buffered DIMM")]
             DDR2_FB_DIMM  = 0x09,
             DDR3          = 0x0B,
             LPDDR3        = 0x0F,
@@ -296,16 +290,270 @@ namespace SpdReaderWriterDll {
             LPDDR5        = 0x13,
             [Description("DDR5 NVDIMM-P")]
             DDR5_NVDIMM_P = 0x14,
+            LPDDR5X       = 0x15,
         }
 
         /// <summary>
         /// Defines SPD sizes
         /// </summary>
         public enum DataLength {
-            UNKNOWN       = 0,
-            MINIMUM       = 256, //DDR3, DDR2, DDR, and SDRAM
-            DDR4          = 512,
-            DDR5          = 1024,
+            Unknown = 0,
+            Minimum = 256, // DDR3, DDR2, DDR, and SDRAM
+            DDR4    = 512,
+            DDR5    = 1024,
+        }
+
+        /// <summary>
+        /// Raw SPD data contents
+        /// </summary>
+        public static byte[] RawData {
+            get => _rawData;
+            set => _rawData = value;
+        }
+        private static byte[] _rawData;
+
+        /// <summary>
+        /// SPD Revision level data
+        /// </summary>
+        public struct SpdRevisionData {
+            public byte EncodingLevel;
+            public byte AdditionsLevel;
+
+            public override string ToString() => $"{EncodingLevel:D1}.{AdditionsLevel:D1}";
+        }
+
+        /// <summary>
+        /// Describes the total number of bytes used and the total size of the serial memory used
+        /// </summary>
+        public struct BytesData {
+            public UInt16 Used;
+            public UInt16 Total;
+
+            public override string ToString() => $"{Used}/{Total}";
+        }
+
+        /// <summary>
+        /// Describes the width of the SDRAM memory bus on the module
+        /// </summary>
+        public struct BusWidthData {
+            /// <summary>
+            /// ECC extension
+            /// </summary>
+            public bool Extension;
+            /// <summary>
+            /// Primary bus width
+            /// </summary>
+            public UInt8 PrimaryBusWidth;
+
+            public override string ToString() => ((UInt8)(PrimaryBusWidth + (Extension ? 8 : 0))).ToString();
+        }
+
+        /// <summary>
+        /// Row addressing and the column addressing in the SDRAM device
+        /// </summary>
+        public struct AddressingData {
+            public UInt8 Rows;
+            public UInt8 Columns;
+        }
+
+        /// <summary>
+        /// Describes the type of SDRAM devices on the module
+        /// </summary>
+        public struct PrimaryPackageTypeData {
+            public bool Monolithic;
+            public UInt8 DieCount;
+            public SignalLoadingData SignalLoading;
+
+            public override string ToString() {
+                return Monolithic ? "Monolithic" : SignalLoading.ToString().Replace("_", " ").Trim();
+            }
+        }
+
+        /// <summary>
+        /// Refers to loading on signals at the SDRAM balls
+        /// </summary>
+        public enum SignalLoadingData {
+            Not_Specified, // Monolithic
+            Multi_Load_Stack,
+            Single_Load_Stack,
+        }
+
+        /// <summary>
+        /// Size prefixes
+        /// </summary>
+        public enum CapacityPrefix {
+            // Common
+            B, KB, MB, GB, TB,
+            // Future
+            PB, EB, ZB, YB, BB,
+        }
+
+        /// <summary>
+        /// Support for certain SDRAM features
+        /// </summary>
+        public struct MaximumActivateFeaturesData {
+            public UInt16 MaximumActivateWindow;
+            public MaximumActivateCount MaximumActivateCount;
+        }
+
+        /// <summary>
+        /// Maximum Activate Count (MAC)
+        /// </summary>
+        public enum MaximumActivateCount {
+            Untested,
+            _700K, _600K, _500K, _400K, _300K, _200K, Reserved,
+            Unlimited
+        }
+
+        /// <summary>
+        /// Manufacturer ID Code
+        /// </summary>
+        public struct ManufacturerIdCodeData {
+            public byte ContinuationCode;
+            public byte ManufacturerCode;
+
+            public override string ToString() => GetManufacturerName((UInt16)(ContinuationCode << 8 | ManufacturerCode));
+        }
+
+        /// <summary>
+        /// Date code
+        /// These bytes must be represented in Binary Coded Decimal
+        /// </summary>
+        public struct DateCodeData {
+            public UInt8 Year;
+            public UInt8 Week;
+
+            public override string ToString() {
+                UInt16 year = (UInt16)(Data.ByteToBinaryCodedDecimal(Year) + 2000);
+                UInt8 week = Data.ByteToBinaryCodedDecimal(Week);
+
+                return 0 < week && week < 53 ? $"{year:D4}/{week:D2}" : "";
+            }
+        }
+
+        /// <summary>
+        /// Module Serial Number data
+        /// </summary>
+        public struct SerialNumberData {
+            public byte[] SerialNumber;
+
+            public override string ToString() {
+                string output = "";
+
+                foreach (byte b in SerialNumber) {
+                    output += $"{b:X2}";
+                }
+
+                return output;
+            }
+        }
+
+        /// <summary>
+        /// CRC16 header and checksum
+        /// </summary>
+        public struct Crc16Data {
+            public byte[] Data;
+            public UInt16 Checksum;
+
+            /// <summary>
+            /// Validates data checksum
+            /// </summary>
+            /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="Data"/></returns>
+            public bool Validate() => SpdReaderWriterDll.Data.Crc16(Data, 0x1021) == Checksum;
+
+            public override string ToString() => ((CrcStatus)SpdReaderWriterDll.Data.BoolToNum(this.Validate())).ToString();
+        }
+
+        /// <summary>
+        /// CRC header and checksum
+        /// </summary>
+        public struct Crc8Data {
+            public byte[] Data;
+            public UInt8 Checksum;
+
+            /// <summary>
+            /// Validates data checksum
+            /// </summary>
+            /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="SpdReaderWriterDll.Data"/></returns>
+            public bool Validate() => SpdReaderWriterDll.Data.Crc(Data) == Checksum;
+
+            public override string ToString() => ((CrcStatus)SpdReaderWriterDll.Data.BoolToNum(this.Validate())).ToString();
+        }
+
+        /// <summary>
+        /// Crc status
+        /// </summary>
+        public enum CrcStatus {
+            OK  = 1,
+            Bad = 0
+        }
+
+        /// <summary>
+        /// Indicates which JEDEC reference design raw card was used as the basis for the module assembly
+        /// </summary>
+        public struct ReferenceRawCardData {
+            public bool Extension;
+            public UInt8 Revision;
+            public ReferenceRawCardName Name;
+        }
+
+        /// <summary>
+        /// Reference Raw Card
+        /// </summary>
+        /// <remarks>
+        /// DDR4: https://www.jedec.org/standards-documents/focus/memory-module-designs-dimms/ddr4/all
+        /// DDR3: https://www.jedec.org/standards-documents/focus/memory-module-designs-dimms/ddr3/all
+        /// </remarks>
+        public enum ReferenceRawCardName {
+            // When ReferenceRawCardUsed extension bit = 0
+            A, B, C, D, E, F, G, H, J, K, L, M, N, P, R, T, U, V, W, Y, AA, AB, AC, AD, AE, AF, AG, AH, AJ, AK, AL,
+            // When ReferenceRawCardUsed extension bit = 1
+            AM, AN, AP, AR, AT, AU, AV, AW, AY, BA, BB, BC, BD, BE, BF, BG, BH, BJ, BK, BL, BM, BN, BP, BR, BT, BU, BV, BW, BY, CA, CB,
+            // No JEDEC reference raw card design used
+            ZZ,
+        }
+
+        /// <summary>
+        /// Defines the nominal height in millimeters of the fully assembled module including heat spreaders or other added components
+        /// </summary>
+        public struct ModuleHeightData {
+            public float Minimum;
+            public float Maximum;
+            public HeightUnit Unit;
+
+            public override string ToString() {
+
+                string value = "";
+
+                if (Minimum == Maximum) {
+                    value += Maximum;
+                }
+                else if (Minimum < Maximum) {
+                    value += $"{Minimum}-{Maximum}";
+                }
+                else if (Minimum > Maximum) {
+                    value += $"{Minimum}+";
+                }
+
+                return $"{value} {Unit}";
+            }
+        }
+
+        /// <summary>
+        /// Height units
+        /// </summary>
+        public enum HeightUnit {
+            mm,
+            IN,
+        }
+
+        /// <summary>
+        /// Defines the maximum thickness in millimeters of the fully assembled module including heat spreaders
+        /// or other added components above the module circuit board surface
+        /// </summary>
+        public struct ModuleMaximumThicknessSide {
+            public ModuleHeightData Back;
+            public ModuleHeightData Front;
         }
     }
 }
