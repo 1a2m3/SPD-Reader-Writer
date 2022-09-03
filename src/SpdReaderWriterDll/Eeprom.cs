@@ -18,27 +18,27 @@ namespace SpdReaderWriterDll {
     /// </summary>
     public class Eeprom {
 
-        #region SMbus
+        #region SMBus
 
         /// <summary>
         /// Reads a single byte from the EEPROM
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
-        public static byte ReadByte(Smbus device, UInt16 offset) {
-            AdjustPageAddress(device, offset);
-            return Smbus.ReadByte(device, device.I2CAddress, offset);
+        public static byte ReadByte(Smbus controller, UInt16 offset) {
+            AdjustPageAddress(controller, offset);
+            return Smbus.ReadByte(controller, controller.I2CAddress, offset);
         }
-        
+
         /// <summary>
         /// Reads bytes from the EEPROM
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/></param>
         /// <returns>A byte array containing byte values</returns>
-        public static byte[] ReadByte(Smbus device, UInt16 offset, UInt8 count) {
+        public static byte[] ReadByte(Smbus controller, UInt16 offset, UInt8 count) {
 
             if (count == 0) {
                 throw new Exception($"No bytes to read");
@@ -47,7 +47,7 @@ namespace SpdReaderWriterDll {
             byte[] result = new byte[count];
 
             for (UInt16 i = 0; i < count; i++) {
-                result[i] = ReadByte(device, (UInt16)(i + offset));
+                result[i] = ReadByte(controller, (UInt16)(i + offset));
             }
 
             return result;
@@ -56,27 +56,27 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Write a byte to the EEPROM
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
-        public static bool WriteByte(Smbus device, UInt16 offset, byte value) {
+        public static bool WriteByte(Smbus controller, UInt16 offset, byte value) {
 
-            AdjustPageAddress(device, offset);
-            return Smbus.WriteByte(device, device.I2CAddress, offset, value);
+            AdjustPageAddress(controller, offset);
+            return Smbus.WriteByte(controller, controller.I2CAddress, offset, value);
         }
 
         /// <summary>
         /// Write a byte array to the EEPROM
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/></returns>
-        public static bool WriteByte(Smbus device, UInt16 offset, byte[] value) {
+        public static bool WriteByte(Smbus controller, UInt16 offset, byte[] value) {
 
             for (UInt16 i = 0; i < value.Length; i++) {
-                if (!WriteByte(device, (UInt16)(i + offset), value[i])) {
+                if (!WriteByte(controller, (UInt16)(i + offset), value[i])) {
                     return false;
                 }
             }
@@ -87,46 +87,46 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Write a byte to the EEPROM. The byte is written only if its value differs from the one already saved at the same address.
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool UpdateByte(Smbus device, UInt16 offset, byte value) {
-            return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
+        public static bool UpdateByte(Smbus controller, UInt16 offset, byte value) {
+            return VerifyByte(controller, offset, value) || WriteByte(controller, offset, value);
         }
 
         /// <summary>
         /// Write a byte array to the EEPROM. The page is written only if its value differs from the one already saved at the same address.
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array contents</param>
         /// <returns><see langword="true"/> if bytes read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
-        public static bool UpdateByte(Smbus device, UInt16 offset, byte[] value) {
-            return VerifyByte(device, offset, value) || WriteByte(device, offset, value);
+        public static bool UpdateByte(Smbus controller, UInt16 offset, byte[] value) {
+            return VerifyByte(controller, offset, value) || WriteByte(controller, offset, value);
         }
 
         /// <summary>
         /// Verifies if the offset content matches the input specified
         /// </summary>
-        /// <param name="device">SMB device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Smbus device, UInt16 offset, byte value) {
-            return ReadByte(device, offset) == value;
+        public static bool VerifyByte(Smbus controller, UInt16 offset, byte value) {
+            return ReadByte(controller, offset) == value;
         }
 
         /// <summary>
         /// Verifies if the offset content matches the input specified
         /// </summary>
-        /// <param name="device">SMB device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Smbus device, UInt16 offset, byte[] value) {
+        public static bool VerifyByte(Smbus controller, UInt16 offset, byte[] value) {
 
-            byte[] source = ReadByte(device, offset, (UInt8)value.Length);
+            byte[] source = ReadByte(controller, offset, (UInt8)value.Length);
 
             for (int i = 0; i < source.Length; i++) {
                 if (source[i] != value[i]) {
@@ -141,13 +141,13 @@ namespace SpdReaderWriterDll {
         /// EEPROM local page number
         /// </summary>
         private static byte _eepromPageNumber;
-        
+
         /// <summary>
         /// Reset EEPROM page address
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
-        public static void ResetPageAddress(Smbus device) {
-            SetPageAddress(device, 0);
+        /// <param name="controller">SMBus controller instance</param>
+        public static void ResetPageAddress(Smbus controller) {
+            SetPageAddress(controller, 0);
         }
 
         /// <summary>
@@ -181,40 +181,40 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Adjust EEPROM page number according to specified offset
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
-        private static void AdjustPageAddress(Smbus device, UInt16 offset) {
+        private static void AdjustPageAddress(Smbus controller, UInt16 offset) {
 
-            if (device.MaxSpdSize >= (UInt16)Spd.DataLength.MINIMUM) {
-                if (offset > device.MaxSpdSize) {
+            if (controller.MaxSpdSize >= (UInt16)Spd.DataLength.Minimum) {
+                if (offset > controller.MaxSpdSize) {
                     throw new IndexOutOfRangeException($"Invalid offset");
                 }
 
-                if (device.MaxSpdSize < (UInt16)Spd.GetSpdSize(Spd.RamType.DDR4)) {
+                if (controller.MaxSpdSize < (UInt16)Spd.GetSpdSize(Spd.RamType.DDR4)) {
                     return;
                 }
             }
 
             byte targetPage = 0;
 
-            if (device.MaxSpdSize == (UInt16)Spd.DataLength.DDR4) {
+            if (controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR4) {
                 targetPage = (byte)(offset >> 8);
             }
 
             if (targetPage != GetPageAddress()) {
-                SetPageAddress(device, targetPage);
+                SetPageAddress(controller, targetPage);
             }
         }
 
         /// <summary>
         /// Read software write protection status
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <returns><see langword="true"/> if some blocks are write protected or <see langword="false"/> when all blocks are writable</returns>
-        public static bool GetRswp(Smbus device) {
+        public static bool GetRswp(Smbus controller) {
 
             for (UInt8 i = 0; i <= 3; i++) {
-                if (GetRswp(device, i)) {
+                if (GetRswp(controller, i)) {
                     return true;
                 }
             }
@@ -225,10 +225,10 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Read software write protection status
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true"/> if the block is write protected or <see langword="false"/> when the block is writable</returns>
-        public static bool GetRswp(Smbus device, UInt8 block) {
+        public static bool GetRswp(Smbus controller, UInt8 block) {
 
             byte[] rswpCmd = {
                 EepromCommand.RPS0,
@@ -240,7 +240,7 @@ namespace SpdReaderWriterDll {
             block = block > 3 ? (byte)0 : block;
 
             try {
-                return !Smbus.ReadByte(device, (byte)(rswpCmd[block] >> 1));
+                return !Smbus.ReadByte(controller, (byte)(rswpCmd[block] >> 1));
             }
             catch {
                 return true;
@@ -250,12 +250,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Enables software write protection on all EEPROM blocks
         /// </summary>
-        /// <param name="device">SMB device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <returns><see langword="true"/> when the write protection has been enabled on all blocks</returns>
-        public static bool SetRswp(Smbus device) {
-            
+        public static bool SetRswp(Smbus controller) {
+
             for (byte i = 0; i <= 3; i++) {
-                if (SetRswp(device, i)) {
+                if (SetRswp(controller, i)) {
                     return false;
                 }
             }
@@ -266,45 +266,45 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Enables software write protection on the specified EEPROM block 
         /// </summary>
-        /// <param name="device">SMB device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <param name="block">Block number to be write protected</param>
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
-        public static bool SetRswp(Smbus device, UInt8 block) {
+        public static bool SetRswp(Smbus controller, UInt8 block) {
 
-            if (device.MaxSpdSize == (UInt16)Spd.DataLength.MINIMUM && block >= 1) {
+            if (controller.MaxSpdSize == (UInt16)Spd.DataLength.Minimum && block >= 1) {
                 throw new ArgumentOutOfRangeException(nameof(block));
             }
 
-            if (device.MaxSpdSize == (UInt16)Spd.DataLength.DDR4 && block >= 4) {
+            if (controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR4 && block >= 4) {
                 throw new ArgumentOutOfRangeException(nameof(block));
             }
 
-            byte[] commands = { 
-                EepromCommand.SWP0, 
-                EepromCommand.SWP1, 
-                EepromCommand.SWP2, 
+            byte[] commands = {
+                EepromCommand.SWP0,
+                EepromCommand.SWP1,
+                EepromCommand.SWP2,
                 EepromCommand.SWP3,
             };
 
-            return Smbus.WriteByte(device, (byte)(commands[block] >> 1));
+            return Smbus.WriteByte(controller, (byte)(commands[block] >> 1));
         }
 
         /// <summary>
         /// Clears EEPROM write protection 
         /// </summary>
-        /// <param name="device">SMB device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <returns><see langword="true"/> if the write protection has been disabled</returns>
-        public static bool ClearRswp(Smbus device) {
-            return Smbus.WriteByte(device, EepromCommand.CWP >> 1);
+        public static bool ClearRswp(Smbus controller) {
+            return Smbus.WriteByte(controller, EepromCommand.CWP >> 1);
         }
 
         /// <summary>
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
-        /// <param name="device">SMBus device instance</param>
+        /// <param name="controller">SMBus controller instance</param>
         /// <returns><see langword="true"/> when PSWP is enabled or <see langword="false"/> if when PSWP has NOT been set and EEPROM is writable</returns>
-        public static bool GetPswp(Smbus device) {
-            return !Smbus.ReadByte(device, (byte)((EepromCommand.PWPB << 3) | (device.I2CAddress & 0b111)));
+        public static bool GetPswp(Smbus controller) {
+            return !Smbus.ReadByte(controller, (byte)((EepromCommand.PWPB << 3) | (controller.I2CAddress & 0b111)));
         }
 
         #endregion
@@ -654,6 +654,32 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="address"/> is a valid EEPROM address between 0x50 and 0x57</returns>
         public static bool ValidateEepromAddress(UInt8 address) {
             return address >> 3 == 0b1010;
+        }
+
+        /// <summary>
+        /// EEPROM Write protection types
+        /// </summary>
+        public enum WriteProtectionType {
+            /// <summary>
+            /// Unprotected
+            /// </summary>
+            None,
+            /// <summary>
+            /// Permanent software write protection
+            /// </summary>
+            PSWP,
+            /// <summary>
+            /// Reversible software write protection
+            /// </summary>
+            RSWP,
+            /// <summary>
+            /// Hardware write protection
+            /// </summary>
+            HWP,
+            /// <summary>
+            /// BIOS SPD write disable
+            /// </summary>
+            SPDWD,
         }
     }
 }
