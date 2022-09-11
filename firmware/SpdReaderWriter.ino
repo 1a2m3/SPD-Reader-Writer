@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20220429 // Version number (YYYYMMDD)
+#define VERSION 20220911 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -132,6 +132,9 @@
 #define ERROR    (byte) 0xFF
 #define WELCOME  (char) '!'
 #define UNKNOWN  (char) '?'
+#define ALERT    (char) '@'
+#define SLAVEINC (char) '+'
+#define SLAVEDEC (char) '-'
 
 // Device name settings
 #define NAMELENGTH 16
@@ -147,7 +150,11 @@ char deviceName[NAMELENGTH];
 uint32_t i2cClock         = 100000L;          // Initial I2C clock
 uint8_t rswpSupport       = 0;                // Bitmask representing RAM RSWP support
 uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
-const int pins[] = { OFF_EN, SA1_EN, HV_EN }; // Configuration pins array
+uint8_t slaveCountCurrent = 0;                // Current number of slave addresses on I2C bus
+uint8_t slaveCountLast    = 0;                // Last number of slave addresses on I2C bus
+
+// Configuration pins
+const int pins[] = { OFF_EN, SA1_EN, HV_EN };
 
 void setup() {
 
@@ -162,6 +169,9 @@ void setup() {
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
+
+  // Set I2C timeout to 1 sec.
+  Wire.setWireTimeout(1000000L, true);
 
   // Perform initial device RSWP support test
   rswpSupport = rswpSupportTest();
@@ -188,8 +198,10 @@ void setup() {
 
 void loop() {
   // Wait for input data
-  while (!PORT.available()) {}
-
+  while (!PORT.available()) {
+    // Monitor i2c bus
+    i2cMonitor();
+  }
   // Process input commands and data
   parseCommand();
 
@@ -992,6 +1004,20 @@ byte scanBus() {
   }
 
   return response;
+}
+
+// I2C monitor
+void i2cMonitor() {
+
+  slaveCountCurrent = scanBus();
+
+  if (slaveCountCurrent != slaveCountLast) {
+    PORT.write(ALERT);
+    PORT.write(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC);
+    PORT.flush();
+  }
+
+  slaveCountLast = slaveCountCurrent;
 }
 
 // Control config pins
