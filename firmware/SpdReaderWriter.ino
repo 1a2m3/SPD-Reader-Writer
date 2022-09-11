@@ -162,7 +162,7 @@ void setup() {
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
-   
+
   // Perform initial device RSWP support test
   rswpSupport = rswpSupportTest();
 
@@ -179,9 +179,9 @@ void setup() {
   // Check saved i2c clock and set mode accordingly
   if (getI2cClockMode()) {
     i2cClock = 400000;
-  }   
+  }
   Wire.setClock(i2cClock);
-  
+
   // Send a welcome byte when the device is ready
   cmdTest();
 }
@@ -208,89 +208,89 @@ void parseCommand() {
   switch (cmd) {
 
     // Read byte
-    case READBYTE: 
+    case READBYTE:
       cmdRead();
       break;
 
     // Write byte
-    case WRITEBYTE: 
+    case WRITEBYTE:
       cmdWrite();
       break;
-      
+
     // Write page
     case WRITEPAGE:
       cmdWritePage();
       break;
 
     // Scan i2c bus for addresses
-    case SCANBUS: 
+    case SCANBUS:
       cmdScanBus();
       break;
 
     // Probe if i2c address is valid
-    case PROBEADDRESS: 
+    case PROBEADDRESS:
       cmdProbeBusAddress();
       break;
 
     // i2c bus settings
-    case I2CCLOCK: 
+    case I2CCLOCK:
       cmdI2CClock();
       break;
 
     // Control digital pins
-    case PINCONTROL: 
+    case PINCONTROL:
       cmdPinControl();
       break;
 
     // RSWP controls
-    case RSWP: 
+    case RSWP:
       cmdRSWP();
       break;
 
     // PSWP controls
-    case PSWP: 
+    case PSWP:
       cmdPSWP();
       break;
 
     // Get Firmware version
-    case GETVERSION: 
+    case GETVERSION:
       cmdVersion();
       break;
 
     // Device Communication Test
-    case TESTCOMM: 
+    case TESTCOMM:
       cmdTest();
       break;
 
     // Report supported RAM RSWP capabilities
-    case RSWPREPORT: 
+    case RSWPREPORT:
       cmdRswpReport();
       break;
 
     // Re-evaluate device's RSWP capabilities
-    case RETESTRSWP: 
+    case RETESTRSWP:
       cmdRetestRswp();
       break;
 
     // DDR4 detection test
-    case DDR4DETECT: 
+    case DDR4DETECT:
       cmdDdr4Detect();
       break;
 
     // DDR5 detection test
-    case DDR5DETECT: 
+    case DDR5DETECT:
       cmdDdr5Detect();
       break;
 
     // Device name controls
-    case NAME: 
+    case NAME:
       cmdName();
       break;
 
     // Factory defaults restore
     case FACTORYRESET:
       cmdFactoryReset();
-      break; 
+      break;
   }
 }
 
@@ -336,33 +336,33 @@ void cmdWrite() {
 }
 
 void cmdWritePage() {
-    
+
   // Data buffer
   byte buffer[4];
   PORT.readBytes(buffer, sizeof(buffer));
-  
+
   // EEPROM address
   uint8_t address = buffer[0];
   // Offset address
   uint16_t offset = buffer[1] << 8 | buffer[2];
   // Bytes count
   uint8_t length = buffer[3];
-  
+
   if (length == 0) {
     PORT.write(ERROR);
     return;
   }
-  
+
   // Data buffer
   byte data[length];
   PORT.readBytes(data, sizeof(data));
-  
+
   // Maximum page size is 16 bytes
   if (length > 16) {
     PORT.write(ERROR);
     return;
   }
-  
+
   PORT.write(writePage(address, offset, length, data) ? SUCCESS : ERROR);
 }
 
@@ -371,11 +371,11 @@ void cmdScanBus() {
 }
 
 void cmdTest() {
-  #ifdef __AVR__
+#ifdef __AVR__
   PORT.write(WELCOME);
-  #else
+#else
   PORT.write(UNKNOWN);
-  #endif
+#endif
 }
 
 void cmdRswpReport() {
@@ -383,12 +383,12 @@ void cmdRswpReport() {
 }
 
 void cmdRetestRswp() {
-  // Slow down I2C bus clock for accurate results 
+  // Slow down I2C bus clock for accurate results
   if (getI2cClockMode()) {
     Wire.setClock(100000);
   }
 
-  byte result = rswpSupportTest();  
+  byte result = rswpSupportTest();
 
   // Restore I2C bus clock
   Wire.setClock(getI2cClockMode() ? 400000 : 100000);
@@ -474,13 +474,13 @@ void cmdI2CClock() {
     PORT.write(getI2cClockMode() == buffer[0] ? SUCCESS : ERROR);
   }
   // Get current I2C clock
-  else if (buffer[0] == GET) {        
+  else if (buffer[0] == GET) {
     PORT.write(getI2cClockMode());
   }
   // Unrecognized command
   else {
     PORT.write(UNKNOWN);
-  }  
+  }
 }
 
 bool cmdFactoryReset() {
@@ -650,20 +650,20 @@ bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
 
 // Writes a page
 bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *data) {
-  
+
   if (deviceAddress >= 80 || deviceAddress <= 87) {
     adjustPageAddress(deviceAddress, offset);
   }
- 
+
   Wire.beginTransmission(deviceAddress);
   Wire.write((uint8_t)(offset));
   for (uint8_t i = 0; i < length; i++) {
     Wire.write(data[i]);
-  }  
+  }
   uint8_t status = Wire.endTransmission();
-  
+
   delay(10);
-  
+
   return status == 0;
 }
 
@@ -681,7 +681,7 @@ bool setRswp(uint8_t block) {
 
   if (setHighVoltage(ON)) {
     setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
-    if (block > 0 && !ddr4) {      
+    if (block > 0 && !ddr4) {
       result = false;
     }
     else {
@@ -691,7 +691,7 @@ bool setRswp(uint8_t block) {
 
     return result;
   }
-  
+
   return false;
 }
 
@@ -701,7 +701,7 @@ bool getRswp(uint8_t block) {
   byte commands[] = { RPS0, RPS1, RPS2, RPS3 };
   byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
 
-  // Jedec EE1002(A), TSE2002av compliance  
+  // Jedec EE1002(A), TSE2002av compliance
   if (block == 0 && !ddr4Detect()) {
     setHighVoltage(ON);
   }
@@ -720,8 +720,8 @@ bool clearRswp() {
     // Required for pre-DDR4
     setConfigPin(SA1_EN, ON);
   }
-  
-  if (setHighVoltage(ON)) {    
+
+  if (setHighVoltage(ON)) {
     bool result = probeDeviceTypeId(CWP);
     resetPins();
 
@@ -744,7 +744,7 @@ byte rswpSupportTest() {
   if (!scanBus()) {
     // No I2C devices
     return ZERO;
-  }  
+  }
 
   // RSWP DDR5 test
   if (ddr5SetOfflineMode(ON)) {
@@ -761,8 +761,8 @@ byte rswpSupportTest() {
     }
   }
 
-  resetPins();  
-  
+  resetPins();
+
   return rswpSupport;
 }
 
@@ -819,7 +819,7 @@ bool getPswp(uint8_t deviceAddress) {
   // Write 1 DNC byte to force LSB to set to 1
   Wire.write(DNC);
   int status = Wire.endTransmission();
-  
+
   return status == 0;  // returns true if PSWP is not set
 
   //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
@@ -1018,16 +1018,16 @@ bool getConfigPin(uint8_t pin) {
 void resetPins() {
   for (int i = 0; i <= sizeof(pins[0]); i++) {
     setConfigPin(pins[i], OFF);
-  }  
+  }
 }
 
 // Toggle DDR5 offline mode
 bool ddr5SetOfflineMode(bool state) {
-  setConfigPin(OFF_EN, state);  
+  setConfigPin(OFF_EN, state);
   if (state) {
     // Set SDR-DDR4 to address 82-83 to avoid conflicts
     setConfigPin(SA1_EN, state);
-  }  
+  }
 
   return ddr5GetOfflineMode() == state;
 }
@@ -1074,7 +1074,7 @@ bool ddr4Detect(uint8_t address) {
   if (address == 0) {
     return ddr4Detect();
   }
-  
+
   return probeBusAddress(address) && ddr4Detect();
 }
 
