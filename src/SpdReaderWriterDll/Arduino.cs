@@ -16,6 +16,7 @@ using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
@@ -102,7 +103,7 @@ namespace SpdReaderWriterDll {
             public bool RtsEnable;
 
             // Response settings
-            public int ResponseTimeout;
+            public int Timeout;
 
             /// <summary>
             /// Default port settings
@@ -110,16 +111,16 @@ namespace SpdReaderWriterDll {
             /// <param name="baudRate">Baud rate</param>
             /// <param name="dtrEnable">Enable DTR</param>
             /// <param name="rtsEnable">Enable RTS</param>
-            /// <param name="responseTimeout">Response timeout in seconds</param>
+            /// <param name="timeout">Response timeout in seconds</param>
             public SerialPortSettings(
-                int baudRate        = 115200,
-                bool dtrEnable      = true,
-                bool rtsEnable      = true,
-                int responseTimeout = 10) {
-                        BaudRate        = baudRate;
-                        DtrEnable       = dtrEnable;
-                        RtsEnable       = rtsEnable;
-                        ResponseTimeout = responseTimeout;
+                int baudRate   = 115200,
+                bool dtrEnable = true,
+                bool rtsEnable = true,
+                int timeout    = 10) {
+                    BaudRate  = baudRate;
+                    DtrEnable = dtrEnable;
+                    RtsEnable = rtsEnable;
+                    Timeout   = timeout;
             }
 
             /// <summary>
@@ -147,7 +148,7 @@ namespace SpdReaderWriterDll {
                     };
 
                     // Event to handle Data Reception
-                    _sp.DataReceived += DataReceivedHandler;
+                    _sp.DataReceived  += DataReceivedHandler;
 
                     // Event to handle Errors
                     _sp.ErrorReceived += ErrorReceivedHandler;
@@ -158,16 +159,16 @@ namespace SpdReaderWriterDll {
                         _sp.Open();
 
                         // Set valid state to true to allow Communication Test to execute
-                        _isValid = true;
+                        IsValid = true;
                         try {
-                            _isValid = Test();
+                            IsValid = Test();
                         }
                         catch {
-                            _isValid = false;
+                            IsValid = false;
                             Dispose();
                         }
 
-                        if (!_isValid) {
+                        if (!IsValid) {
                             try {
                                 Dispose();
                             }
@@ -198,7 +199,7 @@ namespace SpdReaderWriterDll {
                         // Close connection
                         _sp.Close();
                         // Reset valid state
-                        _isValid = false;
+                        IsValid = false;
                     }
                     catch (Exception ex) {
                         throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
@@ -286,6 +287,13 @@ namespace SpdReaderWriterDll {
         /// <returns>A single byte value received from the device</returns>
         public byte ReadByte() {
             return (byte)_sp.ReadByte();
+        }
+
+        /// <summary>
+        /// I2C addresses available
+        /// </summary>
+        public UInt8[] Addresses {
+            get => _addresses ?? (_addresses = Scan());
         }
 
         /// <summary>
@@ -409,7 +417,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool PIN_OFFLINE {
             get => GetConfigPin(Pin.Name.OFFLINE_MODE_SWITCH);
-            set => SetOfflineMode(value);
+            private set => SetOfflineMode(value);
         }
 
         /// <summary>
@@ -417,7 +425,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool PIN_VHV {
             get => GetHighVoltage();
-            set => SetHighVoltage(value);
+            private set => SetHighVoltage(value);
         }
 
         /// <summary>
@@ -744,7 +752,7 @@ namespace SpdReaderWriterDll {
 
                     Arduino device = new Arduino(PortSettings, portName);
                     try {
-                        lock (device._portLock) {
+                        lock (_portLock) {
                             if (device.Connect()) {
                                 device.Dispose();
                                 result.Push(portName);
@@ -766,7 +774,7 @@ namespace SpdReaderWriterDll {
         public bool IsConnected {
             get {
                 try {
-                    return _sp != null && _sp.IsOpen && _isValid;
+                    return _sp != null && _sp.IsOpen && IsValid;
                 }
                 catch {
                     return false;
@@ -779,7 +787,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool IsValid {
             get => _isValid;
-            set => _isValid = value;
+            private set => _isValid = value;
         }
 
         /// <summary>
@@ -886,7 +894,11 @@ namespace SpdReaderWriterDll {
         public byte RamTypeSupport {
             get {
                 try {
-                    return GetRamTypeSupport();
+                    if (_ramTypeSupport == default) {
+                        _ramTypeSupport = GetRamTypeSupport();
+                    }
+
+                    return _ramTypeSupport;
                 }
                 catch {
                     throw new Exception("Unable to get supported RAM type");
@@ -905,27 +917,75 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Indicates whether or not a response is expected after <see cref="ExecuteCommand(byte)"/>
+        /// </summary>
+        public static bool ResponseExpected {
+            get => _responseExpected;
+            private set => _responseExpected = value;
+        }
+
+        /// <summary>
         /// Byte stack containing data received from Serial Port
         /// </summary>
         public static Queue<byte> ResponseData = new Queue<byte>();
 
         /// <summary>
-        /// Value indicating whether data reception is complete
+        /// Indicates whether data reception is complete
         /// </summary>
-        public static bool DataReceiving = false;
+        public static bool DataReceiving {
+            get => _dataReceiving;
+            private set => _dataReceiving = value;
+        }
 
         /// <summary>
-        /// Data Received Handler which read data and puts it into ResponseData queue
+        /// Indicates an unexpected alert has been received from the device
+        /// </summary>
+        public bool AlertReceived => _alertReceived;
+
+        /// <summary>
+        /// Clears alert flag
+        /// </summary>
+        public void ClearAlert() {
+            _alertReceived = false;
+        }
+
+        /// <summary>
+        /// Raises alert flag
+        /// </summary>
+        private static void RaiseAlert() {
+            _alertReceived = true;
+        }
+
+        /// <summary>
+        /// Data Received Handler which read data and puts it into <see cref="ResponseData"/> queue
         /// </summary>
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
-        public static void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
+        private static void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
 
             if (sender != null && sender.GetType() == typeof(SerialPort)) {
-                while (((SerialPort)sender).IsOpen && ((SerialPort)sender).BytesToRead > 0) {
-                    DataReceiving = true;
-                    ResponseData.Enqueue((byte)((SerialPort)sender).ReadByte());
+
+                SerialPort receiver = (SerialPort)sender;
+
+                if (!ResponseExpected) {
+                    if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Response.ALERT) {
+
+                        RaiseAlert();
+
+                        byte notification = (byte)receiver.ReadByte();
+                        if (notification == Response.SLAVEINC ||
+                            notification == Response.SLAVEDEC) {
+                            // Nullify addresses to force a rescan
+                            _addresses = null;
+                        }
+                    }
                 }
+
+                while (receiver.IsOpen && receiver.BytesToRead > 0) {
+                    DataReceiving = true;
+                    ResponseData.Enqueue((byte)receiver.ReadByte());
+                }
+
                 DataReceiving = false;
             }
         }
@@ -935,22 +995,12 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
-        public static void ErrorReceivedHandler(object sender, SerialErrorReceivedEventArgs e) {
+        private static void ErrorReceivedHandler(object sender, SerialErrorReceivedEventArgs e) {
 
             if (sender != null && sender.GetType() == typeof(SerialPort)) {
                 throw new Exception($"Error received: {((SerialPort)sender).PortName}");
             }
         }
-
-        /// <summary>
-        /// Serial port instance
-        /// </summary>
-        private SerialPort _sp = new SerialPort();
-
-        /// <summary>
-        /// Describes whether the device is valid
-        /// </summary>
-        private bool _isValid;
 
         /// <summary>
         /// Executes commands on the device.
@@ -972,45 +1022,58 @@ namespace SpdReaderWriterDll {
 
             lock (_portLock) {
                 try {
-                    // Check connection
-                    if (IsConnected) {
-                        // Clear input and output buffers
-                        ClearBuffer();
+                    // Clear input and output buffers
+                    ClearBuffer();
 
-                        // Send the command to device
-                        _sp.Write(command, 0, command.Length);
+                    // Send the command to device
+                    _sp.Write(command, 0, command.Length);
 
-                        // Flush the buffer
-                        FlushBuffer();
+                    // Flush the buffer
+                    FlushBuffer();
 
-                        // Check response length
-                        if (responseLength == 0) {
-                            return new byte[0];
-                        }
+                    // Check response length
+                    ResponseExpected = responseLength > 0;
 
-                        // Timeout monitoring start
-                        Stopwatch sw = new Stopwatch();
-                        sw.Start();
-
-                        // Get response
-                        while (PortSettings.ResponseTimeout * 1000 > sw.ElapsedMilliseconds) {
-                            // Check connection
-                            if (!IsConnected) {
-                                throw new IOException($"{PortName} not connected");
-                            }
-
-                            // Wait for data
-                            if (ResponseData != null && ResponseData.Count >= responseLength && !DataReceiving) {
-                                for (int i = 0; i < response.Length; i++) {
-                                    response[i] = ResponseData.Dequeue();
-                                }
-                                break;
-                            }
-                        }
-
-                        return response;
+                    if (!ResponseExpected) {
+                        return new byte[0];
                     }
-                    throw new TimeoutException($"{PortName} response timeout");
+
+                    // Timeout monitoring start
+                    bool timeout = true;
+                    Stopwatch sw = new Stopwatch();
+                    sw.Start();
+
+                    // Get response
+                    while (sw.ElapsedMilliseconds < PortSettings.Timeout * 1000) {
+
+                        // Wait for data
+                        if (ResponseData.Count >= responseLength && !DataReceiving) {
+                            for (int i = 0; i < response.Length; i++) {
+                                response[i] = ResponseData.Dequeue();
+                            }
+                            ResponseExpected = false;
+                            timeout = false;
+
+                            break;
+                        }
+
+                        // Allow sleep during low data transfer
+                        if (ResponseData.Count == 0 &&
+                            !(command[0] == Command.READBYTE   ||
+                              command[0] == Command.WRITEBYTE  ||
+                              command[0] == Command.WRITEPAGE  ||
+                              command[0] == Command.DDR5DETECT ||
+                              command[0] == Command.DDR4DETECT)) {
+                            Thread.Sleep(10);
+                        }
+                    }
+
+                    if (timeout) {
+                        //ResponseExpected = false;
+                        throw new TimeoutException($"{PortName} response timeout");
+                    }
+
+                    return response;
                 }
                 catch {
                     throw new IOException($"{PortName} failed to execute command {command}");
@@ -1019,14 +1082,49 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Serial port instance
+        /// </summary>
+        private SerialPort _sp;
+
+        /// <summary>
+        /// Describes whether the device is valid
+        /// </summary>
+        private bool _isValid;
+
+        /// <summary>
+        /// I2C addresses available
+        /// </summary>
+        private static UInt8[] _addresses;
+
+        /// <summary>
+        /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
+        /// </summary>
+        private byte _ramTypeSupport;
+
+        /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private readonly object _portLock = new object();
+        private static readonly object _portLock = new object();
 
         /// <summary>
         /// FindLock object used to prevent other threads from acquiring the lock 
         /// </summary>
         private readonly object _findLock = new object();
+
+        /// <summary>
+        /// Indicates an unexpected alert has been received from the device
+        /// </summary>
+        private static bool _alertReceived;
+
+        /// <summary>
+        /// Indicates whether data reception is complete
+        /// </summary>
+        private static bool _dataReceiving;
+
+        /// <summary>
+        /// Indicates whether or not a response is expected after <see cref="ExecuteCommand(byte)"/>
+        /// </summary>
+        private static bool _responseExpected;
 
         /// <summary>
         /// Device commands
@@ -1218,6 +1316,18 @@ namespace SpdReaderWriterDll {
             /// A response indicating the command or syntax was not in a correct format
             /// </summary>
             public const char UNKNOWN  = '?';
+            /// <summary>
+            /// A notification received header
+            /// </summary>
+            public const char ALERT     = '@';
+            /// <summary>
+            /// Notification the number of slave addresses on the Arduino's I2C bus has increased
+            /// </summary>
+            public const char SLAVEINC = '+';
+            /// <summary>
+            /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
+            /// </summary>
+            public const char SLAVEDEC = '-';
 
             // Aliases
             public const byte ACK      = SUCCESS;
