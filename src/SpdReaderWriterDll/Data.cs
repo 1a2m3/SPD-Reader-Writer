@@ -10,6 +10,7 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -196,6 +197,21 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Determines if a string contains HEX values
+        /// </summary>
+        /// <param name="input">Input string to validate</param>
+        /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
+        public static bool ValidateHex(string input) {
+            try {
+                uint.Parse(input, System.Globalization.NumberStyles.AllowHexSpecifier);
+                return true;
+            }
+            catch {
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Decompresses GZip contents
         /// </summary>
         /// <param name="input">GZip contents byte array</param>
@@ -273,6 +289,30 @@ namespace SpdReaderWriterDll {
             UInt8 ones = (UInt8)(input - tens * 10);
 
             return (byte)((ones & 0xF) | (tens << 4));
+        }
+
+        /// <summary>
+        /// Returns a consecutive array of numbers based on input criteria
+        /// </summary>
+        /// <param name="start">First number in array</param>
+        /// <param name="stop">Last number in array</param>
+        /// <param name="step">Number interval</param>
+        /// <returns>A consecutive array of numbers starting from <see cref="start"/> till <see cref="stop"/> with an interval of <see cref="step"/></returns>
+        public static byte[] ConsecutiveArray(int start, int stop, uint step) {
+
+            if (stop < start) {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            Queue<byte> numbers = new Queue<byte>();
+
+            int i = start;
+            do {
+                numbers.Enqueue((byte)i);
+                i += (int)step;
+            } while (i <= stop);
+            
+            return numbers.ToArray();
         }
     }
 }
