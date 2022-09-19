@@ -106,6 +106,8 @@ namespace SpdReaderWriterDll {
                 case RamType.DDR3:
                     return DataLength.Minimum;
                 case RamType.DDR4:
+                case RamType.LPDDR3:
+                case RamType.LPDDR4:
                     return DataLength.DDR4;
                 case RamType.DDR5:
                     return DataLength.DDR5;
@@ -203,7 +205,7 @@ namespace SpdReaderWriterDll {
 
             // Decompress database
             const byte separatorByte = 0x00;
-            byte[] idTableCharArray = Data.DecompressGzip(Resources.jedecManufacturersIds);
+            byte[] idTableCharArray = Data.DecompressGzip(Resources.Database.jedecManufacturersIds);
             string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
 
             // Lookup name by continuation code and manufacturer's ID
@@ -222,7 +224,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Model part number</returns>
         public static string GetModulePartNumberName(byte[] input) {
 
-            int[] modelNameLocation = new int[2];
+            int[] modelNameLocation;
 
             switch (GetRamType(input)) {
 
@@ -244,7 +246,7 @@ namespace SpdReaderWriterDll {
 
                 // Part number for Kingston DDR2 and DDR SPDs
                 case RamType.DDR2 when GetManufacturerName(input).StartsWith("Kingston"):
-                case RamType.DDR when GetManufacturerName(input).StartsWith("Kingston"):
+                case RamType.DDR  when GetManufacturerName(input).StartsWith("Kingston"):
                     modelNameLocation = new[] { 0xF0, 0xFF };
                     break;
 
@@ -261,11 +263,11 @@ namespace SpdReaderWriterDll {
             char[] chars = new char[modelNameLocation[1] - modelNameLocation[0] + 1];
 
             Array.Copy(
-                sourceArray: input,
-                sourceIndex: modelNameLocation[0],
-                destinationArray: chars,
-                destinationIndex: 0,
-                length: chars.Length);
+                sourceArray      : input,
+                sourceIndex      : modelNameLocation[0],
+                destinationArray : chars,
+                destinationIndex : 0,
+                length           : chars.Length);
 
             return Data.BytesToString(chars);
         }
@@ -299,7 +301,7 @@ namespace SpdReaderWriterDll {
         public enum DataLength {
             Unknown = 0,
             Minimum = 256, // DDR3, DDR2, DDR, and SDRAM
-            DDR4    = 512,
+            DDR4    = 512, // incl. LPDDR3
             DDR5    = 1024,
         }
 
@@ -379,13 +381,15 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Size prefixes
+        /// Data Size prefixes
         /// </summary>
-        public enum CapacityPrefix {
-            // Common
-            B, KB, MB, GB, TB,
-            // Future
-            PB, EB, ZB, YB, BB,
+        public enum CapacityPrefix : UInt64 {
+            K = 1024,
+            M = K * K,
+            G = M * K,
+            T = G * K,
+            P = T * K,
+            E = P * K,
         }
 
         /// <summary>
@@ -403,6 +407,36 @@ namespace SpdReaderWriterDll {
             Untested,
             _700K, _600K, _500K, _400K, _300K, _200K, Reserved,
             Unlimited
+        }
+
+        /// <summary>
+        /// Module’s voltage interface
+        /// </summary>
+        public enum VoltageLevel {
+            /// <summary>
+            /// TTL/5 V tolerant
+            /// </summary>
+            TTL,
+            /// <summary>
+            /// LVTTL (not 5 V tolerant)
+            /// </summary>
+            LVTTL,
+            /// <summary>
+            /// HSTL 1.5 V
+            /// </summary>
+            HSTL,
+            /// <summary>
+            /// SSTL 3.3 V
+            /// </summary>
+            SSTL33,
+            /// <summary>
+            /// SSTL 2.5 V
+            /// </summary>
+            SSTL25,
+            /// <summary>
+            /// SSTL 1.8 V
+            /// </summary>
+            SSTL18,
         }
 
         /// <summary>
@@ -425,7 +459,7 @@ namespace SpdReaderWriterDll {
 
             public override string ToString() {
                 UInt16 year = (UInt16)(Data.ByteToBinaryCodedDecimal(Year) + 2000);
-                UInt8 week = Data.ByteToBinaryCodedDecimal(Week);
+                UInt8 week  = Data.ByteToBinaryCodedDecimal(Week);
 
                 return 0 < week && week < 53 ? $"{year:D4}/{week:D2}" : "";
             }
@@ -452,32 +486,32 @@ namespace SpdReaderWriterDll {
         /// CRC16 header and checksum
         /// </summary>
         public struct Crc16Data {
-            public byte[] Data;
+            public byte[] Contents;
             public UInt16 Checksum;
 
             /// <summary>
             /// Validates data checksum
             /// </summary>
-            /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="Data"/></returns>
-            public bool Validate() => SpdReaderWriterDll.Data.Crc16(Data, 0x1021) == Checksum;
+            /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="Contents"/></returns>
+            public bool Validate() => Data.Crc16(Contents, 0x1021) == Checksum;
 
-            public override string ToString() => ((CrcStatus)SpdReaderWriterDll.Data.BoolToNum(this.Validate())).ToString();
+            public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
         }
 
         /// <summary>
         /// CRC header and checksum
         /// </summary>
         public struct Crc8Data {
-            public byte[] Data;
+            public byte[] Contents;
             public UInt8 Checksum;
 
             /// <summary>
             /// Validates data checksum
             /// </summary>
-            /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="SpdReaderWriterDll.Data"/></returns>
-            public bool Validate() => SpdReaderWriterDll.Data.Crc(Data) == Checksum;
+            /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="Contents"/></returns>
+            public bool Validate() => Data.Crc(Contents) == Checksum;
 
-            public override string ToString() => ((CrcStatus)SpdReaderWriterDll.Data.BoolToNum(this.Validate())).ToString();
+            public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
         }
 
         /// <summary>
