@@ -203,18 +203,20 @@ namespace SpdReaderWriterDll {
             //    manufacturerCodeTable[i] = (byte)(code | Data.GetParity(code, Data.Parity.Odd) << 7);
             //}
 
-            // Decompress database
-            const byte separatorByte = 0x00;
-            byte[] idTableCharArray = Data.DecompressGzip(Resources.Database.jedecManufacturersIds);
-            string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
-
             // Lookup name by continuation code and manufacturer's ID
             byte spdContinuationCode = (byte)((input >> 8) & 0x7F);
             byte spdManufacturerCode = (byte)(input & 0x7F); // Ignore parity bit
 
-            UInt16 index = (UInt16)(codeTableCount * spdContinuationCode + spdManufacturerCode - 1);
+            if (spdContinuationCode > Resources.Database.jedecManufacturersIds.Length - 1) {
+                return "";
+            }
 
-            return index < names.Length ? names[index] : "";
+            // Decompress database
+            const byte separatorByte = 0x0A;
+            byte[] idTableCharArray = Data.DecompressGzip(Resources.Database.jedecManufacturersIds[spdContinuationCode]);
+            string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
+
+            return spdManufacturerCode <= names.Length ? names[spdManufacturerCode - 1] : "";
         }
 
         /// <summary>
