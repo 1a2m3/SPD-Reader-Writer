@@ -197,7 +197,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Determines if a string contains HEX values
+        /// Determines if input string contains HEX values (0-9,A-F)
         /// </summary>
         /// <param name="input">Input string to validate</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
@@ -208,6 +208,41 @@ namespace SpdReaderWriterDll {
             }
             catch {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// Converts hex string to byte
+        /// </summary>
+        /// <param name="input">Hex string</param>
+        /// <returns>Byte value of input hex string</returns>
+        public static byte HexStringToByte(string input) {
+            return Convert.ToByte(input, 16);
+        }
+
+        /// <summary>
+        /// Compresses contents to GZip
+        /// </summary>
+        /// <param name="input">Contents byte array</param>
+        /// <returns>Compressed byte array</returns>
+        public static byte[] CompressGzip(byte[] input) {
+            
+            using (MemoryStream inputStream = new MemoryStream(input)) {
+                using (MemoryStream outputStream = new MemoryStream()) {
+                    using (GZipStream zipStream = new GZipStream(outputStream, CompressionMode.Compress)) {
+
+                        byte[] buffer = new byte[16384];
+                        int count;
+
+                        do {
+                            count = inputStream.Read(buffer, 0, buffer.Length);
+                            zipStream.Write(buffer, 0, count);
+
+                        } while (count > 0);
+                    }
+
+                    return outputStream.ToArray();
+                }
             }
         }
 
@@ -292,26 +327,42 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Returns a consecutive array of numbers based on input criteria
+        /// Returns a consecutive array of bytes based on input criteria
         /// </summary>
         /// <param name="start">First number in array</param>
         /// <param name="stop">Last number in array</param>
         /// <param name="step">Number interval</param>
-        /// <returns>A consecutive array of numbers starting from <see cref="start"/> till <see cref="stop"/> with an interval of <see cref="step"/></returns>
-        public static byte[] ConsecutiveArray(int start, int stop, uint step) {
-
-            if (stop < start) {
-                throw new ArgumentOutOfRangeException();
-            }
+        /// <returns>A consecutive array of bytes starting from <see cref="start"/> till <see cref="stop"/> with an interval of <see cref="step"/></returns>
+        public static byte[] ConsecutiveArray(byte start, byte stop, byte step) {
 
             Queue<byte> numbers = new Queue<byte>();
 
             int i = start;
             do {
                 numbers.Enqueue((byte)i);
-                i += (int)step;
+                i += step;
             } while (i <= stop);
             
+            return numbers.ToArray();
+        }
+
+        /// <summary>
+        /// Returns a consecutive array of words based on input criteria
+        /// </summary>
+        /// <param name="start">First number in array</param>
+        /// <param name="stop">Last number in array</param>
+        /// <param name="step">Number interval</param>
+        /// <returns>A consecutive array of words starting from <see cref="start"/> till <see cref="stop"/> with an interval of <see cref="step"/></returns>
+        public static short[] ConsecutiveArray(short start, short stop, short step) {
+
+            Queue<short> numbers = new Queue<short>();
+
+            int i = start;
+            do {
+                numbers.Enqueue((short)i);
+                i += step;
+            } while (i <= stop);
+
             return numbers.ToArray();
         }
     }
