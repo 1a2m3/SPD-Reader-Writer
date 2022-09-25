@@ -142,7 +142,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">SPD contents</param>
         /// <returns>Manufacturer's name</returns>
-        public static string GetManufacturerName(byte[] input) {
+        public static UInt16 GetManufacturerId(byte[] input) {
             UInt16 manufacturerId = 0;
 
             switch (GetRamType(input)) {
@@ -183,7 +183,7 @@ namespace SpdReaderWriterDll {
                     break;
             }
 
-            return GetManufacturerName(manufacturerId);
+            return manufacturerId;
         }
 
         /// <summary>
@@ -195,8 +195,7 @@ namespace SpdReaderWriterDll {
 
             // Manufacturer's identification code table
 
-            int codeTableCount = 126;
-
+            //int codeTableCount = 126;
             //UInt8[] manufacturerCodeTable = new byte[codeTableCount];
             //for (UInt8 i = 0; i < 126; i++) {
             //    byte code = (byte)(i + 1);
@@ -247,8 +246,8 @@ namespace SpdReaderWriterDll {
                     break;
 
                 // Part number for Kingston DDR2 and DDR SPDs
-                case RamType.DDR2 when GetManufacturerName(input).StartsWith("Kingston"):
-                case RamType.DDR  when GetManufacturerName(input).StartsWith("Kingston"):
+                case RamType.DDR2 when GetManufacturerId(input) == 0x0198:
+                case RamType.DDR  when GetManufacturerId(input) == 0x0198:
                     modelNameLocation = new[] { 0xF0, 0xFF };
                     break;
 
