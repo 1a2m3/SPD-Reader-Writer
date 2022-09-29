@@ -368,7 +368,7 @@ namespace SpdReaderWriterDll {
             public SignalLoadingData SignalLoading;
 
             public override string ToString() {
-                return Monolithic ? "Monolithic" : SignalLoading.ToString().Replace("_", " ").Trim();
+                return Monolithic ? "Monolithic" : Data.GetEnumDescription(SignalLoading);
             }
         }
 
@@ -376,8 +376,11 @@ namespace SpdReaderWriterDll {
         /// Refers to loading on signals at the SDRAM balls
         /// </summary>
         public enum SignalLoadingData {
+            [Description("Not Specified")]
             Not_Specified, // Monolithic
+            [Description("Multi Load Stack")]
             Multi_Load_Stack,
+            [Description("Single Load Stack")] 
             Single_Load_Stack,
         }
 
@@ -385,11 +388,17 @@ namespace SpdReaderWriterDll {
         /// Data Size prefixes
         /// </summary>
         public enum CapacityPrefix : UInt64 {
+            [Description("kilo")]
             K = 1024,
+            [Description("mega")]
             M = K * K,
+            [Description("giga")]
             G = M * K,
+            [Description("tera")]
             T = G * K,
+            [Description("peta")]
             P = T * K,
+            [Description("exa")]
             E = P * K,
         }
 
@@ -405,8 +414,23 @@ namespace SpdReaderWriterDll {
         /// Maximum Activate Count (MAC)
         /// </summary>
         public enum MaximumActivateCount {
+            [Description("Untested MAC")]
             Untested,
-            _700K, _600K, _500K, _400K, _300K, _200K, Reserved,
+            [Description("700 K")]
+            _700K,
+            [Description("600 K")] 
+            _600K,
+            [Description("500 K")] 
+            _500K,
+            [Description("400 K")] 
+            _400K,
+            [Description("300 K")] 
+            _300K, 
+            [Description("200 K")] 
+            _200K,
+            
+            Reserved,
+            [Description("Unlimited MAC")]
             Unlimited
         }
 
@@ -417,26 +441,37 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// TTL/5 V tolerant
             /// </summary>
+            [Description("TTL/5 V tolerant")]
             TTL,
+
             /// <summary>
             /// LVTTL (not 5 V tolerant)
             /// </summary>
+            [Description("LVTTL (not 5 V tolerant)")]
             LVTTL,
+
             /// <summary>
             /// HSTL 1.5 V
             /// </summary>
+            [Description("HSTL 1.5 V")] 
             HSTL,
+
             /// <summary>
             /// SSTL 3.3 V
             /// </summary>
+            [Description("SSTL 3.3 V")] 
             SSTL33,
+
             /// <summary>
             /// SSTL 2.5 V
             /// </summary>
+            [Description("SSTL 2.5 V")] 
             SSTL25,
+
             /// <summary>
             /// SSTL 1.8 V
             /// </summary>
+            [Description("SSTL 1.8 V")] 
             SSTL18,
         }
 
