@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -202,13 +203,26 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input string to validate</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(string input) {
+
             try {
-                uint.Parse(input, System.Globalization.NumberStyles.AllowHexSpecifier);
+                int.Parse(input, System.Globalization.NumberStyles.AllowHexSpecifier);
                 return true;
             }
             catch {
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Determines if input char is a HEX
+        /// </summary>
+        /// <param name="input">Input char to validate</param>
+        /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
+        public static bool ValidateHex(char input) {
+
+            return ('a' <= input && input <= 'f') ||
+                   ('A' <= input && input <= 'F') ||
+                   ('0' <= input && input <= '9');
         }
 
         /// <summary>
@@ -316,6 +330,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Binary Coded Decimal Byte</returns>
         /// <example>14 is converted to 0x14</example>
         public static byte BinaryCodedDecimalToByte(UInt8 input) {
+
             if (input > 99) {
                 throw new ArgumentOutOfRangeException(nameof(input));
             }
@@ -364,6 +379,37 @@ namespace SpdReaderWriterDll {
             } while (i <= stop);
 
             return numbers.ToArray();
+        }
+
+        /// <summary>
+        /// Gets description attribute of an Enum member
+        /// </summary>
+        /// <param name="e">Enum member</param>
+        /// <returns>Enum member description or name, if description attribute is missing</returns>
+        public static string GetEnumDescription(Enum e) {
+
+            string name = e.ToString();
+            object[] descriptionAttributes = e.GetType().GetMember(name)[0].GetCustomAttributes(typeof(DescriptionAttribute), false);
+
+            return descriptionAttributes.Length <= 0 ? name : ((DescriptionAttribute)descriptionAttributes[0]).Description;
+        }
+
+        /// <summary>
+        /// Indicates whether the value of input integer object is an even number
+        /// </summary>
+        /// <param name="input">Input integer</param>
+        /// <returns><see langword="true"/> if <param name="input"/> is an even number, or <see langword="false"/> if it is an odd number</returns>
+        public static bool IsEven(int input) {
+            return (input & 1) != 0;
+        }
+
+        /// <summary>
+        /// Indicates whether the value of input integer object is an odd number
+        /// </summary>
+        /// <param name="input">Input integer</param>
+        /// <returns><see langword="true"/> if <param name="input"/> is an odd number, or <see langword="false"/> if it is an even number</returns>
+        public static bool IsOdd(int input) {
+            return !IsEven(input);
         }
     }
 }
