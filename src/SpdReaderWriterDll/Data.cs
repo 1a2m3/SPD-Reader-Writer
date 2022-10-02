@@ -220,8 +220,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(char input) {
 
-            return ('a' <= input && input <= 'f') ||
-                   ('A' <= input && input <= 'F') ||
+            return ('A' <= Char.ToUpper(input) && Char.ToUpper(input) <= 'F') ||
                    ('0' <= input && input <= '9');
         }
 
@@ -400,7 +399,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input integer</param>
         /// <returns><see langword="true"/> if <param name="input"/> is an even number, or <see langword="false"/> if it is an odd number</returns>
         public static bool IsEven(int input) {
-            return (input & 1) != 0;
+            return (input & 1) == 0;
         }
 
         /// <summary>
@@ -409,7 +408,16 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input integer</param>
         /// <returns><see langword="true"/> if <param name="input"/> is an odd number, or <see langword="false"/> if it is an even number</returns>
         public static bool IsOdd(int input) {
-            return !IsEven(input);
+            return (input & 1) == 1;
+        }
+
+        /// <summary>
+        /// Return the nearest up even number
+        /// </summary>
+        /// <param name="input">Input integer</param>
+        /// <returns>Closest bigger even integer</returns>
+        public static int EvenUp(int input) {
+            return IsEven(input) ? input : input + 1;
         }
     }
 }
