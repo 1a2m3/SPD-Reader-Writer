@@ -11,6 +11,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
@@ -75,15 +76,17 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>Device instance string</returns>
         public override string ToString() {
-            string _string = "";
-            if (PortName != null) {
-                _string += $"{PortName}";
-                if (I2CAddress != 0) {
-                    _string += $":{I2CAddress}";
-                }
+            
+            if (PortName == null) {
+                return "N/A";
             }
 
-            return _string.Trim();
+            string description = $"{PortName}";
+            if (I2CAddress != 0) {
+                description += $":{I2CAddress}";
+            }
+
+            return description.Trim();
         }
 
         /// <summary>
@@ -131,6 +134,16 @@ namespace SpdReaderWriterDll {
                 return $"{BaudRate}";
             }
         }
+        
+        /// <summary>
+        /// Number of bytes received from the device
+        /// </summary>
+        public int BytesReceived => _bytesReceived;
+
+        /// <summary>
+        /// Number of bytes sent to the device
+        /// </summary>
+        public int BytesSent => _bytesSent;
 
         /// <summary>
         /// Attempts to establish a connection with the SPD reader/writer device
@@ -144,7 +157,7 @@ namespace SpdReaderWriterDll {
                         PortName  = PortName,
                         BaudRate  = PortSettings.BaudRate,
                         DtrEnable = PortSettings.DtrEnable,
-                        RtsEnable = PortSettings.RtsEnable
+                        RtsEnable = PortSettings.RtsEnable,
                     };
 
                     // Event to handle Data Reception
@@ -157,6 +170,10 @@ namespace SpdReaderWriterDll {
                     try {
                         // Establish a connection
                         _sp.Open();
+
+                        // Reset stats
+                        _bytesSent     = 0;
+                        _bytesReceived = 0;
 
                         // Set valid state to true to allow Communication Test to execute
                         IsValid = true;
@@ -204,7 +221,6 @@ namespace SpdReaderWriterDll {
                     catch (Exception ex) {
                         throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
                     }
-
                 }
 
                 return !IsConnected;
@@ -246,10 +262,10 @@ namespace SpdReaderWriterDll {
         /// Gets supported RAM type(s)
         /// </summary>
         /// <returns>A bitmask representing available RAM supported defined in the <see cref="Response.RswpSupport"/> struct</returns>
-        public byte GetRamTypeSupport() {
+        public byte GetRswpSupport() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(Command.RSWPREPORT);
+                    return IsConnected ? ExecuteCommand(Command.RSWPREPORT) : Response.NULL;
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} supported RAM");
@@ -260,25 +276,10 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Test if the device supports RAM type RSWP at firmware level
         /// </summary>
-        /// <param name="ramTypeBitmask">RAM type bitmask</param>
+        /// <param name="rswpTypeBitmask">RAM type bitmask</param>
         /// <returns><see langword="true"/> if the device supports <see cref="Response.RswpSupport"/> RSWP at firmware level</returns>
-        public bool GetRamTypeSupport(byte ramTypeBitmask) {
-            return (GetRamTypeSupport() & ramTypeBitmask) == ramTypeBitmask;
-        }
-
-        /// <summary>
-        /// Re-evaluate device's RSWP capabilities
-        /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="Response.RswpSupport"/> struct</returns>
-        public byte RswpRetest() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand(Command.RETESTRSWP);
-                }
-                catch {
-                    throw new Exception($"Unable to get {PortName} supported RAM");
-                }
-            }
+        public bool GetRswpSupport(byte rswpTypeBitmask) {
+            return (GetRswpSupport() & rswpTypeBitmask) == rswpTypeBitmask;
         }
 
         /// <summary>
@@ -294,6 +295,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public UInt8[] Addresses {
             get => _addresses ?? (_addresses = Scan());
+            set => _addresses = value;
         }
 
         /// <summary>
@@ -417,7 +419,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool PIN_OFFLINE {
             get => GetConfigPin(Pin.Name.OFFLINE_MODE_SWITCH);
-            private set => SetOfflineMode(value);
+            set => SetOfflineMode(value);
         }
 
         /// <summary>
@@ -425,7 +427,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool PIN_VHV {
             get => GetHighVoltage();
-            private set => SetHighVoltage(value);
+            set => SetHighVoltage(value);
         }
 
         /// <summary>
@@ -530,7 +532,7 @@ namespace SpdReaderWriterDll {
         /// Resets all config pins to their default state
         /// </summary>
         /// <returns><see langword="true"/> when all config pins are reset</returns>
-        public bool ResetAddressPins() {
+        public bool ResetConfigPins() {
 
             PIN_SA1     = Pin.State.DEFAULT;
             PIN_VHV     = Pin.State.DEFAULT;
@@ -542,7 +544,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Probes default EEPROM address
         /// </summary>
-        /// <returns><see langword="true"/> if EEPROM is detected at the specified address</returns>
+        /// <returns><see langword="true"/> if EEPROM is detected at assigned <see cref="I2CAddress"/></returns>
         public bool ProbeAddress() {
             return I2CAddress != 0 && ProbeAddress(I2CAddress);
         }
@@ -551,7 +553,7 @@ namespace SpdReaderWriterDll {
         /// Probes specified EEPROM address
         /// </summary>
         /// <param name="address">EEPROM address</param>
-        /// <returns><see langword="true"/> if EEPROM is detected at the specified address</returns>
+        /// <returns><see langword="true"/> if EEPROM is detected at the specified <see cref="I2CAddress"/></returns>
         public bool ProbeAddress(UInt8 address) {
             lock (_portLock) {
                 try {
@@ -682,6 +684,7 @@ namespace SpdReaderWriterDll {
         /// <param name="name">Device name</param>
         /// <returns><see langword="true"/> when the device name is set</returns>
         public bool SetName(string name) {
+            
             if (name == null) {
                 throw new ArgumentNullException("Name can't be null");
             }
@@ -848,17 +851,17 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Serial port name the device is connected to
         /// </summary>
-        public string PortName;
+        public string PortName { get; }
 
         /// <summary>
         /// EEPROM address
         /// </summary>
-        public UInt8 I2CAddress;
+        public byte I2CAddress { get; set; }
 
         /// <summary>
         /// EEPROM size
         /// </summary>
-        public Spd.DataLength DataLength;
+        public Spd.DataLength DataLength { get; set; }
 
         /// <summary>
         /// Number of bytes to be read from the device
@@ -895,7 +898,7 @@ namespace SpdReaderWriterDll {
             get {
                 try {
                     if (_ramTypeSupport == default) {
-                        _ramTypeSupport = GetRamTypeSupport();
+                        _ramTypeSupport = GetRswpSupport();
                     }
 
                     return _ramTypeSupport;
@@ -910,10 +913,13 @@ namespace SpdReaderWriterDll {
         /// Value representing whether the device supports RSWP capabilities based on RAM type supported reported by the device
         /// </summary>
         public bool RswpPresent {
-            get => IsConnected && (
-                (RamTypeSupport & Response.RswpSupport.DDR3) == Response.RswpSupport.DDR3 ||
-                (RamTypeSupport & Response.RswpSupport.DDR4) == Response.RswpSupport.DDR4 ||
-                (RamTypeSupport & Response.RswpSupport.DDR5) == Response.RswpSupport.DDR5);
+            get {
+                byte rswpSupported = RamTypeSupport;
+                return IsConnected && (
+                    (rswpSupported & Response.RswpSupport.DDR3) == Response.RswpSupport.DDR3 ||
+                    (rswpSupported & Response.RswpSupport.DDR4) == Response.RswpSupport.DDR4 ||
+                    (rswpSupported & Response.RswpSupport.DDR5) == Response.RswpSupport.DDR5);
+            }
         }
 
         /// <summary>
@@ -936,24 +942,26 @@ namespace SpdReaderWriterDll {
             get => _dataReceiving;
             private set => _dataReceiving = value;
         }
-
-        /// <summary>
-        /// Indicates an unexpected alert has been received from the device
-        /// </summary>
-        public bool AlertReceived => _alertReceived;
-
-        /// <summary>
-        /// Clears alert flag
-        /// </summary>
-        public void ClearAlert() {
-            _alertReceived = false;
-        }
-
+        
         /// <summary>
         /// Raises alert flag
         /// </summary>
-        private static void RaiseAlert() {
-            _alertReceived = true;
+        private void RaiseAlert() {
+            OnAlertReceived(EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Indicates an unexpected alert has been received from Arduino
+        /// </summary>
+        [Description("Occurs when an alert is received from Arduino")]
+        public event EventHandler AlertReceived;
+
+        /// <summary>
+        /// Invokes <see cref="AlertReceived"/> event
+        /// </summary>
+        /// <param name="e">Event arguments</param>
+        protected virtual void OnAlertReceived(EventArgs e) {
+            AlertReceived?.Invoke(this, e);
         }
 
         /// <summary>
@@ -961,33 +969,33 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
-        private static void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
+        private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
+            if (sender == null || sender.GetType() != typeof(SerialPort)) return;
 
-            if (sender != null && sender.GetType() == typeof(SerialPort)) {
+            SerialPort receiver = (SerialPort)sender;
 
-                SerialPort receiver = (SerialPort)sender;
+            _bytesReceived += receiver.BytesToRead;
 
-                if (!ResponseExpected) {
-                    if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Response.ALERT) {
+            if (!ResponseExpected) {
+                if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Response.ALERT) {
 
-                        RaiseAlert();
+                    RaiseAlert();
 
-                        byte notification = (byte)receiver.ReadByte();
-                        if (notification == Response.SLAVEINC ||
-                            notification == Response.SLAVEDEC) {
-                            // Nullify addresses to force a rescan
-                            _addresses = null;
-                        }
+                    byte notification = (byte)receiver.ReadByte();
+                    if (notification == Response.SLAVEINC ||
+                        notification == Response.SLAVEDEC) {
+                        // Nullify addresses to force a rescan
+                        _addresses = null;
                     }
                 }
-
-                while (receiver.IsOpen && receiver.BytesToRead > 0) {
-                    DataReceiving = true;
-                    ResponseData.Enqueue((byte)receiver.ReadByte());
-                }
-
-                DataReceiving = false;
             }
+
+            while (receiver.IsOpen && receiver.BytesToRead > 0) {
+                DataReceiving = true;
+                ResponseData.Enqueue((byte)receiver.ReadByte());
+            }
+
+            DataReceiving = false;
         }
 
         /// <summary>
@@ -1027,6 +1035,8 @@ namespace SpdReaderWriterDll {
 
                     // Send the command to device
                     _sp.Write(command, 0, command.Length);
+
+                    _bytesSent += command.Length;
 
                     // Flush the buffer
                     FlushBuffer();
@@ -1087,6 +1097,16 @@ namespace SpdReaderWriterDll {
         private SerialPort _sp;
 
         /// <summary>
+        /// Number of bytes received from the device
+        /// </summary>
+        private static int _bytesReceived;
+
+        /// <summary>
+        /// Number of bytes sent to the device
+        /// </summary>
+        private static int _bytesSent;
+
+        /// <summary>
         /// Describes whether the device is valid
         /// </summary>
         private bool _isValid;
@@ -1110,11 +1130,6 @@ namespace SpdReaderWriterDll {
         /// FindLock object used to prevent other threads from acquiring the lock 
         /// </summary>
         private readonly object _findLock = new object();
-
-        /// <summary>
-        /// Indicates an unexpected alert has been received from the device
-        /// </summary>
-        private static bool _alertReceived;
 
         /// <summary>
         /// Indicates whether data reception is complete
@@ -1178,10 +1193,6 @@ namespace SpdReaderWriterDll {
             /// Report current RSWP RAM support
             /// </summary>
             public const byte RSWPREPORT   = (byte)'f';
-            /// <summary>
-            /// Re-evaluate RSWP capabilities
-            /// </summary>
-            public const byte RETESTRSWP   = (byte)'e';
             /// <summary>
             /// Device name controls
             /// </summary>
@@ -1339,22 +1350,22 @@ namespace SpdReaderWriterDll {
             public const byte ZERO     = NULL;
 
             /// <summary>
-            /// Bitmask values describing specific RSWP support in response to <see cref="Command.RSWPREPORT"/> or <see cref="Command.RETESTRSWP"/> commands
+            /// Bitmask values describing specific RSWP support in response to <see cref="Command.RSWPREPORT"/> command
             /// </summary>
             public struct RswpSupport {
 
                 /// <summary>
-                /// Value describing <value>DDR3</value> and below RSWP support
+                /// Value describing the device supports VHV and SA1 controls for DDR3 and below RSWP support
                 /// </summary>
                 public const byte DDR3 = 1 << 3;
 
                 /// <summary>
-                /// Value describing <value>DDR4</value> RSWP support
+                /// Value describing the device supports VHV control for DDR4 RSWP support
                 /// </summary>
                 public const byte DDR4 = 1 << 4;
 
                 /// <summary>
-                /// Value describing <value>DDR5</value> RSWP support
+                /// Value describing the device supports Offline mode control for DDR5 RSWP support
                 /// </summary>
                 public const byte DDR5 = 1 << 5;
             }
