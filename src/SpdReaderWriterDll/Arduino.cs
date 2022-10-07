@@ -116,7 +116,7 @@ namespace SpdReaderWriterDll {
             /// <param name="rtsEnable">Enable RTS</param>
             /// <param name="timeout">Response timeout in seconds</param>
             public SerialPortSettings(
-                int baudRate   = 115200,
+                int baudRate   = BaudRates[10], // 115200
                 bool dtrEnable = true,
                 bool rtsEnable = true,
                 int timeout    = 10) {
@@ -134,7 +134,30 @@ namespace SpdReaderWriterDll {
                 return $"{BaudRate}";
             }
         }
-        
+
+        /// <summary>
+        /// Supported baud rates
+        /// </summary>
+        public static int[] BaudRates = { 
+            300,
+            600,
+            1200,
+            2400,
+            4800,
+            9600,
+            14400,
+            19200,
+            38400,
+            57600,
+            115200,
+            230400,
+            250000,
+            460800,
+            500000,
+            1000000,
+            2000000,
+        };
+
         /// <summary>
         /// Number of bytes received from the device
         /// </summary>
