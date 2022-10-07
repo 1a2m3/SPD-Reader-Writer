@@ -304,12 +304,30 @@ namespace SpdReaderWriterDll {
 
             // Process ASCII printable characters only
             foreach (char b in input) {
-                if (0x20 <= b && b <= 0x7E) {
+                if (IsAscii(b)) {
                     output += b.ToString();
                 }
             }
 
             return output;
+        }
+
+        /// <summary>
+        /// Checks if input character is within ASCII range
+        /// </summary>
+        /// <param name="input">Input character</param>
+        /// <returns><see langword="true"/> if <see cref="input"/> is within ASCII range</returns>
+        public static bool IsAscii(char input) {
+            return 0x20 <= input && input <= 0x7E;
+        }
+
+        /// <summary>
+        /// Checks if input byte value is within ASCII range
+        /// </summary>
+        /// <param name="input">Input byte</param>
+        /// <returns><see langword="true"/> if <see cref="input"/> value is within ASCII range</returns>
+        public static bool IsAscii(byte input) {
+            return IsAscii((char)input);
         }
 
         /// <summary>
