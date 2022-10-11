@@ -116,7 +116,7 @@ namespace SpdReaderWriterDll {
             /// <param name="rtsEnable">Enable RTS</param>
             /// <param name="timeout">Response timeout in seconds</param>
             public SerialPortSettings(
-                int baudRate   = BaudRates[10], // 115200
+                int baudRate   = 115200,
                 bool dtrEnable = true,
                 bool rtsEnable = true,
                 int timeout    = 10) {
@@ -969,8 +969,8 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Raises alert flag
         /// </summary>
-        private void RaiseAlert() {
-            OnAlertReceived(EventArgs.Empty);
+        private void RaiseAlert(ArduinoEventArgs e) {
+            OnAlertReceived(e);
         }
 
         /// <summary>
@@ -983,7 +983,7 @@ namespace SpdReaderWriterDll {
         /// Invokes <see cref="AlertReceived"/> event
         /// </summary>
         /// <param name="e">Event arguments</param>
-        protected virtual void OnAlertReceived(EventArgs e) {
+        protected virtual void OnAlertReceived(ArduinoEventArgs e) {
             AlertReceived?.Invoke(this, e);
         }
 
@@ -993,7 +993,9 @@ namespace SpdReaderWriterDll {
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
         private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
-            if (sender == null || sender.GetType() != typeof(SerialPort)) return;
+            if (sender == null || sender.GetType() != typeof(SerialPort)) {
+                return;
+            }
 
             SerialPort receiver = (SerialPort)sender;
 
@@ -1002,13 +1004,15 @@ namespace SpdReaderWriterDll {
             if (!ResponseExpected) {
                 if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Response.ALERT) {
 
-                    RaiseAlert();
-
                     byte notification = (byte)receiver.ReadByte();
                     if (notification == Response.SLAVEINC ||
                         notification == Response.SLAVEDEC) {
                         // Nullify addresses to force a rescan
                         _addresses = null;
+
+                        RaiseAlert(new ArduinoEventArgs {
+                            Notification = notification
+                        });
                     }
                 }
             }
@@ -1392,6 +1396,17 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public const byte DDR5 = 1 << 5;
             }
+        }
+
+        /// <summary>
+        /// Arduino Event Arguments
+        /// </summary>
+        public class ArduinoEventArgs : EventArgs {
+
+            /// <summary>
+            /// Notification event argument
+            /// </summary>
+            public byte Notification { get; set; }
         }
     }
 }
