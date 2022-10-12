@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20220911 // Version number (YYYYMMDD)
+#define VERSION 20221011 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -123,18 +123,20 @@
 #define GET     (char) '?'  // Suffix added to commands to return current state
 
 // Device responses
-#define SUCCESS  (byte) 0x01
-#define ENABLED  (byte) 0x01
-#define ACK      (byte) 0x01
-#define ZERO     (byte) 0x00
-#define DISABLED (byte) 0x00
-#define NACK     (byte) 0xFF
-#define ERROR    (byte) 0xFF
-#define WELCOME  (char) '!'
-#define UNKNOWN  (char) '?'
-#define ALERT    (char) '@'
-#define SLAVEINC (char) '+'
-#define SLAVEDEC (char) '-'
+#define SUCCESS   (byte) 0x01
+#define ENABLED   (byte) 0x01
+#define ACK       (byte) 0x01
+#define ZERO      (byte) 0x00
+#define DISABLED  (byte) 0x00
+#define NACK      (byte) 0xFF
+#define ERROR     (byte) 0xFF
+#define WELCOME   (char) '!'
+#define UNKNOWN   (char) '?'
+#define ALERT     (char) '@'
+#define SLAVEINC  (char) '+'
+#define SLAVEDEC  (char) '-'
+#define CLOCKINC  (char) '/'
+#define CLOCKDEC  (char) '\\'
 
 // Device name settings
 #define NAMELENGTH 16
@@ -147,11 +149,13 @@ char deviceName[NAMELENGTH];
 #define STDMODE        false
 
 // Global variables
-uint32_t i2cClock         = 100000L;          // Initial I2C clock
-uint8_t rswpSupport       = 0;                // Bitmask representing RAM RSWP support
-uint8_t eepromPageAddress = 0;                // Initial EEPROM page address
-uint8_t slaveCountCurrent = 0;                // Current number of slave addresses on I2C bus
-uint8_t slaveCountLast    = 0;                // Last number of slave addresses on I2C bus
+uint32_t i2cClock         = 100000L;           // Initial I2C clock
+uint8_t rswpSupport       = 0;                 // Bitmask representing RAM RSWP support
+uint8_t eepromPageAddress = 0;                 // Initial EEPROM page address
+uint8_t slaveCountCurrent = 0;                 // Current number of slave addresses on I2C bus
+uint8_t slaveCountLast    = 0;                 // Last number of slave addresses on I2C bus
+bool i2cClockCurrent; // Current I2C clock mode
+bool i2cClockLast; // Last I2C clock mode
 
 // Configuration pins
 const int pins[] = { OFF_EN, SA1_EN, HV_EN };
@@ -170,8 +174,8 @@ void setup() {
   // Initiate and join the I2C bus as a master
   Wire.begin();
 
-  // Set I2C timeout to 1 sec.
-  Wire.setWireTimeout(1000000L, true);
+  // Set I2C timeout to 0.01 sec.
+  Wire.setWireTimeout(10000L, true);
 
   // Perform initial device RSWP support test
   rswpSupport = rswpSupportTest();
@@ -215,9 +219,7 @@ void parseCommand() {
     return;
   }
 
-  char cmd = (char) PORT.read();
-
-  switch (cmd) {
+  switch ((char) PORT.read()) {
 
     // Read byte
     case READBYTE:
@@ -1018,6 +1020,16 @@ void i2cMonitor() {
   }
 
   slaveCountLast = slaveCountCurrent;
+
+  i2cClockCurrent = getI2cClockMode();
+
+  if (i2cClockCurrent != i2cClockLast) {
+    PORT.write(ALERT);
+    PORT.write(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC);
+    PORT.flush();
+  }
+
+  i2cClockLast = i2cClockCurrent;
 }
 
 // Control config pins
