@@ -81,9 +81,9 @@ namespace SpdReaderWriterDll {
                 return "N/A";
             }
 
-            string description = $"{PortName}";
+            string description = $"{PortName}:{PortSettings.BaudRate}";
             if (I2CAddress != 0) {
-                description += $":{I2CAddress}";
+                description += $"/{I2CAddress}";
             }
 
             return description.Trim();
@@ -988,7 +988,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Data Received Handler which read data and puts it into <see cref="ResponseData"/> queue
+        /// Data Received Handler which reads data received from Arduino
         /// </summary>
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
@@ -1002,13 +1002,13 @@ namespace SpdReaderWriterDll {
             _bytesReceived += receiver.BytesToRead;
 
             if (!ResponseExpected) {
-                if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Response.ALERT) {
+                if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Alert.ALERT) {
 
                     byte notification = (byte)receiver.ReadByte();
-                    if (notification == Response.SLAVEINC ||
-                        notification == Response.SLAVEDEC) {
-                        // Nullify addresses to force a rescan
-                        _addresses = null;
+
+                    if (notification == Alert.SLAVEINC || notification == Alert.SLAVEDEC 
+                                                       || 
+                        notification == Alert.CLOCKINC || notification == Alert.CLOCKDDEC) {
 
                         RaiseAlert(new ArduinoEventArgs {
                             Notification = notification
@@ -1322,50 +1322,46 @@ namespace SpdReaderWriterDll {
             /// Boolean True response
             /// </summary>
             public const byte TRUE     = 0x01;
+
             /// <summary>
             /// Boolean False response
             /// </summary>
             public const byte FALSE    = 0x00;
+
             /// <summary>
             /// Indicates the operation has failed
             /// </summary>
             public const byte ERROR    = 0xFF;
+
             /// <summary>
             /// Indicates the operation was executed successfully
             /// </summary>
             public const byte SUCCESS  = 0x01;
+
             /// <summary>
             /// A response used to indicate an error when normally a numeric non-zero answer is expected if the operation was executed successfully
             /// </summary>
             public const byte NULL     = 0x00;
+
             /// <summary>
             /// A response used to describe when SA pin is tied to VCC
             /// </summary> 
             public const byte ON       = 0x01;
+
             /// <summary>
             /// A response used to describe when SA pin is tied to GND
             /// </summary>
             public const byte OFF      = 0x00;
+
             /// <summary>
             /// A response expected from the device after executing <see cref="Command.TESTCOMM"/> command to identify the correct device
             /// </summary>
             public const char WELCOME  = '!';
+
             /// <summary>
             /// A response indicating the command or syntax was not in a correct format
             /// </summary>
             public const char UNKNOWN  = '?';
-            /// <summary>
-            /// A notification received header
-            /// </summary>
-            public const char ALERT     = '@';
-            /// <summary>
-            /// Notification the number of slave addresses on the Arduino's I2C bus has increased
-            /// </summary>
-            public const char SLAVEINC = '+';
-            /// <summary>
-            /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
-            /// </summary>
-            public const char SLAVEDEC = '-';
 
             // Aliases
             public const byte ACK      = SUCCESS;
@@ -1399,6 +1395,37 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Alerts received from Arduino
+        /// </summary>
+        public struct Alert {
+
+            /// <summary>
+            /// A notification received header
+            /// </summary>
+            public const char ALERT = '@';
+
+            /// <summary>
+            /// Notification the number of slave addresses on the Arduino's I2C bus has increased
+            /// </summary>
+            public const char SLAVEINC = '+';
+
+            /// <summary>
+            /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
+            /// </summary>
+            public const char SLAVEDEC = '-';
+
+            /// <summary>
+            /// Notification of I2C clock frequency increase
+            /// </summary>
+            public const char CLOCKINC = '/';
+
+            /// <summary>
+            /// Notification of I2C clock frequency decrease
+            /// </summary>
+            public const char CLOCKDDEC = '\\';
+        }
+
+        /// <summary>
         /// Arduino Event Arguments
         /// </summary>
         public class ArduinoEventArgs : EventArgs {
@@ -1407,6 +1434,11 @@ namespace SpdReaderWriterDll {
             /// Notification event argument
             /// </summary>
             public byte Notification { get; set; }
+
+            /// <summary>
+            /// Provides a value to use with events that do not have event data
+            /// </summary>
+            public static readonly ArduinoEventArgs Empty = new ArduinoEventArgs();
         }
     }
 }
