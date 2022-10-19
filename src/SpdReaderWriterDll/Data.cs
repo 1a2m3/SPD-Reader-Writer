@@ -303,10 +303,8 @@ namespace SpdReaderWriterDll {
             string output = "";
 
             // Process ASCII printable characters only
-            foreach (char b in input) {
-                if (IsAscii(b)) {
-                    output += b.ToString();
-                }
+            foreach (char c in input) {
+                output += IsAscii(c) ? c.ToString() : "";
             }
 
             return output;
@@ -430,10 +428,10 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Return the nearest up even number
+        /// Return the closest even integer that is greater than or equal to <see cref="input"/>
         /// </summary>
         /// <param name="input">Input integer</param>
-        /// <returns>Closest bigger even integer</returns>
+        /// <returns>Closest even number that is greater than or equal to <see cref="input"/></returns>
         public static int EvenUp(int input) {
             return IsEven(input) ? input : input + 1;
         }
