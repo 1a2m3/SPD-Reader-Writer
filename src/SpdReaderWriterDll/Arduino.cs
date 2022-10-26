@@ -15,7 +15,6 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using UInt8 = System.Byte;
@@ -177,10 +176,12 @@ namespace SpdReaderWriterDll {
                 if (!IsConnected) {
                     _sp = new SerialPort {
                         // New connection settings
-                        PortName  = PortName,
-                        BaudRate  = PortSettings.BaudRate,
-                        DtrEnable = PortSettings.DtrEnable,
-                        RtsEnable = PortSettings.RtsEnable,
+                        PortName     = PortName,
+                        BaudRate     = PortSettings.BaudRate,
+                        DtrEnable    = PortSettings.DtrEnable,
+                        RtsEnable    = PortSettings.RtsEnable,
+                        ReadTimeout  = PortSettings.Timeout,
+                        WriteTimeout = PortSettings.Timeout,
                     };
 
                     // Event to handle Data Reception
@@ -773,8 +774,15 @@ namespace SpdReaderWriterDll {
         public string[] Find() {
             Stack<string> result = new Stack<string>();
 
+            HashSet<string> portHashSet = new HashSet<string>(SerialPort.GetPortNames());
+
+            string[] ports = new string[portHashSet.Count];
+
+            portHashSet.CopyTo(ports);
+
             lock (_findLock) {
-                foreach (string portName in SerialPort.GetPortNames().Distinct().ToArray()) {
+
+                foreach (string portName in ports) {
 
                     Arduino device = new Arduino(PortSettings, portName);
                     try {
