@@ -234,11 +234,29 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Compresses or decompresses Gzip data
+        /// </summary>
+        /// <param name="input">Input data</param>
+        /// <param name="method">Gzip method</param>
+        /// <returns>Data byte array</returns>
+        public static byte[] Gzip(byte[] input, GzipMethod method) {
+            return method == GzipMethod.Compress ? CompressGzip(input) : DecompressGzip(input);
+        }
+
+        /// <summary>
+        /// Gzip Data Methods
+        /// </summary>
+        public enum GzipMethod {
+            Compress,
+            Decompress,
+        }
+
+        /// <summary>
         /// Compresses contents to GZip
         /// </summary>
         /// <param name="input">Contents byte array</param>
         /// <returns>Compressed byte array</returns>
-        public static byte[] CompressGzip(byte[] input) {
+        private static byte[] CompressGzip(byte[] input) {
             
             using (MemoryStream inputStream = new MemoryStream(input)) {
                 using (MemoryStream outputStream = new MemoryStream()) {
@@ -264,7 +282,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">GZip contents byte array</param>
         /// <returns>Decompressed byte array</returns>
-        public static byte[] DecompressGzip(byte[] input) {
+        private static byte[] DecompressGzip(byte[] input) {
 
             using (MemoryStream outputStream = new MemoryStream()) {
                 using (GZipStream zipStream = new GZipStream(new MemoryStream(input), CompressionMode.Decompress)) {

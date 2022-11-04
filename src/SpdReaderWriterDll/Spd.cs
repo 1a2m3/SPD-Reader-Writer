@@ -212,7 +212,7 @@ namespace SpdReaderWriterDll {
 
             // Decompress database
             const byte separatorByte = 0x0A;
-            byte[] idTableCharArray = Data.DecompressGzip(Resources.Database.jedecManufacturersIds[spdContinuationCode]);
+            byte[] idTableCharArray = Data.Gzip(Resources.Database.jedecManufacturersIds[spdContinuationCode], Data.GzipMethod.Decompress);
             string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
 
             return spdManufacturerCode <= names.Length ? names[spdManufacturerCode - 1] : "";

@@ -124,7 +124,7 @@ namespace SpdReaderWriterDll {
         private bool ExtractDriver() {
 
             // Read applicable driver from resources depending on OS platform
-            byte[] driverFileContents = Data.DecompressGzip(Environment.Is64BitOperatingSystem ? Resources.WinRing0x64_sys : Resources.WinRing0_sys);
+            byte[] driverFileContents = Data.Gzip(Environment.Is64BitOperatingSystem ? Resources.Driver.WinRing0x64_sys : Resources.Driver.WinRing0_sys, Data.GzipMethod.Decompress);
 
             if (!(File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName)))) {
 
