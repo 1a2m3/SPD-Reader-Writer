@@ -221,11 +221,11 @@ namespace SpdReaderWriter {
             Directory.CreateDirectory(destinationDir);
             File.WriteAllText(
                 path     : destinationDir + "\\SpdReaderWriter.ino",
-                contents : Data.BytesToString(Data.DecompressGzip(Resources.Firmware.SpdReaderWriter_ino)));
+                contents : Data.BytesToString(Data.Gzip(Resources.Firmware.SpdReaderWriter_ino, Data.GzipMethod.Decompress)));
 
             File.WriteAllText(
                 path     : destinationDir + "\\SpdReaderWriterSettings.h",
-                contents : Data.BytesToString(Data.DecompressGzip(Resources.Firmware.SpdReaderWriterSettings_h)));
+                contents : Data.BytesToString(Data.Gzip(Resources.Firmware.SpdReaderWriterSettings_h, Data.GzipMethod.Decompress)));
 
             File.SetAttributes(destinationDir + "\\SpdReaderWriter.ino", FileAttributes.ReadOnly);
 
@@ -505,7 +505,7 @@ namespace SpdReaderWriter {
             }
 
             // Check FW version
-            string firmwareFile = Data.BytesToString(Data.DecompressGzip(Resources.Firmware.SpdReaderWriter_ino));
+            string firmwareFile = Data.BytesToString(Data.Gzip(Resources.Firmware.SpdReaderWriter_ino, Data.GzipMethod.Decompress));
             if (Reader.GetFirmwareVersion() <
                 Int32.Parse(firmwareFile.Split(new string[] { "#define VERSION " }, StringSplitOptions.None)[1].Split(' ')[0].Trim())) {
                 throw new Exception($"The device on port {portName} requires its firmware to be updated.");
