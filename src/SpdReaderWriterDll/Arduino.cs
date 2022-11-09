@@ -223,6 +223,7 @@ namespace SpdReaderWriterDll {
                     }
                 }
             }
+
             return IsConnected;
         }
 
