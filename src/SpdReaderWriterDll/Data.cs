@@ -415,6 +415,36 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Returns first index of matching array bytes in the source array
+        /// </summary>
+        /// <param name="source">Source array</param>
+        /// <param name="pattern">Matching pattern</param>
+        /// <returns>First index of matching array bytes</returns>
+        public static int FindArray(byte[] source, byte[] pattern) {
+            
+            int maxFirstCharSlot = source.Length - pattern.Length + 1;
+            
+            for (int i = 0; i < maxFirstCharSlot; i++) {
+                // Compare only first byte
+                if (source[i] != pattern[0]) {
+                    continue;
+                }
+
+                // Found a match on first byte, now try to match rest of the pattern
+                for (int j = pattern.Length - 1; j >= 1; j--) {
+                    if (source[i + j] != pattern[j]) {
+                        break;
+                    }
+                    if (j == 1) {
+                        return i;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+        /// <summary>
         /// Gets description attribute of an Enum member
         /// </summary>
         /// <param name="e">Enum member</param>
