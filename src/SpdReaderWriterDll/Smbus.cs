@@ -889,8 +889,8 @@ namespace SpdReaderWriterDll {
                 // Set input for writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
                     _pciDevice.WriteByte(
-                        offset: (byte)(SkylakeXSmbusRegister.Input + smbusData.BusNumber * 4),
-                        value: smbusData.Input);
+                        offset : (byte)(SkylakeXSmbusRegister.Input + smbusData.BusNumber * 4),
+                        value  : smbusData.Input);
                 }
 
                 // Set slave address, offset, and Execute command
