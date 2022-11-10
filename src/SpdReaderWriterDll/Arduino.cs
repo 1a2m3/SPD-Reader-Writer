@@ -15,6 +15,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
+using System.Linq;
 using System.Text;
 using System.Threading;
 using UInt8 = System.Byte;
@@ -775,16 +776,10 @@ namespace SpdReaderWriterDll {
         public string[] Find() {
             Stack<string> result = new Stack<string>();
 
-            HashSet<string> portHashSet = new HashSet<string>(SerialPort.GetPortNames());
-
-            string[] ports = new string[portHashSet.Count];
-
-            portHashSet.CopyTo(ports);
+            string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
 
             lock (_findLock) {
-
                 foreach (string portName in ports) {
-
                     Arduino device = new Arduino(PortSettings, portName);
                     try {
                         lock (_portLock) {
