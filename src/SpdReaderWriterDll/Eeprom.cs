@@ -28,6 +28,11 @@ namespace SpdReaderWriterDll {
         /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Smbus controller, UInt16 offset) {
             AdjustPageAddress(controller, offset);
+
+            if (DetectDdr5(controller)) {
+                offset = (byte)((offset % 128) | Spd5Register.NVMREG);
+            }
+
             return Smbus.ReadByte(controller, controller.I2CAddress, offset);
         }
 
@@ -63,6 +68,11 @@ namespace SpdReaderWriterDll {
         public static bool WriteByte(Smbus controller, UInt16 offset, byte value) {
 
             AdjustPageAddress(controller, offset);
+
+            if (DetectDdr5(controller)) {
+                offset = (byte)((offset % 128) | Spd5Register.NVMREG);
+            }
+
             return Smbus.WriteByte(controller, controller.I2CAddress, offset, value);
         }
 
@@ -166,7 +176,15 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
             }
 
-            Smbus.WriteByte(device, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
+            if (DetectDdr5(device)) {
+                // DDR5 page
+                Smbus.WriteByte(device, device.I2CAddress, Spd5Register.MR11 & Spd5Register.MEMREG, eepromPageNumber);
+            }
+            else {
+                // DDR4 page
+                Smbus.WriteByte(device, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
+            }
+
             _eepromPageNumber = eepromPageNumber;
         }
 
@@ -197,13 +215,25 @@ namespace SpdReaderWriterDll {
 
             byte targetPage = 0;
 
-            if (controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR4) {
+            if (DetectDdr5(controller)) {
+                targetPage = (byte)(offset >> 7);
+            }
+            else {
                 targetPage = (byte)(offset >> 8);
             }
 
             if (targetPage != GetPageAddress()) {
                 SetPageAddress(controller, targetPage);
             }
+        }
+
+        /// <summary>
+        /// Detects if DDR5 is present on the controller
+        /// </summary>
+        /// <param name="controller">Smbus controller instance</param>
+        /// <returns><see langword="true"/> if DDR5 is present on the Smbus</returns>
+        public static bool DetectDdr5(Smbus controller) {
+            return controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR5;
         }
 
         /// <summary>
@@ -293,7 +323,7 @@ namespace SpdReaderWriterDll {
         /// Clears EEPROM write protection 
         /// </summary>
         /// <param name="controller">SMBus controller instance</param>
-        /// <returns><see langword="true"/> if the write protection has been disabled</returns>
+        /// <returns><see langword="true"/> if RSWP has been disabled</returns>
         public static bool ClearRswp(Smbus controller) {
             return Smbus.WriteByte(controller, EepromCommand.CWP >> 1);
         }
@@ -302,7 +332,7 @@ namespace SpdReaderWriterDll {
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
         /// <param name="controller">SMBus controller instance</param>
-        /// <returns><see langword="true"/> when PSWP is enabled or <see langword="false"/> if when PSWP has NOT been set and EEPROM is writable</returns>
+        /// <returns><see langword="true"/> if PSWP is enabled or <see langword="false"/> if PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(Smbus controller) {
             return !Smbus.ReadByte(controller, (byte)((EepromCommand.PWPB << 3) | (controller.I2CAddress & 0b111)));
         }
@@ -318,7 +348,7 @@ namespace SpdReaderWriterDll {
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
         public static byte ReadByte(Arduino device, UInt16 offset) {
-            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
@@ -343,7 +373,7 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Arduino device, UInt16 offset, UInt8 count) {
-            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
@@ -373,7 +403,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte value) {
-            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
@@ -399,7 +429,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
         public static bool WriteByte(Arduino device, UInt16 offset, byte[] value) {
-            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
@@ -645,6 +675,37 @@ namespace SpdReaderWriterDll {
 
             // PSWP commands
             internal const byte PWPB = 0b0110;
+        }
+
+        /// <summary>
+        /// DDR5 SPD5 hub registers
+        /// </summary>
+        internal struct Spd5Register {
+            // SPD5 internal register bitmask
+            internal const byte MEMREG = 0b11111;
+
+            // SPD5 NVM location bitmask
+            internal const byte NVMREG = 0b10000000;
+
+            // I2C Legacy Mode Device Configuration
+            internal const byte MR11 = 11;
+            // Write Protection For NVM Blocks [7:0]
+            internal const byte MR12 = 12;
+            // Write Protection For NVM Blocks [15:8]
+            internal const byte MR13 = 13;
+        }
+
+        /// <summary>
+        /// DDR5 Slave Device LID Codes
+        /// </summary>
+        internal struct LidCode {
+            internal const byte SpdHub = 0b1010;
+            internal const byte Rcd    = 0b1011;
+            internal const byte Pmic0  = 0b1001;
+            internal const byte Pmic1  = 0b1000;
+            internal const byte Pmic2  = 0b1100;
+            internal const byte Ts0    = 0b0010;
+            internal const byte Ts1    = 0b0110;
         }
 
         /// <summary>
