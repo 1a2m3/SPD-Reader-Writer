@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20221011 // Version number (YYYYMMDD)
+#define VERSION 20221110 // Version number (YYYYMMDD)
 
 // RSWP RAM support bitmasks
 #define DDR5 (1 << 5) // Offline mode control
@@ -24,7 +24,6 @@
 #define DDR3 (1 << 3) // VHV+SA1 controls
 
 // SPD5 hub registers
-#pragma region SPD5 hub registers
 #define MEMREG 0b11111 // SPD5 internal register bitmask
 #define MR0  0x00  // Device Type; Most Significant Byte
 #define MR1  0x01  // Device Type; Least Significant Byte
@@ -44,17 +43,13 @@
 #define MR48 0x30  // Device Status
 #define MR51 0x33  // TS Temperature Status
 #define MR52 0x34  // Hub, Thermal and NVM Error Status
-#pragma endregion
 
 // EEPROM page commands
-#pragma region EEPROM page commands
 #define SPA0 0x6C  // Set EE Page Address to 0 (offsets  00h to  FFh) (  0-255) (DDR4)
 #define SPA1 0x6E  // Set EE Page Address to 1 (offsets 100h to 1FFh) (256-511) (DDR4)
 #define RPA  0x6D  // Read EE Page Address                                      (DDR4)
-#pragma endregion
 
 // EEPROM RSWP commands
-#pragma region EEPROM RSWP commands
 #define RPS0 0x63  // Read SWP0 status         (offsets  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
 #define RPS1 0x69  // Read SWP1 status         (offsets  80h to  FFh) (128-255) (DDR4)
 #define RPS2 0x6B  // Read SWP2 status         (offsets 100h to 17Fh) (256-383) (DDR4)
@@ -66,13 +61,11 @@
 #define SWP3 0x60  // Set RSWP for block 3     (offsets 180h to 1FFh) (384-511) (DDR4)           *
 
 #define CWP  0x66  // Clear RSWP                                                (DDR4/DDR3/DDR2) *
-#pragma endregion
 
 // EEPROM PSWP commands
 #define PWPB 0b0110  // PSWP Device Type Identifier Control Code (bits 7-4)     (DDR3/DDR2)
 
 // EEPROM temperature sensor register commands
-#pragma region EEPROM temperature sensor register commands
 #define TSRB 0b0011 // Device select code to access Temperature Sensor registers (bits 7-4)
 #define TS00 0x00   // Capability Register [RO]
 #define TS01 0x01   // Configuration Register [R/W]
@@ -82,13 +75,11 @@
 #define TS05 0x05   // Temperature Data Register [RO]
 #define TS06 0x06   // Manufacturer ID Register [RO]
 #define TS07 0x07   // Device ID/Revision Register [RO]
-#pragma endregion
 
 // EEPROM data
 #define DNC 0x00  // "Do not care" byte
 
 // Device commands
-#pragma region Command
 #define READBYTE     'r' // Read
 #define WRITEBYTE    'w' // Write byte
 #define WRITEPAGE    'g' // Write page
@@ -106,7 +97,6 @@
 #define DDR4DETECT   '4' // DDR4 detection test
 #define DDR5DETECT   '5' // DDR5 detection test
 #define FACTORYRESET '-' // Factory reset device settings
-#pragma endregion
 
 // Device pin names (SpdReaderWriterDll.Pin.Name class)
 #define OFFLINE_MODE_SWITCH (uint8_t) 0 // Pin to toggle SPD5 offline mode
@@ -163,7 +153,7 @@ const int pins[] = { OFF_EN, SA1_EN, HV_EN };
 void setup() {
 
   // Config pin controls
-  for (int i = 0; i <= sizeof(pins[0]); i++) {
+  for (uint8_t i = 0; i <= sizeof(pins[0]); i++) {
     pinMode(pins[i], OUTPUT);
   }
 
@@ -452,7 +442,7 @@ void cmdName() {
   // Set name
   else if (buffer[0] > 0 && buffer[0] <= NAMELENGTH) {
     // prepare name buffer
-    byte name[buffer[0] + 1];
+    char name[buffer[0] + 1];
     // read name and put it into buffer
     PORT.readBytes(name, buffer[0]);
     // set last byte to \0 where the string ends
@@ -497,7 +487,7 @@ void cmdI2CClock() {
   }
 }
 
-bool cmdFactoryReset() {
+void cmdFactoryReset() {
   PORT.write(factoryReset() ? SUCCESS : ERROR);
 }
 
@@ -976,6 +966,8 @@ bool saveSettings(byte name, byte value) {
 
   byte currentSettings = EEPROM.read(DEVICESETTINGS);
   EEPROM.update(DEVICESETTINGS, bitWrite(currentSettings, name, value));
+
+  return getSettings(name) == value;
 }
 
 
@@ -1054,7 +1046,7 @@ bool getConfigPin(uint8_t pin) {
 
 // Reset config pins
 void resetPins() {
-  for (int i = 0; i <= sizeof(pins[0]); i++) {
+  for (uint8_t i = 0; i <= sizeof(pins[0]); i++) {
     setConfigPin(pins[i], OFF);
   }
 }
