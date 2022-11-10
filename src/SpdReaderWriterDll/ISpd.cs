@@ -21,10 +21,9 @@ namespace SpdReaderWriterDll {
         int SpdBytesUsed { get; }
         Spd.RamType DramDeviceType { get; }
         Spd.DateCodeData ModuleManufacturingDate { get; }
-        UInt32 DieDensity { get; }
-        UInt32 TotalModuleCapacity { get; }
-
+        //UInt64 DieDensity { get; }
+        UInt64 TotalModuleCapacity { get; }
+        
         string ToString();
-
     }
 }

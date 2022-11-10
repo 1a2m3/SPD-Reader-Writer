@@ -283,6 +283,8 @@ namespace SpdReaderWriterDll {
             DDR2          = 0x08,
             [Description("DDR2 Fully-Buffered DIMM")]
             DDR2_FB_DIMM  = 0x09,
+            [Description("DDR2 Fully-Buffered DIMM Probe")]
+            DDR2_FB_DIMMP = 0x0A,
             DDR3          = 0x0B,
             LPDDR3        = 0x0F,
             DDR4          = 0x0C,
