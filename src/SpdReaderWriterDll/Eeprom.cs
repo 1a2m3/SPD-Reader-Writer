@@ -33,7 +33,7 @@ namespace SpdReaderWriterDll {
                 offset = (byte)((offset % 128) | Spd5Register.NVMREG);
             }
 
-            return Smbus.ReadByte(controller, controller.I2CAddress, offset);
+            return controller.ReadByte(controller, controller.I2CAddress, offset);
         }
 
         /// <summary>
@@ -73,7 +73,7 @@ namespace SpdReaderWriterDll {
                 offset = (byte)((offset % 128) | Spd5Register.NVMREG);
             }
 
-            return Smbus.WriteByte(controller, controller.I2CAddress, offset, value);
+            return controller.WriteByte(controller, controller.I2CAddress, offset, value);
         }
 
         /// <summary>
@@ -163,26 +163,26 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Adjust EEPROM page address to access lower or upper 256 bytes of the entire 512 byte EEPROM array
         /// </summary>
-        /// <param name="device">System device instance</param>
+        /// <param name="controller">System device instance</param>
         /// <param name="eepromPageNumber">Page number</param>
-        private static void SetPageAddress(Smbus device, UInt8 eepromPageNumber) {
+        private static void SetPageAddress(Smbus controller, UInt8 eepromPageNumber) {
 
-            if (device.MaxSpdSize != 0 && device.MaxSpdSize < (UInt16)Spd.DataLength.DDR4) {
+            if (controller.MaxSpdSize != 0 && controller.MaxSpdSize < (UInt16)Spd.DataLength.DDR4) {
                 return;
             }
 
-            if (device.MaxSpdSize == (UInt16)Spd.DataLength.DDR4 && eepromPageNumber > 1 ||
-                device.MaxSpdSize == (UInt16)Spd.DataLength.DDR5 && eepromPageNumber > 15) {
+            if (controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR4 && eepromPageNumber > 1 ||
+                controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR5 && eepromPageNumber > 15) {
                 throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
             }
 
-            if (DetectDdr5(device)) {
+            if (DetectDdr5(controller)) {
                 // DDR5 page
-                Smbus.WriteByte(device, device.I2CAddress, Spd5Register.MR11 & Spd5Register.MEMREG, eepromPageNumber);
+                controller.WriteByte(controller, controller.I2CAddress, Spd5Register.MR11 & Spd5Register.MEMREG, eepromPageNumber);
             }
             else {
                 // DDR4 page
-                Smbus.WriteByte(device, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
+                controller.WriteByte(controller, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
             }
 
             _eepromPageNumber = eepromPageNumber;
@@ -270,7 +270,7 @@ namespace SpdReaderWriterDll {
             block = block > 3 ? (byte)0 : block;
 
             try {
-                return !Smbus.ReadByte(controller, (byte)(rswpCmd[block] >> 1));
+                return !controller.ReadByte(controller, (byte)(rswpCmd[block] >> 1));
             }
             catch {
                 return true;
@@ -316,7 +316,7 @@ namespace SpdReaderWriterDll {
                 EepromCommand.SWP3,
             };
 
-            return Smbus.WriteByte(controller, (byte)(commands[block] >> 1));
+            return controller.WriteByte(controller, (byte)(commands[block] >> 1));
         }
 
         /// <summary>
@@ -325,7 +325,7 @@ namespace SpdReaderWriterDll {
         /// <param name="controller">SMBus controller instance</param>
         /// <returns><see langword="true"/> if RSWP has been disabled</returns>
         public static bool ClearRswp(Smbus controller) {
-            return Smbus.WriteByte(controller, EepromCommand.CWP >> 1);
+            return controller.WriteByte(controller, EepromCommand.CWP >> 1);
         }
 
         /// <summary>
@@ -334,7 +334,7 @@ namespace SpdReaderWriterDll {
         /// <param name="controller">SMBus controller instance</param>
         /// <returns><see langword="true"/> if PSWP is enabled or <see langword="false"/> if PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(Smbus controller) {
-            return !Smbus.ReadByte(controller, (byte)((EepromCommand.PWPB << 3) | (controller.I2CAddress & 0b111)));
+            return !controller.ReadByte(controller, (byte)((EepromCommand.PWPB << 3) | (controller.I2CAddress & 0b111)));
         }
 
         #endregion
@@ -687,6 +687,9 @@ namespace SpdReaderWriterDll {
             // SPD5 NVM location bitmask
             internal const byte NVMREG = 0b10000000;
 
+            // Local device type HID behind SPD5 Hub device
+            internal const byte LocalHid = 0b111;
+
             // I2C Legacy Mode Device Configuration
             internal const byte MR11 = 11;
             // Write Protection For NVM Blocks [7:0]
@@ -700,10 +703,13 @@ namespace SpdReaderWriterDll {
         /// </summary>
         internal struct LidCode {
             internal const byte SpdHub = 0b1010;
+            // Registering Clock Driver
             internal const byte Rcd    = 0b1011;
+            // Power Management ICs
             internal const byte Pmic0  = 0b1001;
             internal const byte Pmic1  = 0b1000;
             internal const byte Pmic2  = 0b1100;
+            // Temperature sensors
             internal const byte Ts0    = 0b0010;
             internal const byte Ts1    = 0b0110;
         }

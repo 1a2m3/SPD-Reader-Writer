@@ -26,7 +26,7 @@ namespace SpdReaderWriterDll {
     /// <summary>
     /// Kernel driver (WinRing0) class
     /// </summary>
-    public class WinRing0 : IDisposable {
+    public class WinRing0 : IDisposable, IDriver {
 
         /// <summary>
         /// Describes driver installation state
@@ -38,13 +38,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool IsServiceRunning {
             get {
-                if (!IsInstalled) {
-                    return false;
-                }
-
                 try {
                     _sc?.Refresh();
-                    return _sc?.ServiceName != null && _sc.Status == ServiceControllerStatus.Running;
+                    return IsInstalled && _sc?.ServiceName != null && _sc.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -60,7 +56,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Describes driver handle valid state
         /// </summary>
-        public bool IsValid => IsInstalled && _deviceHandle !=null && !_deviceHandle.IsInvalid;
+        public bool IsValid => IsInstalled && _deviceHandle != null && !_deviceHandle.IsInvalid;
 
         /// <summary>
         /// Describes driver ready state
@@ -71,6 +67,7 @@ namespace SpdReaderWriterDll {
         /// Initializes kernel driver
         /// </summary>
         public WinRing0() {
+
             if (IsInstalled && IsServiceRunning) {
                 _disposeOnExit = false;
             }
@@ -104,7 +101,7 @@ namespace SpdReaderWriterDll {
 
             int refCount = 0;
 
-            DeviceIoControl(Kernel32.IoControlCode.GET_REFCOUNT, null, ref refCount);
+            DeviceIoControl(NtBaseApi.IoControlCode.WR0_GET_REFCOUNT, null, ref refCount);
 
             if (_disposeOnExit && refCount <= 1) {
                 StopDriver();
@@ -113,8 +110,8 @@ namespace SpdReaderWriterDll {
 
             _deviceHandle = null;
 
-            Advapi32.CloseServiceHandle(_servicePtr);
-            Advapi32.CloseServiceHandle(_managerPtr);
+            Win32BaseApi.CloseServiceHandle(_servicePtr);
+            Win32BaseApi.CloseServiceHandle(_managerPtr);
         }
 
         /// <summary>
@@ -154,25 +151,25 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            _servicePtr = Advapi32.CreateService(
+            _servicePtr = Win32BaseApi.CreateService(
                 hSCManager       : _managerPtr,
                 lpServiceName    : _name,
                 lpDisplayName    : _name,
-                dwDesiredAccess  : Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
-                dwServiceType    : Advapi32.ServiceType.SERVICE_KERNEL_DRIVER,
-                dwStartType      : Advapi32.StartType.SERVICE_DEMAND_START,
-                dwErrorControl   : Advapi32.ErrorControl.SERVICE_ERROR_NORMAL,
+                dwDesiredAccess  : Win32BaseApi.ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
+                dwServiceType    : Win32BaseApi.ServiceType.SERVICE_KERNEL_DRIVER,
+                dwStartType      : Win32BaseApi.StartType.SERVICE_DEMAND_START,
+                dwErrorControl   : Win32BaseApi.ErrorControl.SERVICE_ERROR_NORMAL,
                 lpBinaryPathName : _fileName);
 
             if (_servicePtr == IntPtr.Zero) {
                 return false;
             }
 
-            Advapi32.CloseServiceHandle(_servicePtr);
+            Win32BaseApi.CloseServiceHandle(_servicePtr);
 
             return true;
         }
-        
+
         /// <summary>
         /// Deletes kernel driver
         /// </summary>
@@ -183,14 +180,14 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            _servicePtr = Advapi32.OpenService(_managerPtr, _name, Advapi32.ServiceRights.SERVICE_ALL_ACCESS);
+            _servicePtr = Win32BaseApi.OpenService(_managerPtr, _name, Win32BaseApi.ServiceRights.SERVICE_ALL_ACCESS);
 
             if (_servicePtr == IntPtr.Zero) {
                 return false;
             }
 
-            return Advapi32.DeleteService(_servicePtr) &&
-                   Advapi32.CloseServiceHandle(_servicePtr);
+            return Win32BaseApi.DeleteService(_servicePtr) &&
+                   Win32BaseApi.CloseServiceHandle(_servicePtr);
         }
 
         /// <summary>
@@ -275,13 +272,13 @@ namespace SpdReaderWriterDll {
                     }
                 }
 
-                return _sc.Status == ServiceControllerStatus.Stopped || 
+                return _sc.Status == ServiceControllerStatus.Stopped ||
                        _sc.Status == ServiceControllerStatus.StopPending;
             }
             catch {
                 try {
                     _sc = new ServiceController(_name);
-                    return _sc.Status == ServiceControllerStatus.Stopped || 
+                    return _sc.Status == ServiceControllerStatus.Stopped ||
                            _sc.Status == ServiceControllerStatus.StopPending;
                 }
                 catch {
@@ -312,17 +309,17 @@ namespace SpdReaderWriterDll {
         /// <returns><see langref="true"/> if driver handle is successfully opened</returns>
         private bool OpenDriverHandle() {
 
-            IntPtr driverHandle = Kernel32.CreateFile(
+            IntPtr driverHandle = NtBaseApi.CreateFile(
                 lpFileName            : $@"\\.\{_name}",
-                dwDesiredAccess       : Kernel32.FileAccess.GENERIC_READWRITE,
-                dwShareMode           : Kernel32.FileShare.FILE_SHARE_READWRITE,
+                dwDesiredAccess       : NtBaseApi.FileAccess.GENERIC_READWRITE,
+                dwShareMode           : NtBaseApi.FileShare.FILE_SHARE_READWRITE,
                 lpSecurityAttributes  : IntPtr.Zero,
-                dwCreationDisposition : Kernel32.FileMode.OPEN_EXISTING,
-                dwFlagsAndAttributes  : Kernel32.FileAttributes.FILE_ATTRIBUTE_NORMAL,
+                dwCreationDisposition : NtBaseApi.FileMode.OPEN_EXISTING,
+                dwFlagsAndAttributes  : NtBaseApi.FileAttributes.FILE_ATTRIBUTE_NORMAL,
                 hTemplateFile         : IntPtr.Zero);
 
             _deviceHandle = new SafeFileHandle(driverHandle, true);
-            
+
             if (_deviceHandle.IsInvalid) {
                 _deviceHandle.Close();
                 _deviceHandle.Dispose();
@@ -356,12 +353,12 @@ namespace SpdReaderWriterDll {
 
             UInt32 output = default;
 
-            DeviceIoControl(Kernel32.IoControlCode.GET_DRIVER_VERSION, null, ref output);
+            DeviceIoControl(NtBaseApi.IoControlCode.WR0_GET_DRIVER_VERSION, null, ref output);
 
             major    = (byte)(output >> 24);
             minor    = (byte)(output >> 16);
             revision = (byte)(output >> 8);
-            release  = (byte) output;
+            release  = (byte)output;
 
             return output;
         }
@@ -384,7 +381,7 @@ namespace SpdReaderWriterDll {
             UInt32 returnedLength = default;
             object outputBuffer   = outputData;
 
-            bool result = Kernel32.DeviceIoControl(
+            bool result = NtBaseApi.DeviceIoControl(
                 hDevice         : _deviceHandle,
                 dwIoControlCode : ioControlCode,
                 lpInBuffer      : inputData,
@@ -411,10 +408,10 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            UInt32 inputSize      = (UInt32)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+            UInt32 inputSize = (UInt32)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             UInt32 returnedLength = default;
 
-            return Kernel32.DeviceIoControl(
+            return NtBaseApi.DeviceIoControl(
                 hDevice         : _deviceHandle,
                 dwIoControlCode : ioControlCode,
                 lpInBuffer      : inputData,
@@ -487,7 +484,7 @@ namespace SpdReaderWriterDll {
             }
 
             UInt32 pciAddress = UInt32.MaxValue;
-            UInt32 count      = 0;
+            UInt32 count = 0;
 
             if (vendorId == default || deviceId == default || index == 0) {
                 return pciAddress;
@@ -547,7 +544,7 @@ namespace SpdReaderWriterDll {
                 return new UInt32[0];
             }
 
-            Queue <UInt32> result = new Queue<UInt32>();
+            Queue<UInt32> result = new Queue<UInt32>();
 
             for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
 
@@ -705,13 +702,13 @@ namespace SpdReaderWriterDll {
         public bool ReadPciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, out byte output) {
 
             output = UInt8.MaxValue;
-            
+
             ReadPciConfigInput pciData = new ReadPciConfigInput {
                 PciAddress = pciAddress,
                 RegAddress = regAddress,
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -737,13 +734,13 @@ namespace SpdReaderWriterDll {
         public bool ReadPciConfigWordEx(UInt32 pciAddress, UInt32 regAddress, out UInt16 output) {
 
             output = UInt16.MaxValue;
-            
+
             ReadPciConfigInput pciData = new ReadPciConfigInput {
                 PciAddress = pciAddress,
                 RegAddress = regAddress
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -769,13 +766,13 @@ namespace SpdReaderWriterDll {
         public bool ReadPciConfigDwordEx(UInt32 pciAddress, UInt32 regAddress, out UInt32 output) {
 
             output = UInt32.MaxValue;
-            
+
             ReadPciConfigInput pciData = new ReadPciConfigInput {
                 PciAddress = pciAddress,
                 RegAddress = regAddress
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -803,7 +800,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_PCI_CONFIG, pciData);
         }
 
         /// <summary>
@@ -836,7 +833,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_PCI_CONFIG, pciData);
         }
 
         /// <summary>
@@ -869,7 +866,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_PCI_CONFIG, pciData);
         }
 
         /// <summary>
@@ -914,12 +911,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Maximum number of PCI buses assigned by <see cref="SetPciMaxBusIndex"/>
         /// </summary>
-        private UInt8 gPciNumberOfBus            = 255;
+        private UInt8 gPciNumberOfBus = 255;
 
         /// <summary>
         /// Maximum number of PCI devices per bus
         /// </summary>
-        private const UInt8 gPciNumberOfDevice   = 32;
+        private const UInt8 gPciNumberOfDevice = 32;
 
         /// <summary>
         /// Maximum number of PCI functions per device
@@ -956,7 +953,7 @@ namespace SpdReaderWriterDll {
                 PortNumber = port
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_BYTE, portData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_IO_PORT_BYTE, portData, ref output);
         }
 
         /// <summary>
@@ -985,7 +982,7 @@ namespace SpdReaderWriterDll {
                 PortNumber = port
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_WORD, portData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_IO_PORT_WORD, portData, ref output);
         }
 
         /// <summary>
@@ -1013,8 +1010,8 @@ namespace SpdReaderWriterDll {
             ReadIoPortInput portData = new ReadIoPortInput {
                 PortNumber = port
             };
-            
-            return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_DWORD, portData, ref output);
+
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_IO_PORT_DWORD, portData, ref output);
         }
 
         /// <summary>
@@ -1039,7 +1036,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_BYTE, portData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_IO_PORT_BYTE, portData);
         }
 
         /// <summary>
@@ -1064,7 +1061,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_WORD, portData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_IO_PORT_WORD, portData);
         }
 
         /// <summary>
@@ -1089,7 +1086,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_DWORD, portData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_IO_PORT_DWORD, portData);
         }
 
         /// <summary>
@@ -1139,7 +1136,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service control manager pointer
         /// </summary>
-        private IntPtr _managerPtr = Advapi32.OpenSCManager(dwAccess: Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
+        private IntPtr _managerPtr = Win32BaseApi.OpenSCManager(dwAccess: Win32BaseApi.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
 
         /// <summary>
         /// Service object pointer
@@ -1151,7 +1148,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         private string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
                                     Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
-        
+
         /// <summary>
         /// Indicates whether the driver service should be stopped and deleted on exit
         /// </summary>
@@ -1160,7 +1157,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Windows NT Kernel BASE API
         /// </summary>
-        private class Kernel32 {
+        private class NtBaseApi {
 
             /// <summary>
             /// Creates or opens a file or I/O device.
@@ -1187,12 +1184,12 @@ namespace SpdReaderWriterDll {
             /// The requested access to the file or device used by <see cref="CreateFile"/>
             /// </summary>
             internal enum FileAccess {
-                GENERIC_NEITHER              = 0,
-                GENERIC_ALL                  = 1 << 28,
-                GENERIC_EXECUTE              = 1 << 29,
-                GENERIC_WRITE                = 1 << 30,
-                GENERIC_READ                 = 1 << 31,
-                GENERIC_READWRITE            = GENERIC_WRITE | GENERIC_READ,
+                GENERIC_NEITHER   = 0,
+                GENERIC_ALL       = 1 << 28,
+                GENERIC_EXECUTE   = 1 << 29,
+                GENERIC_WRITE     = 1 << 30,
+                GENERIC_READ      = 1 << 31,
+                GENERIC_READWRITE = GENERIC_WRITE | GENERIC_READ,
             }
 
             /// <summary>
@@ -1203,22 +1200,22 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Prevents other processes from opening a file or device if they request delete, read, or write access.
                 /// </summary>
-                FILE_SHARE_EXCLUSIVE         = 0x00000000,
+                FILE_SHARE_EXCLUSIVE = 0x00000000,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request delete access.
                 /// </summary>
-                FILE_SHARE_DELETE            = 0x00000004,
+                FILE_SHARE_DELETE    = 0x00000004,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read access.
                 /// </summary>
-                FILE_SHARE_READ              = 0x00000001,
+                FILE_SHARE_READ      = 0x00000001,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request write access.
                 /// </summary>
-                FILE_SHARE_WRITE             = 0x00000002,
+                FILE_SHARE_WRITE     = 0x00000002,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read and write access.
@@ -1234,27 +1231,27 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Creates a new file, only if it does not already exist.
                 /// </summary>
-                CREATE_NEW                   = 1,
+                CREATE_NEW        = 1,
 
                 /// <summary>
                 /// Creates a new file, always. 
                 /// </summary>
-                CREATE_ALWAYS                = 2,
+                CREATE_ALWAYS     = 2,
 
                 /// <summary>
                 /// Opens a file or device, only if it exists. 
                 /// </summary>
-                OPEN_EXISTING                = 3,
+                OPEN_EXISTING     = 3,
 
                 /// <summary>
                 /// Opens a file, always. 
                 /// </summary>
-                OPEN_ALWAYS                  = 4,
+                OPEN_ALWAYS       = 4,
 
                 /// <summary>
                 /// Opens a file and truncates it so that its size is zero bytes, only if it exists. 
                 /// </summary>
-                TRUNCATE_EXISTING            = 5,
+                TRUNCATE_EXISTING = 5,
             }
 
             /// <summary>
@@ -1335,7 +1332,7 @@ namespace SpdReaderWriterDll {
                 /// The file or device is being opened or created for asynchronous I/O. 
                 /// </summary>
                 FILE_FLAG_OVERLAPPED         = 0x40000000,
-                
+
                 /// <summary>
                 /// Access will occur according to POSIX rules. This includes allowing multiple files with names, differing only in case, for file systems that support that naming. 
                 /// </summary>
@@ -1392,26 +1389,26 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Winring0 Device type code
                 /// </summary>
-                public static readonly UInt32 DEVICE_TYPE = 0x9C40;     // 40000
+                public static readonly UInt32 WR0_DEVICE_TYPE = 0x9C40;     // 40000
 
-                public static UInt32 GET_DRIVER_VERSION   = 0x9C402000; // CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 GET_REFCOUNT         = 0x9C402004; // CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_MSR             = 0x9C402084; // CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 WRITE_MSR            = 0x9C402088; // CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_PMC             = 0x9C40208C; // CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 HALT                 = 0x9C402090; // CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_IO_PORT         = 0x9C4060C4; // CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_IO_PORT        = 0x9C40A0C8; // CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 READ_IO_PORT_BYTE    = 0x9C4060CC; // CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 READ_IO_PORT_WORD    = 0x9C4060D0; // CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 READ_IO_PORT_DWORD   = 0x9C4060D4; // CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_IO_PORT_BYTE   = 0x9C40A0D8; // CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 WRITE_IO_PORT_WORD   = 0x9C40A0DC; // CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 WRITE_IO_PORT_DWORD  = 0x9C40A0E0; // CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 READ_MEMORY          = 0x9C406104; // CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_MEMORY         = 0x9C40A108; // CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 READ_PCI_CONFIG      = 0x9C406144; // CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_PCI_CONFIG     = 0x9C40A148; // CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WR0_GET_DRIVER_VERSION   = 0x9C402000; // CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WR0_GET_REFCOUNT         = 0x9C402004; // CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WR0_READ_MSR             = 0x9C402084; // CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WR0_WRITE_MSR            = 0x9C402088; // CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WR0_READ_PMC             = 0x9C40208C; // CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WR0_HALT                 = 0x9C402090; // CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static UInt32 WR0_READ_IO_PORT         = 0x9C4060C4; // CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WR0_WRITE_IO_PORT        = 0x9C40A0C8; // CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WR0_READ_IO_PORT_BYTE    = 0x9C4060CC; // CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WR0_READ_IO_PORT_WORD    = 0x9C4060D0; // CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WR0_READ_IO_PORT_DWORD   = 0x9C4060D4; // CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WR0_WRITE_IO_PORT_BYTE   = 0x9C40A0D8; // CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WR0_WRITE_IO_PORT_WORD   = 0x9C40A0DC; // CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WR0_WRITE_IO_PORT_DWORD  = 0x9C40A0E0; // CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WR0_READ_MEMORY          = 0x9C406104; // CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WR0_WRITE_MEMORY         = 0x9C40A108; // CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static UInt32 WR0_READ_PCI_CONFIG      = 0x9C406144; // CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static UInt32 WR0_WRITE_PCI_CONFIG     = 0x9C40A148; // CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA);
             }
 
             /// <summary>
@@ -1421,7 +1418,7 @@ namespace SpdReaderWriterDll {
             /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
             /// <returns>An I/O control code</returns>
             internal static UInt32 CTL_CODE(uint function, IOCTL_ACCESS access) {
-                return CTL_CODE(IoControlCode.DEVICE_TYPE, function, IOCTL_METHOD.METHOD_BUFFERED, access);
+                return CTL_CODE(IoControlCode.WR0_DEVICE_TYPE, function, IOCTL_METHOD.METHOD_BUFFERED, access);
             }
 
             /// <summary>
@@ -1435,7 +1432,7 @@ namespace SpdReaderWriterDll {
             internal static UInt32 CTL_CODE(uint deviceType, uint function, IOCTL_METHOD method, IOCTL_ACCESS access) {
                 return (deviceType << 16) | ((uint)access << 14) | (uint)((UInt16)(function) << 2) | (uint)method;
             }
-            
+
             /// <summary>
             /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
             /// </summary>
@@ -1470,17 +1467,17 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
                 /// </summary>
-                FILE_ANY_ACCESS   = 0,
+                FILE_ANY_ACCESS      = 0,
 
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
                 /// </summary>
-                FILE_READ_DATA    = 1,
+                FILE_READ_DATA       = 1,
 
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
                 /// </summary>
-                FILE_WRITE_DATA   = 2,
+                FILE_WRITE_DATA      = 2,
 
                 /// <summary>
                 /// The caller must have both read and write access rights
@@ -1499,7 +1496,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Advanced Windows 32 Base API (services)
         /// </summary>
-        private static class Advapi32 {
+        private static class Win32BaseApi {
 
             /// <summary>
             /// Establishes a connection to the service control manager on <paramref name="machineName"/> and opens the specified service control manager <paramref name="databaseName"/>.
@@ -1617,55 +1614,55 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// A device driver started by the system loader. This value is valid only for driver services
                 /// </summary>
-                SERVICE_BOOT_START          = 0x00000000,
+                SERVICE_BOOT_START   = 0x00000000,
 
                 /// <summary>
                 /// A device driver started by the IoInitSystem function. This value is valid only for driver services
                 /// </summary>
-                SERVICE_SYSTEM_START        = 0x00000001,
+                SERVICE_SYSTEM_START = 0x00000001,
 
                 /// <summary>
                 /// A service started automatically by the service control manager during system startup
                 /// </summary>
-                SERVICE_AUTO_START          = 0x00000002,
+                SERVICE_AUTO_START   = 0x00000002,
 
                 /// <summary>
                 /// A service started by the service control manager when a process calls the <see cref="StartService"/> function
                 /// </summary>
-                SERVICE_DEMAND_START        = 0x00000003,
+                SERVICE_DEMAND_START = 0x00000003,
 
                 /// <summary>
                 /// A service that cannot be started. Attempts to start the service result in the error code ERROR_SERVICE_DISABLED
                 /// </summary>
-                SERVICE_DISABLED            = 0x00000004,
+                SERVICE_DISABLED     = 0x00000004,
             }
 
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
             /// </summary>
             internal enum ErrorControl : UInt32 {
-                
+
                 /// <summary>
                 /// The startup program ignores the error and continues the startup operation
                 /// </summary>
-                SERVICE_ERROR_IGNORE        = 0x00000000,
-                
+                SERVICE_ERROR_IGNORE   = 0x00000000,
+
                 /// <summary>
                 /// The startup program logs the error in the event log but continues the startup operation
                 /// </summary>
-                SERVICE_ERROR_NORMAL        = 0x00000001,
-                
+                SERVICE_ERROR_NORMAL   = 0x00000001,
+
                 /// <summary>
                 /// The startup program logs the error in the event log.
                 /// If the last-known-good configuration is being started, the startup operation continues.
                 /// Otherwise, the system is restarted with the last-known-good configuration.
                 /// </summary>
-                SERVICE_ERROR_SEVERE        = 0x00000002,
+                SERVICE_ERROR_SEVERE   = 0x00000002,
 
                 /// <summary>
                 /// The startup program logs the error in the event log, if possible
                 /// </summary>
-                SERVICE_ERROR_CRITICAL      = 0x00000003,
+                SERVICE_ERROR_CRITICAL = 0x00000003,
             }
 
             /// <summary>
@@ -1675,15 +1672,15 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The operation completed successfully
                 /// </summary>
-                NO_ERROR                    = unchecked((int)0x80070000),
+                NO_ERROR                = unchecked((int)0x80070000),
                 /// <summary>
                 /// The specified service already exists
                 /// </summary>
-                SERVICE_EXISTS              = unchecked((int)0x80070431),
+                SERVICE_EXISTS          = unchecked((int)0x80070431),
                 /// <summary>
                 /// An instance of the service is already running
                 /// </summary>
-                SERVICE_ALREADY_RUNNING     = unchecked((int)0x80070420),
+                SERVICE_ALREADY_RUNNING = unchecked((int)0x80070420),
             }
 
             /// <summary>
@@ -1810,7 +1807,7 @@ namespace SpdReaderWriterDll {
                                                SERVICE_STOP |
                                                SERVICE_PAUSE_CONTINUE |
                                                SERVICE_INTERROGATE |
-                                               SERVICE_USER_DEFINED_CONTROL,
+                                               SERVICE_USER_DEFINED_CONTROL
             }
 
             /// <summary>
@@ -1897,32 +1894,32 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The service is a file system driver. 
                 /// </summary>
-                SERVICE_FILE_SYSTEM_DRIVER     = 0x00000002,
+                SERVICE_FILE_SYSTEM_DRIVER  = 0x00000002,
 
                 /// <summary>
                 /// The service is a device driver. 
                 /// </summary>
-                SERVICE_KERNEL_DRIVER          = 0x00000001,
+                SERVICE_KERNEL_DRIVER       = 0x00000001,
 
                 /// <summary>
                 /// The service runs in its own process. 
                 /// </summary>
-                SERVICE_WIN32_OWN_PROCESS      = 0x00000010,
+                SERVICE_WIN32_OWN_PROCESS   = 0x00000010,
 
                 /// <summary>
                 /// The service shares a process with other services. 
                 /// </summary>
-                SERVICE_WIN32_SHARE_PROCESS    = 0x00000020,
+                SERVICE_WIN32_SHARE_PROCESS = 0x00000020,
 
                 /// <summary>
                 /// The service runs in its own process under the logged-on user account. 
                 /// </summary>
-                SERVICE_USER_OWN_PROCESS       = 0x00000050,
+                SERVICE_USER_OWN_PROCESS    = 0x00000050,
 
                 /// <summary>
                 /// The service shares a process with one or more other services that run under the logged-on user account. 
                 /// </summary>
-                SERVICE_USER_SHARE_PROCESS     = 0x00000060,
+                SERVICE_USER_SHARE_PROCESS  = 0x00000060,
             }
 
             /// <summary>
@@ -1933,37 +1930,37 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The service continue is pending. 
                 /// </summary>
-                SERVICE_CONTINUE_PENDING       = 0x00000005,
+                SERVICE_CONTINUE_PENDING = 0x00000005,
 
                 /// <summary>
                 /// The service pause is pending. 
                 /// </summary>
-                SERVICE_PAUSE_PENDING          = 0x00000006,
+                SERVICE_PAUSE_PENDING    = 0x00000006,
 
                 /// <summary>
                 /// The service is paused.
                 /// </summary>
-                SERVICE_PAUSED                 = 0x00000007,
+                SERVICE_PAUSED           = 0x00000007,
 
                 /// <summary>
                 /// The service is running. 
                 /// </summary>
-                SERVICE_RUNNING                = 0x00000004,
+                SERVICE_RUNNING          = 0x00000004,
 
                 /// <summary>
                 /// The service is starting. 
                 /// </summary>
-                SERVICE_START_PENDING          = 0x00000002,
+                SERVICE_START_PENDING    = 0x00000002,
 
                 /// <summary>
                 /// The service is stopping. 
                 /// </summary>
-                SERVICE_STOP_PENDING           = 0x00000003,
+                SERVICE_STOP_PENDING     = 0x00000003,
 
                 /// <summary>
                 /// The service is not running. 
                 /// </summary>
-                SERVICE_STOPPED                = 0x00000001,
+                SERVICE_STOPPED          = 0x00000001,
             }
 
             /// <summary>
@@ -1974,32 +1971,32 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The service is a network component that can accept changes in its binding without being stopped and restarted.
                 /// </summary>
-                SERVICE_ACCEPT_NETBINDCHANGE   = 0x00000010,
+                SERVICE_ACCEPT_NETBINDCHANGE  = 0x00000010,
 
                 /// <summary>
                 /// The service can reread its startup parameters without being stopped and restarted.
                 /// </summary>
-                SERVICE_ACCEPT_PARAMCHANGE     = 0x00000008,
+                SERVICE_ACCEPT_PARAMCHANGE    = 0x00000008,
 
                 /// <summary>
                 /// The service can be paused and continued.
                 /// </summary>
-                SERVICE_ACCEPT_PAUSE_CONTINUE  = 0x00000002,
+                SERVICE_ACCEPT_PAUSE_CONTINUE = 0x00000002,
 
                 /// <summary>
                 /// The service can perform preshutdown tasks.
                 /// </summary>
-                SERVICE_ACCEPT_PRESHUTDOWN     = 0x00000100,
+                SERVICE_ACCEPT_PRESHUTDOWN    = 0x00000100,
 
                 /// <summary>
                 /// The service is notified when system shutdown occurs.
                 /// </summary>
-                SERVICE_ACCEPT_SHUTDOWN        = 0x00000004,
+                SERVICE_ACCEPT_SHUTDOWN       = 0x00000004,
 
                 /// <summary>
                 /// The service can be stopped.
                 /// </summary>
-                SERVICE_ACCEPT_STOP            = 0x00000001,
+                SERVICE_ACCEPT_STOP           = 0x00000001,
             }
 
             /// <summary>
