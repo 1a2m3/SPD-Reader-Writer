@@ -27,11 +27,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Kernel Driver instance
         /// </summary>
-        public WinRing0 Driver {
-            get => _driver;
-            set => _driver = value;
-        }
-        internal static WinRing0 _driver;
+        public static WinRing0 Driver {
+            get;
+        } = new WinRing0();
 
         /// <summary>
         /// Kernel Driver version
@@ -39,8 +37,8 @@ namespace SpdReaderWriterDll {
         public string Version {
             get {
                 byte[] v = new byte[4];
-                if (_driver != null && _driver.IsReady) {
-                    _driver.GetDriverVersion(ref v[0], ref v[1], ref v[2], ref v[3]);
+                if (Driver != null && Driver.IsReady) {
+                    Driver.GetDriverVersion(ref v[0], ref v[1], ref v[2], ref v[3]);
                 }
 
                 return $"{v[0]}.{v[1]}.{v[2]}.{v[3]}";
@@ -54,6 +52,10 @@ namespace SpdReaderWriterDll {
             public VendorId VendorId;
             public DeviceId DeviceId;
         }
+
+        /// <summary>
+        /// Smbus Device Info
+        /// </summary>
         public DeviceInfo Info {
             get => _info;
             set => _info = value;
@@ -71,7 +73,7 @@ namespace SpdReaderWriterDll {
                 Eeprom.ResetPageAddress(this);
             }
         }
-        private static byte _busNumber;
+        private byte _busNumber;
 
         /// <summary>
         /// Last set slave address
@@ -95,7 +97,7 @@ namespace SpdReaderWriterDll {
             get => _pciDevice;
             set => _pciDevice = value;
         }
-        private static PciDevice _pciDevice;
+        private PciDevice _pciDevice;
 
         /// <summary>
         /// IO port instance
@@ -104,7 +106,7 @@ namespace SpdReaderWriterDll {
             get => _ioPort;
             set => _ioPort = value;
         }
-        private static IoPort _ioPort;
+        private IoPort _ioPort;
 
         /// <summary>
         /// Initialize SMBus with default settings
@@ -127,7 +129,6 @@ namespace SpdReaderWriterDll {
             ioPort    = null;
             pciDevice = null;
             Info      = default;
-            Driver    = null;
 
             if (!IsRunning) {
                 I2CAddress       = 0;
@@ -541,8 +542,6 @@ namespace SpdReaderWriterDll {
         private void Initialize() {
 
             try {
-                Driver = new WinRing0();
-
                 if (Driver.IsReady) {
                     Info = GetDeviceInfo();
                 }
@@ -778,7 +777,7 @@ namespace SpdReaderWriterDll {
         /// <param name="slaveAddress">Slave address</param>
         /// <returns><see langword="true"/> if <paramref name="controller"/> responds with
         /// <see cref="SmbStatus.Success"/> or <see cref="SmbStatus.Ready"/></returns>
-        public static bool ReadByte(Smbus controller, byte slaveAddress) {
+        public bool ReadByte(Smbus controller, byte slaveAddress) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -802,7 +801,7 @@ namespace SpdReaderWriterDll {
         /// <param name="slaveAddress">Slave address</param>
         /// <param name="offset">Byte position</param>
         /// <returns>Byte value read from the device</returns>
-        public static byte ReadByte(Smbus controller, byte slaveAddress, UInt16 offset) {
+        public byte ReadByte(Smbus controller, byte slaveAddress, UInt16 offset) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -828,7 +827,7 @@ namespace SpdReaderWriterDll {
         /// <param name="slaveAddress">Slave address</param>
         /// <returns><see langword="true"/> if <paramref name="controller"/> responds with
         /// <see cref="SmbStatus.Success"/> or <see cref="SmbStatus.Ready"/></returns>
-        public static bool WriteByte(Smbus controller, UInt8 slaveAddress) {
+        public bool WriteByte(Smbus controller, UInt8 slaveAddress) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -854,7 +853,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langwod="true"/> if <paramref name="controller"/> responds with
         /// <see cref="SmbStatus.Success"/> or <see cref="SmbStatus.Ready"/></returns>
-        public static bool WriteByte(Smbus controller, UInt8 slaveAddress, UInt16 offset, byte value) {
+        public bool WriteByte(Smbus controller, UInt8 slaveAddress, UInt16 offset, byte value) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -879,7 +878,7 @@ namespace SpdReaderWriterDll {
         /// <param name="smbusData">SMBus input data</param>
         /// <returns><see langword="true"/> if SMBus doesn't return
         /// <see cref="SmbStatus.Error"/> or <see cref="SmbStatus.Timeout"/></returns>
-        private static bool ExecuteCommand(ref SmbusData smbusData) {
+        private bool ExecuteCommand(ref SmbusData smbusData) {
 
             if (PlatformType == Platform.Unknown) {
                 return false;
@@ -1022,7 +1021,7 @@ namespace SpdReaderWriterDll {
                 UInt8 portOffset = 0;
 
                 if (_info.VendorId == VendorId.AMD) {
-                    portOffset = (UInt8)(_busNumber * 20);
+                    portOffset = (UInt8)(BusNumber * 20);
                 }
 
                 // Clear status bitmask to reset status
@@ -1213,12 +1212,12 @@ namespace SpdReaderWriterDll {
         /// Gets SMBus status
         /// </summary>
         /// <returns>SMBus status</returns>
-        public static SmbStatus GetBusStatus() {
+        public SmbStatus GetBusStatus() {
 
             byte status;
 
             if (PlatformType == Platform.SkylakeX) {
-                status = _pciDevice.ReadByte((byte)(SkylakeXSmbusRegister.Status + _busNumber * 4));
+                status = _pciDevice.ReadByte((byte)(SkylakeXSmbusRegister.Status + BusNumber * 4));
 
                 if ((status & SkylakeXSmbusStatus.Busy) > 0) {
                     return SmbStatus.Busy;
@@ -1290,7 +1289,7 @@ namespace SpdReaderWriterDll {
         /// <param name="status">Desired SMBus status</param>
         /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns><see langword="true"/> if SMBus status matches <paramref name="status"/> before timeout occurs</returns>
-        private static bool WaitForStatus(SmbStatus status, int timeout) {
+        private bool WaitForStatus(SmbStatus status, int timeout) {
 
             Stopwatch sw = Stopwatch.StartNew();
 
@@ -1309,7 +1308,7 @@ namespace SpdReaderWriterDll {
         /// <param name="statuses">An array of SMBus statuses to wait for</param>
         /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns><see langword="true"/> if SMBus status matches one of <paramref name="statuses"/> before timeout occurs</returns>
-        private static bool WaitForStatus(SmbStatus[] statuses, int timeout) {
+        private bool WaitForStatus(SmbStatus[] statuses, int timeout) {
 
             SmbStatus currentStatus;
             Stopwatch sw = Stopwatch.StartNew();
@@ -1374,7 +1373,6 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>SPD size</returns>
         private UInt16 GetMaxSpdSize(UInt8 address) {
-
             // Read dram device type byte
             byte ramTypeByte = ReadByte(this, address, 2);
 
