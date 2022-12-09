@@ -223,8 +223,6 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            _sc = new ServiceController(_name);
-
             try {
                 if (_sc.Status == ServiceControllerStatus.Running) {
                     return true;
@@ -249,8 +247,6 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully stopped</returns>
         private bool StopDriver() {
-
-            _sc = new ServiceController(_name);
 
             try {
                 if (_sc.Status != ServiceControllerStatus.Stopped) {
@@ -277,7 +273,6 @@ namespace SpdReaderWriterDll {
             }
             catch {
                 try {
-                    _sc = new ServiceController(_name);
                     return _sc.Status == ServiceControllerStatus.Stopped ||
                            _sc.Status == ServiceControllerStatus.StopPending;
                 }
@@ -292,8 +287,6 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langref="true"/> if the driver is installed</returns>
         private static bool CheckDriver() {
-
-            _sc = new ServiceController(_name);
 
             try {
                 return _sc.ServiceType == ServiceType.KernelDriver;
@@ -1126,7 +1119,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service controller for the driver
         /// </summary>
-        private static ServiceController _sc;
+        private static ServiceController _sc = new ServiceController(_name);
 
         /// <summary>
         /// Driver ready state
@@ -1146,8 +1139,8 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
-                                    Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+        private static string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
+                                           Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
 
         /// <summary>
         /// Indicates whether the driver service should be stopped and deleted on exit
