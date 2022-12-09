@@ -55,6 +55,9 @@ namespace SpdReaderWriterDll {
         /// Initializes default PciDevice instance
         /// </summary>
         public PciDevice() {
+            PciInfo.BusNumber      = 0;
+            PciInfo.DeviceNumber   = 0;
+            PciInfo.FunctionNumber = 0;
         }
 
         /// <summary>
