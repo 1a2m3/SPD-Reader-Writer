@@ -233,7 +233,7 @@ namespace SpdReaderWriterDll {
         /// <param name="controller">Smbus controller instance</param>
         /// <returns><see langword="true"/> if DDR5 is present on the Smbus</returns>
         public static bool DetectDdr5(Smbus controller) {
-            return controller.MaxSpdSize == (UInt16)Spd.DataLength.DDR5;
+            return false;
         }
 
         /// <summary>
