@@ -430,7 +430,7 @@ namespace SpdReaderWriterDll {
                     continue;
                 }
 
-                // Found a match on first byte, now try to match rest of the pattern
+                // First byte match found, now try to match the rest of the pattern in reverse
                 for (int j = pattern.Length - 1; j >= 1; j--) {
                     if (source[i + j] != pattern[j]) {
                         break;
