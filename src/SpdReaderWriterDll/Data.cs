@@ -15,7 +15,6 @@ using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
 
@@ -25,21 +24,21 @@ namespace SpdReaderWriterDll {
     public class Data {
 
         /// <summary>
-        /// Calculates CRC16/XMODEM checksum
+        /// Calculates CRC16 checksum
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
         /// <param name="poly">Polynomial value</param>
         /// <returns>A calculated checksum</returns>
-        public static UInt16 Crc16(byte[] input, UInt16 poly) {
+        public static ushort Crc16(byte[] input, ushort poly) {
 
-            UInt16 crc = 0;
+            ushort crc = 0;
 
-            for (UInt16 i = 0; i < input.Length; i++) {
+            for (ushort i = 0; i < input.Length; i++) {
 
-                crc ^= (UInt16)(input[i] << 8);
+                crc ^= (ushort)(input[i] << 8);
 
-                for (UInt8 j = 0; j < 8; j++) {
-                    crc = (UInt16)((crc & 0x8000) != 0 ? (crc << 1) ^ poly : crc << 1);
+                for (byte j = 0; j < 8; j++) {
+                    crc = (ushort)((crc & 0x8000) != 0 ? (crc << 1) ^ poly : crc << 1);
                 }
             }
 
@@ -51,9 +50,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
         /// <returns>A calculated checksum</returns>
-        public static UInt8 Crc(byte[] input) {
+        public static byte Crc(byte[] input) {
 
-            UInt8 crc = 0;
+            byte crc = 0;
 
             foreach (byte b in input) {
                 crc += b;
@@ -96,7 +95,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns><see langword="true"/> if bit is set to 1 at <paramref name="position"/></returns>
-        public static bool GetBit(object input, UInt8 position) {
+        public static bool GetBit(object input, byte position) {
 
             int bitCount = Marshal.SizeOf(input) * 8;
             UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
@@ -111,7 +110,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
         /// <returns>An array of bit values</returns>
-        public static byte[] GetBits(byte input, UInt8 position, UInt8 count) {
+        public static byte[] GetBits(byte input, byte position, byte count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -136,7 +135,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to set bit in</param>
         /// <param name="position">Bit position to set</param>
         /// <param name="value">Boolean bit value, set <see langref="true"/> for 1, or <see langword="false"/> for 0</param>
-        public static byte SetBit(byte input, UInt8 position, bool value) {
+        public static byte SetBit(byte input, byte position, bool value) {
 
             if (position > 7) {
                 throw new ArgumentOutOfRangeException(nameof(position));
@@ -151,7 +150,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns>Byte matching bit pattern at <paramref name="input"/> position of all bits</returns>
-        public static byte SubByte(byte input, UInt8 position) {
+        public static byte SubByte(byte input, byte position) {
             return SubByte(input, position, (byte)(position + 1));
         }
 
@@ -162,7 +161,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read to the right of <paramref name="position"/> </param>
         /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
-        public static byte SubByte(byte input, UInt8 position, UInt8 count) {
+        public static byte SubByte(byte input, byte position, byte count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -179,12 +178,12 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Converts boolean type to UInt8
+        /// Converts boolean type to byte
         /// </summary>
         /// <param name="input">Boolean input</param>
         /// <returns>1 if the input is <see langword="true"/>, or 0, when the input is <see langword="false"/></returns>
-        public static UInt8 BoolToNum(bool input) {
-            return (UInt8)(input ? 1 : 0);
+        public static byte BoolToNum(bool input) {
+            return (byte)(input ? 1 : 0);
         }
 
         /// <summary>
@@ -220,7 +219,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(char input) {
 
-            return ('A' <= Char.ToUpper(input) && Char.ToUpper(input) <= 'F') ||
+            return ('A' <= char.ToUpper(input) && char.ToUpper(input) <= 'F') ||
                    ('0' <= input && input <= '9');
         }
 
@@ -248,7 +247,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public enum GzipMethod {
             Compress,
-            Decompress,
+            Decompress
         }
 
         /// <summary>
@@ -352,8 +351,8 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte</param>
         /// <returns>Binary Coded Decimal</returns>
         /// <example>0x38 is converted to 38</example>
-        public static UInt8 ByteToBinaryCodedDecimal(byte input) {
-            return (UInt8)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
+        public static byte ByteToBinaryCodedDecimal(byte input) {
+            return (byte)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
         }
 
         /// <summary>
@@ -362,14 +361,14 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Binary Coded Decimal</param>
         /// <returns>Binary Coded Decimal Byte</returns>
         /// <example>14 is converted to 0x14</example>
-        public static byte BinaryCodedDecimalToByte(UInt8 input) {
+        public static byte BinaryCodedDecimalToByte(byte input) {
 
             if (input > 99) {
                 throw new ArgumentOutOfRangeException(nameof(input));
             }
 
-            UInt8 tens = (UInt8)(input / 10);
-            UInt8 ones = (UInt8)(input - tens * 10);
+            byte tens = (byte)(input / 10);
+            byte ones = (byte)(input - tens * 10);
 
             return (byte)((ones & 0xF) | (tens << 4));
         }
@@ -482,6 +481,55 @@ namespace SpdReaderWriterDll {
         /// <returns>Closest even number that is greater than or equal to <see cref="input"/></returns>
         public static int EvenUp(int input) {
             return IsEven(input) ? input : input + 1;
+        }
+
+        /// <summary>
+        /// Trims byte array
+        /// </summary>
+        /// <param name="input">Input byte array</param>
+        /// <param name="newSize">New byte array size</param>
+        /// <param name="trimPosition">Trim position</param>
+        /// <returns>Trimmed byte array</returns>
+        public static byte[] TrimByteArray(byte[] input, int newSize, TrimPosition trimPosition) {
+
+            if (input == null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
+            if (newSize == input.Length) {
+                return input;
+            }
+
+            if (newSize > input.Length) {
+                throw new IndexOutOfRangeException($"{nameof(newSize)} cannot be greater than {nameof(input)} length");
+            }
+
+            byte[] newArray = new byte[newSize];
+
+            if (trimPosition == TrimPosition.End) {
+                Array.Copy(
+                    sourceArray      : input, 
+                    destinationArray : newArray, 
+                    length           : newSize);
+            }
+            else {
+                Array.Copy(
+                    sourceArray      : input,
+                    sourceIndex      : input.Length - newSize,
+                    destinationArray : newArray,
+                    destinationIndex : 0,
+                    length           : newSize);
+            }
+
+            return newArray;
+        }
+
+        /// <summary>
+        /// Array trim position
+        /// </summary>
+        public enum TrimPosition {
+            Start,
+            End
         }
     }
 }
