@@ -276,11 +276,10 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total memory capacity of the DRAM on a DIMM
             /// </summary>
-            public UInt64 TotalModuleCapacity {
+            public ulong TotalModuleCapacity {
                 get {
                     return ModuleOrganization.RankMix == RankMix.Symmetrical
-                        ?
-                        (UInt64)(
+                        ? (ulong)(
                         // Number of channels per DIMM *
                         ChannelBusWidth.ChannelCount *
                         // Primary bus width per channel / SDRAM I/O Width *
@@ -290,10 +289,94 @@ namespace SpdReaderWriterDll {
                         // SDRAM density per die / 8 *
                         DensityPackage[0].DieDensity / 8 *
                         // Package ranks per channel
-                        ModuleOrganization.PackageRankCount
-                        )
+                        ModuleOrganization.PackageRankCount)
                         : 0;
                 }
+            }
+
+            /// <summary>
+            /// CRC checksums
+            /// </summary>
+            public Crc16Data[] Crc {
+                get {
+                    // Base Configuration, DRAM Parameters, and Module Parameters
+                    int sectionCount    =  1;
+
+                    // Add 1 XMP header and 5 XMP profiles, if present
+                    if (XmpPresense) {
+                        sectionCount += 1 + 5;
+                    }
+
+                    ushort sectionLength = 512;
+
+                    Crc16Data[] crc = new Crc16Data[sectionCount];
+
+                    // Main checksum
+
+                    crc[0].Contents = new byte[sectionLength];
+
+                    Array.Copy(
+                        sourceArray      : RawData,
+                        sourceIndex      : 0 * sectionLength,
+                        destinationArray : crc[0].Contents,
+                        destinationIndex : 0,
+                        length           : sectionLength);
+
+                    // XMP checksums
+
+                    if (sectionCount > 1) {
+                        for (byte i = 1; i < sectionCount; i++) {
+
+                            crc[i].Contents = new byte[Xmp30ProfileData.xmpLength];
+
+                            Array.Copy(
+                                sourceArray      : RawData,
+                                sourceIndex      : Xmp30ProfileData.xmpOffset + (i - 1) * Xmp30ProfileData.xmpLength,
+                                destinationArray : crc[i].Contents,
+                                destinationIndex : 0,
+                                length           : Xmp30ProfileData.xmpLength);
+                        }
+                    }
+
+                    return crc;
+                }
+            }
+
+            /// <summary>
+            /// Fixes CRC checksums
+            /// </summary>
+            /// <returns><see langword="true"/> if checksum(s) has been fixed</returns>
+            public bool FixCrc() {
+
+                int sectionCount = Crc.Length;
+
+                if (sectionCount > 0) {
+                    Array.Copy(
+                        sourceArray      : Crc[0].Fix(),
+                        sourceIndex      : 0,
+                        destinationArray : RawData,
+                        destinationIndex : 0,
+                        length           : Crc[0].Contents.Length);
+                }
+
+                if (sectionCount > 1) {
+                    for (int i = 1; i < sectionCount; i++) {
+                        Array.Copy(
+                            sourceArray      : Crc[i].Fix(),
+                            sourceIndex      : 0,
+                            destinationArray : RawData,
+                            destinationIndex : Xmp30ProfileData.xmpOffset + (i - 1) * Xmp30ProfileData.xmpLength,
+                            length           : Xmp30ProfileData.xmpLength);
+                    }
+                }
+
+                foreach (Crc16Data crc16Data in Crc) {
+                    if (!crc16Data.Validate()) {
+                        return false;
+                    }
+                }
+
+                return true;
             }
 
             /// <summary>
@@ -356,6 +439,33 @@ namespace SpdReaderWriterDll {
 
                     return Data.BytesToString(chars);
                 }
+            }
+
+            /// <summary>
+            /// XMP header (magic bytes)
+            /// </summary>
+            public bool XmpPresense {
+                get => (RawData[0x280] << 8 | RawData[0x281]) == ProfileId.XMP;
+            }
+
+            /// <summary>
+            /// XMP profile type
+            /// </summary>
+            public enum XmpProfileName {
+                Performance,
+                Extreme,
+                Fastest,
+                User1,
+                User2
+            }
+
+            /// <summary>
+            /// DDR5 XMP 3.0 data
+            /// </summary>
+            public struct Xmp30ProfileData {
+
+                public static ushort xmpLength = 64;
+                public static ushort xmpOffset = 640;
             }
         }
     }

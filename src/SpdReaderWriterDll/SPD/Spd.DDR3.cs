@@ -580,7 +580,7 @@ namespace SpdReaderWriterDll {
             public Crc16Data Crc {
                 get {
                     Crc16Data crc = new Crc16Data {
-                        Contents = new byte[CrcCoverage ? 117 : 126],
+                        Contents = new byte[(CrcCoverage ? 117 : 126) + 2] // Add 2 bytes for CRC data
                     };
 
                     Array.Copy(
@@ -590,10 +590,31 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : crc.Contents.Length);
 
-                    crc.Checksum = Data.Crc16(crc.Contents, 0x1021);
+                    // Get CRC from SPD
+                    Array.Copy(
+                        sourceArray      : RawData,
+                        sourceIndex      : 126,
+                        destinationArray : crc.Contents,
+                        destinationIndex : crc.Contents.Length - 2,
+                        length           : 2);
 
                     return crc;
                 }
+            }
+
+            /// <summary>
+            /// Fixes CRC checksum
+            /// </summary>
+            /// <returns><see langword="true"/> if checksum has been fixed</returns>
+            public bool FixCrc() {
+
+                ushort validCrc = Data.Crc16(Data.TrimByteArray(RawData, CrcCoverage ? 117 : 126, Data.TrimPosition.End), 0x1021);
+
+                // Replace CRC only
+                RawData[126] = (byte)(validCrc & 0xFF);
+                RawData[127] = (byte)(validCrc >> 8);
+
+                return Crc.Validate();
             }
 
             /// <summary>
@@ -682,7 +703,7 @@ namespace SpdReaderWriterDll {
             /// XMP header (magic bytes)
             /// </summary>
             public bool XmpPresense {
-                get => RawData[176] == 0x0C && RawData[177] == 0x4A;
+                get => (RawData[176] << 8 | RawData[177]) == ProfileId.XMP;
             }
 
             /// <summary>

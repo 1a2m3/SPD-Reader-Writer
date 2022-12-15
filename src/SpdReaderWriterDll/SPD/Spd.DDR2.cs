@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
     public partial class Spd {
@@ -31,7 +30,7 @@ namespace SpdReaderWriterDll {
             }
 
             public override string ToString() {
-                return $"{GetManufacturerName((UInt16)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -41,7 +40,7 @@ namespace SpdReaderWriterDll {
             public BytesData Bytes {
                 get => new BytesData {
                     Used  = RawData[0],
-                    Total = (UInt16)Math.Pow(2, RawData[1])
+                    Total = (ushort)Math.Pow(2, RawData[1])
                 };
             }
 
@@ -75,7 +74,7 @@ namespace SpdReaderWriterDll {
                     ModuleAttributesData attributes = new ModuleAttributesData {
                         Package    = (DRAMPackage)(Data.BoolToNum(Data.GetBit(RawData[5], 4))),
                         CardOnCard = Data.GetBit(RawData[5], 3),
-                        Ranks      = (Byte)(Data.SubByte(RawData[5], 2, 3) + 1)
+                        Ranks      = (byte)(Data.SubByte(RawData[5], 2, 3) + 1)
                     };
 
                     switch (Data.SubByte(RawData[5], 7, 3)) {
@@ -140,7 +139,7 @@ namespace SpdReaderWriterDll {
                 public ModuleHeightData Height;
                 public DRAMPackage Package;
                 public bool CardOnCard;
-                public UInt8 Ranks;
+                public byte Ranks;
             }
 
             /// <summary>
@@ -154,7 +153,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 6: Module Data Width
             /// </summary>
-            public UInt8 DataWidth {
+            public byte DataWidth {
                 get => RawData[6];
             }
 
@@ -248,7 +247,7 @@ namespace SpdReaderWriterDll {
             /// Describes the module’s refresh rate in microseconds
             /// </summary>
             public struct RefreshRateData {
-                public UInt8 RefreshPeriod;
+                public byte RefreshPeriod;
 
                 public float ToMicroseconds() {
 
@@ -279,14 +278,14 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 13: Primary SDRAM Width
             /// </summary>
-            public UInt8 PrimarySDRAMWidth {
+            public byte PrimarySDRAMWidth {
                 get => RawData[13];
             }
 
             /// <summary>
             /// Byte 14: Error Checking SDRAM Width
             /// </summary>
-            public UInt8 ErrorCheckingSDRAMWidth {
+            public byte ErrorCheckingSDRAMWidth {
                 get => RawData[14];
             }
 
@@ -297,9 +296,9 @@ namespace SpdReaderWriterDll {
                 get {
                     BurstLengthData[] attributes = new BurstLengthData[2];
 
-                    for (UInt8 i = 0; i < attributes.Length; i++) {
-                        attributes[i].Length    = (UInt8)(1 << i);
-                        attributes[i].Supported = Data.GetBit(RawData[16], (UInt8)(i + 2));
+                    for (byte i = 0; i < attributes.Length; i++) {
+                        attributes[i].Length    = (byte)(1 << i);
+                        attributes[i].Supported = Data.GetBit(RawData[16], (byte)(i + 2));
                     }
 
                     return attributes;
@@ -310,14 +309,14 @@ namespace SpdReaderWriterDll {
             /// Describes which various programmable burst lengths are supported
             /// </summary>
             public struct BurstLengthData {
-                public UInt8 Length;
+                public byte Length;
                 public bool Supported;
             }
 
             /// <summary>
             /// Byte 17: SDRAM Device Attributes – Number of Banks on SDRAM Device
             /// </summary>
-            public UInt8 DeviceBanks {
+            public byte DeviceBanks {
                 get => RawData[17];
             }
 
@@ -342,7 +341,7 @@ namespace SpdReaderWriterDll {
                 /// <returns>An array of supported latencies</returns>
                 public int[] ToArray() {
                     Queue<int> latencies = new Queue<int>();
-                    for (UInt8 i = 2; i <= 7; i++) {
+                    for (byte i = 2; i <= 7; i++) {
                         if (Data.GetBit(Bitmask, i)) {
                             latencies.Enqueue(i);
                         }
@@ -354,7 +353,7 @@ namespace SpdReaderWriterDll {
                 public override string ToString() {
 
                     string latenciesString = "";
-                    foreach (UInt8 latency in ToArray()) {
+                    foreach (byte latency in ToArray()) {
                         latenciesString += $"{latency},";
                     }
 
@@ -425,8 +424,8 @@ namespace SpdReaderWriterDll {
             public struct ModulesAttributes {
                 public bool AnalysisProbeInstalled;
                 public bool FETSwitchExternal;
-                public UInt8 PLLs;
-                public UInt8 ActiveRegisters;
+                public byte PLLs;
+                public byte ActiveRegisters;
             }
 
             /// <summary>
@@ -531,10 +530,10 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 31: Module Rank Density in Megabytes
             /// </summary>
-            public UInt16 RankDensity {
+            public ushort RankDensity {
                 get {
-                    UInt8 densityData = RawData[31];
-                    return densityData <= 16 ? (UInt16)(densityData * 1024) : (UInt16)(densityData * 4);
+                    byte densityData = RawData[31];
+                    return densityData <= 16 ? (ushort)(densityData * 1024) : (ushort)(densityData * 4);
                 }
             }
 
@@ -683,13 +682,13 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 46: PLL Relock Time
             /// </summary>
-            public UInt8 PLLRelockTime {
+            public byte PLLRelockTime {
                 get => RawData[46];
             }
 
             public struct TemperatureData {
                 public float Granularity;
-                public UInt8 Multiplier;
+                public byte Multiplier;
 
                 public float ToDegrees() {
                     return Granularity * Multiplier;
@@ -886,23 +885,33 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 63: Checksum for Bytes 0-62
             /// </summary>
-            public Crc8Data crc {
+            public Crc8Data Crc {
                 get {
                     Crc8Data crc = new Crc8Data {
-                        Contents = new byte[63]
+                        Contents = new byte[64]
                     };
 
                     Array.Copy(
                         sourceArray      : RawData,
-                        sourceIndex      : 0,
                         destinationArray : crc.Contents,
-                        destinationIndex : 0,
                         length           : crc.Contents.Length);
-
-                    crc.Checksum = Data.Crc(crc.Contents);
 
                     return crc;
                 }
+            }
+
+            /// <summary>
+            /// Fixes CRC checksum
+            /// </summary>
+            /// <returns><see langword="true"/> if checksum has been fixed</returns>
+            public bool FixCrc() {
+
+                Array.Copy(
+                    sourceArray      : Crc.Fix(),
+                    destinationArray : RawData, 
+                    length           : Crc.Contents.Length);
+
+                return Crc.Validate();
             }
 
             /// <summary>
@@ -913,7 +922,7 @@ namespace SpdReaderWriterDll {
                     byte continuationCode = 0;
                     byte manufacturerCode = 0;
 
-                    for (UInt8 i = 64; i <= 71; i++) {
+                    for (byte i = 64; i <= 71; i++) {
                         if (RawData[i] == 0x7F) {
                             continuationCode++;
                         }
@@ -967,8 +976,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Bytes 91-92: Module Revision Code
             /// </summary>
-            public UInt16 RevisionCode {
-                get => (UInt16)(RawData[92] | RawData[91] << 8);
+            public ushort RevisionCode {
+                get => (ushort)(RawData[92] | RawData[91] << 8);
             }
 
             /// <summary>
@@ -1005,9 +1014,7 @@ namespace SpdReaderWriterDll {
             /// EPP Identifier String ("NVm")
             /// </summary>
             public bool EppPresense {
-                get => RawData[101] == 'N' &&
-                       RawData[100] == 'V' &&
-                       RawData[99]  == 'm';
+                get => (RawData[101] << 16 | RawData[100] << 8 | RawData[99]) == ProfileId.EPP;
             }
 
             /// <summary>
@@ -1031,7 +1038,7 @@ namespace SpdReaderWriterDll {
             public EppFullProfileData[] EppFullProfile {
                 get {
                     EppFullProfileData[] eppFullProfile = new EppFullProfileData[EppType == EppProfileType.Full ? 2 : 0];
-                    for (UInt8 i = 0; i < eppFullProfile.Length; i++) {
+                    for (byte i = 0; i < eppFullProfile.Length; i++) {
                         eppFullProfile[i].Number = i;
                     }
 
@@ -1045,7 +1052,7 @@ namespace SpdReaderWriterDll {
             public EppAbbreviatedProfileData[] EppAbbreviatedProfile {
                 get {
                     EppAbbreviatedProfileData[] eppAbbreviatedProfile = new EppAbbreviatedProfileData[EppType == EppProfileType.Abbreviated ? 4 : 0];
-                    for (UInt8 i = 0; i < eppAbbreviatedProfile.Length; i++) {
+                    for (byte i = 0; i < eppAbbreviatedProfile.Length; i++) {
                         eppAbbreviatedProfile[i].Number = i;
                     }
 
@@ -1058,9 +1065,9 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public struct EppFullProfileData {
 
-                public UInt8 Number;
+                public byte Number;
 
-                private UInt8 _offset => (UInt8)(Number * 12);
+                private byte _offset => (byte)(Number * 12);
 
                 /// <summary>
                 /// Profile for Optimal Performance
@@ -1086,8 +1093,8 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Defines the address command rate
                 /// </summary>
-                public UInt8 AddressCmdRate {
-                    get => (UInt8)(Data.SubByte(RawData[104 + _offset], 7, 1) + 1);
+                public byte AddressCmdRate {
+                    get => (byte)(Data.SubByte(RawData[104 + _offset], 7, 1) + 1);
                 }
 
                 /// <summary>
@@ -1176,9 +1183,9 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Specifies which CAS Latency should be programmed for this Profile
                 /// </summary>
-                public UInt8 tCL {
+                public byte tCL {
                     get {
-                        for (UInt8 i = 2; i < 8; i++) {
+                        for (byte i = 2; i < 8; i++) {
                             if (Data.GetBit((RawData[110 + _offset] >> i), 0)) {
                                 return i;
                             }
@@ -1249,9 +1256,9 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public struct EppAbbreviatedProfileData {
 
-                public UInt8 Number;
+                public byte Number;
 
-                private UInt8 _offset => (UInt8)(Number * 6);
+                private byte _offset => (byte)(Number * 6);
 
                 /// <summary>
                 /// Profile for Optimal Performance
@@ -1277,8 +1284,8 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Defines the address command rate
                 /// </summary>
-                public UInt8 AddressCmdRate {
-                    get => (UInt8)(Data.SubByte(RawData[104 + _offset], 7, 1) + 1);
+                public byte AddressCmdRate {
+                    get => (byte)(Data.SubByte(RawData[104 + _offset], 7, 1) + 1);
                 }
 
                 /// <summary>
@@ -1294,9 +1301,9 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Specifies which CAS Latency should be programmed for this Profile
                 /// </summary>
-                public UInt8 tCL {
+                public byte tCL {
                     get {
-                        for (UInt8 i = 2; i < 8; i++) {
+                        for (byte i = 2; i < 8; i++) {
                             if (Data.GetBit((RawData[106 + _offset] >> i), 0)) {
                                 return i;
                             }
@@ -1346,7 +1353,7 @@ namespace SpdReaderWriterDll {
             /// Delays with respect to the default setup time
             /// </summary>
             public struct DelayData {
-                public UInt8 Delay;
+                public byte Delay;
 
                 public override string ToString() {
                     return $"{Delay}/64";

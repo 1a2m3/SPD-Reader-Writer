@@ -11,7 +11,6 @@
 
 using System;
 using System.Collections.Generic;
-using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
     public partial class Spd {
@@ -29,7 +28,7 @@ namespace SpdReaderWriterDll {
             }
 
             public override string ToString() {
-                return $"{GetManufacturerName((UInt16)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -39,7 +38,7 @@ namespace SpdReaderWriterDll {
             public BytesData Bytes {
                 get => new BytesData {
                     Used  = RawData[0],
-                    Total = (UInt16)(1 << RawData[1])
+                    Total = (ushort)(1 << RawData[1])
                 };
             }
 
@@ -66,7 +65,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// BYTE 5 - Number of Module Ranks
             /// </summary>
-            public UInt8 ModuleRanks {
+            public byte ModuleRanks {
                 get => RawData[5];
             }
 
@@ -74,15 +73,15 @@ namespace SpdReaderWriterDll {
             /// Byte 6: Module Data Width
             /// Byte 7: Module Data Width Continuation
             /// </summary>
-            public UInt16 DataWidth {
-                get => (UInt16)(RawData[6] | RawData[7] << 8);
+            public ushort DataWidth {
+                get => (ushort)(RawData[6] | RawData[7] << 8);
             }
 
             /// <summary>
             /// Calculated die density in bits
             /// </summary>
-            public UInt64 DieDensity {
-                get => (UInt64)(
+            public ulong DieDensity {
+                get => (ulong)(
                     (1L << Addressing.Rows) *
                     (1L << Addressing.Columns) *
                     DeviceBanks *
@@ -92,8 +91,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The total calculated memory capacity of the DRAM on the module in bytes
             /// </summary>
-            public UInt64 TotalModuleCapacity {
-                get => (UInt64)(
+            public ulong TotalModuleCapacity {
+                get => (ulong)(
                     (1L << Addressing.Rows) *
                     (1L << Addressing.Columns) *
                     DeviceBanks *
@@ -184,7 +183,7 @@ namespace SpdReaderWriterDll {
             /// Describes the module’s refresh rate in microseconds
             /// </summary>
             public struct RefreshRateData {
-                public UInt8 RefreshPeriod;
+                public byte RefreshPeriod;
                 public bool SelfRefresh;
 
                 public float ToMicroseconds() {
@@ -227,7 +226,7 @@ namespace SpdReaderWriterDll {
             /// Indicate the width of the primary data SDRAM.
             /// </summary>
             public struct SDRAMWidthData {
-                public UInt8 Width;
+                public byte Width;
                 public bool Bank2;
             }
 
@@ -254,7 +253,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 15: SDRAM Device Attributes – Minimum Clock Delay, Back-to-Back Random Column Access
             /// </summary>
-            public UInt8 tCCD {
+            public byte tCCD {
                 get => RawData[15];
             }
 
@@ -262,7 +261,7 @@ namespace SpdReaderWriterDll {
             /// Describes which various programmable burst lengths are supported
             /// </summary>
             public struct BurstLengthData {
-                public UInt8 Length;
+                public byte Length;
                 public bool Supported;
             }
 
@@ -273,8 +272,8 @@ namespace SpdReaderWriterDll {
                 get {
                     BurstLengthData[] attributes = new BurstLengthData[4];
 
-                    for (UInt8 i = 0; i < attributes.Length; i++) {
-                        attributes[i].Length = (UInt8)(1 << i);
+                    for (byte i = 0; i < attributes.Length; i++) {
+                        attributes[i].Length = (byte)(1 << i);
                         attributes[i].Supported = Data.GetBit(RawData[16], i);
                     };
 
@@ -285,7 +284,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 17: SDRAM Device Attributes – Number of Banks on SDRAM Device
             /// </summary>
-            public UInt8 DeviceBanks {
+            public byte DeviceBanks {
                 get => RawData[17];
             }
 
@@ -297,7 +296,7 @@ namespace SpdReaderWriterDll {
 
                 public int[] ToArray() {
                     Queue<int> latencies = new Queue<int>();
-                    for (UInt8 i = 0; i <= 6; i++) {
+                    for (byte i = 0; i <= 6; i++) {
                         if (Data.GetBit(Bitmask, i)) {
                             latencies.Enqueue(i + 1);
                         }
@@ -334,7 +333,7 @@ namespace SpdReaderWriterDll {
 
                 public int[] ToArray() {
                     Queue<int> latencies = new Queue<int>();
-                    for (UInt8 i = 0; i <= 6; i++) {
+                    for (byte i = 0; i <= 6; i++) {
                         if (Data.GetBit(Bitmask, i)) {
                             latencies.Enqueue(i);
                         }
@@ -346,7 +345,7 @@ namespace SpdReaderWriterDll {
                 public override string ToString() {
 
                     string latenciesString = "";
-                    foreach (UInt8 latency in ToArray()) {
+                    foreach (byte latency in ToArray()) {
                         latenciesString += $"{latency},";
                     }
 
@@ -507,7 +506,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public UInt32 RowDensity {
                 get {
-                    for (UInt8 i = 7; i != 0; i--) {
+                    for (byte i = 7; i != 0; i--) {
                         if (Data.GetBit(RawData[31], i)) {
                             return (UInt32)(4 << i);
                         }
@@ -569,23 +568,33 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 63: Checksum for Bytes 0-62
             /// </summary>
-            public Crc8Data crc {
+            public Crc8Data Crc {
                 get {
                     Crc8Data crc = new Crc8Data {
-                        Contents = new byte[63]
+                        Contents = new byte[64]
                     };
 
                     Array.Copy(
                         sourceArray      : RawData,
-                        sourceIndex      : 0,
                         destinationArray : crc.Contents,
-                        destinationIndex : 0,
                         length           : crc.Contents.Length);
-
-                    crc.Checksum = Data.Crc(crc.Contents);
 
                     return crc;
                 }
+            }
+
+            /// <summary>
+            /// Fixes CRC checksum
+            /// </summary>
+            /// <returns><see langword="true"/> if checksum has been fixed</returns>
+            public bool FixCrc() {
+
+                Array.Copy(
+                    sourceArray      : Crc.Fix(),
+                    destinationArray : RawData,
+                    length           : Crc.Contents.Length);
+
+                return Crc.Validate();
             }
 
             /// <summary>
@@ -596,7 +605,7 @@ namespace SpdReaderWriterDll {
                     byte continuationCode = 0;
                     byte manufacturerCode = 0;
 
-                    for (UInt8 i = 64; i <= 71; i++) {
+                    for (byte i = 64; i <= 71; i++) {
                         if (RawData[i] == 0x7F) {
                             continuationCode++;
                         }
@@ -643,8 +652,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Bytes 91-92: Module Revision Code
             /// </summary>
-            public UInt16 RevisionCode {
-                get => (UInt16)(RawData[92] | RawData[91] << 8);
+            public ushort RevisionCode {
+                get => (ushort)(RawData[92] | RawData[91] << 8);
             }
 
             /// <summary>
