@@ -20,5 +20,10 @@ namespace SpdReaderWriterDll {
         bool IsHandleOpen { get; }
         bool IsValid { get; }
         bool IsReady { get; }
+
+        bool InstallDriver();
+        bool RemoveDriver();
+        bool StartDriver();
+        bool StopDriver();
     }
 }
