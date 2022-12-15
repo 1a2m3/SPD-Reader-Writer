@@ -13,7 +13,6 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using SpdReaderWriterDll.Properties;
-using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
 
@@ -142,19 +141,19 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">SPD contents</param>
         /// <returns>Manufacturer's name</returns>
-        public static UInt16 GetManufacturerId(byte[] input) {
-            UInt16 manufacturerId = 0;
+        public static ushort GetManufacturerId(byte[] input) {
+            ushort manufacturerId = 0;
 
             switch (GetRamType(input)) {
                 case RamType.DDR5:
-                    manufacturerId = (UInt16)((UInt16)(input[0x200] << 8 | input[0x201]) & 0x7FFF);
+                    manufacturerId = (ushort)((ushort)(input[0x200] << 8 | input[0x201]) & 0x7FFF);
                     break;
                 case RamType.DDR4:
-                    manufacturerId = (UInt16)((input[0x140] << 8 | input[0x141]) & 0x7FFF);
+                    manufacturerId = (ushort)((input[0x140] << 8 | input[0x141]) & 0x7FFF);
                     break;
                 case RamType.DDR3:
                 case RamType.DDR2_FB_DIMM:
-                    manufacturerId = (UInt16)((input[0x75] << 8 | input[0x76]) & 0x7FFF);
+                    manufacturerId = (ushort)((input[0x75] << 8 | input[0x76]) & 0x7FFF);
                     break;
 
                 // Vendor ID location for DDR2 and older RAM SPDs
@@ -166,12 +165,12 @@ namespace SpdReaderWriterDll {
 
                     byte[] manufacturerIdArray = new byte[vendorIdOffsetEnd - vendorIdOffsetStart];
 
-                    for (UInt8 i = 0; i < manufacturerIdArray.Length; i++) {
+                    for (byte i = 0; i < manufacturerIdArray.Length; i++) {
                         manufacturerIdArray[i] = input[vendorIdOffsetStart + i];
 
                         if (manufacturerIdArray[i] == continuationCode) {
                             // Set manufacturer's code LSB
-                            manufacturerId = (UInt16)((i + 1) << 8);
+                            manufacturerId = (ushort)((i + 1) << 8);
                         }
                         else {
                             // Set manufacturer's code MSB
@@ -191,13 +190,13 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">MSB and LSB of ID Code</param>
         /// <returns>Manufacturer's name</returns>
-        public static string GetManufacturerName(UInt16 input) {
+        public static string GetManufacturerName(ushort input) {
 
             // Manufacturer's identification code table
 
             //int codeTableCount = 126;
-            //UInt8[] manufacturerCodeTable = new byte[codeTableCount];
-            //for (UInt8 i = 0; i < 126; i++) {
+            //byte[] manufacturerCodeTable = new byte[codeTableCount];
+            //for (byte i = 0; i < 126; i++) {
             //    byte code = (byte)(i + 1);
             //    manufacturerCodeTable[i] = (byte)(code | Data.GetParity(code, Data.Parity.Odd) << 7);
             //}
@@ -331,8 +330,8 @@ namespace SpdReaderWriterDll {
         /// Describes the total number of bytes used and the total size of the serial memory used
         /// </summary>
         public struct BytesData {
-            public UInt16 Used;
-            public UInt16 Total;
+            public ushort Used;
+            public ushort Total;
 
             public override string ToString() => $"{Used}/{Total}";
         }
@@ -348,17 +347,17 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Primary bus width
             /// </summary>
-            public UInt8 PrimaryBusWidth;
+            public byte PrimaryBusWidth;
 
-            public override string ToString() => ((UInt8)(PrimaryBusWidth + (Extension ? 8 : 0))).ToString();
+            public override string ToString() => ((byte)(PrimaryBusWidth + (Extension ? 8 : 0))).ToString();
         }
 
         /// <summary>
         /// Row addressing and the column addressing in the SDRAM device
         /// </summary>
         public struct AddressingData {
-            public UInt8 Rows;
-            public UInt8 Columns;
+            public byte Rows;
+            public byte Columns;
         }
 
         /// <summary>
@@ -366,7 +365,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct PrimaryPackageTypeData {
             public bool Monolithic;
-            public UInt8 DieCount;
+            public byte DieCount;
             public SignalLoadingData SignalLoading;
 
             public override string ToString() {
@@ -408,7 +407,7 @@ namespace SpdReaderWriterDll {
         /// Support for certain SDRAM features
         /// </summary>
         public struct MaximumActivateFeaturesData {
-            public UInt16 MaximumActivateWindow;
+            public ushort MaximumActivateWindow;
             public MaximumActivateCount MaximumActivateCount;
         }
 
@@ -484,7 +483,7 @@ namespace SpdReaderWriterDll {
             public byte ContinuationCode;
             public byte ManufacturerCode;
 
-            public override string ToString() => GetManufacturerName((UInt16)(ContinuationCode << 8 | ManufacturerCode));
+            public override string ToString() => GetManufacturerName((ushort)(ContinuationCode << 8 | ManufacturerCode));
         }
 
         /// <summary>
@@ -492,12 +491,12 @@ namespace SpdReaderWriterDll {
         /// These bytes must be represented in Binary Coded Decimal
         /// </summary>
         public struct DateCodeData {
-            public UInt8 Year;
-            public UInt8 Week;
+            public byte Year;
+            public byte Week;
 
             public override string ToString() {
-                UInt16 year = (UInt16)(Data.ByteToBinaryCodedDecimal(Year) + 2000);
-                UInt8 week  = Data.ByteToBinaryCodedDecimal(Week);
+                ushort year = (ushort)(Data.ByteToBinaryCodedDecimal(Year) + 2000);
+                byte week  = Data.ByteToBinaryCodedDecimal(Week);
 
                 return 0 < week && week < 53 ? $"{year:D4}/{week:D2}" : "";
             }
@@ -524,14 +523,27 @@ namespace SpdReaderWriterDll {
         /// CRC16 header and checksum
         /// </summary>
         public struct Crc16Data {
-            public byte[] Contents;
-            public UInt16 Checksum;
+            public byte[] Contents; // Contents incl. checksum
+            public ushort Checksum => Data.Crc16(Data.TrimByteArray(Contents, Contents.Length - 2, Data.TrimPosition.End), 0x1021);
 
             /// <summary>
             /// Validates data checksum
             /// </summary>
             /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="Contents"/></returns>
-            public bool Validate() => Data.Crc16(Contents, 0x1021) == Checksum;
+            public bool Validate() => (ushort)(Contents[Contents.Length - 1] << 8 | Contents[Contents.Length - 2]) == Checksum;
+
+            /// <summary>
+            /// Corrects Crc16 value
+            /// </summary>
+            /// <returns><see cref="Contents"/> with the correct <see cref="Checksum"/></returns>
+            public byte[] Fix() {
+                if (!Validate()) {
+                    Contents[Contents.Length - 1] = (byte)(Checksum >> 8);
+                    Contents[Contents.Length - 2] = (byte)(Checksum & 0xFF);
+                }
+
+                return Contents;
+            }
 
             public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
         }
@@ -540,14 +552,26 @@ namespace SpdReaderWriterDll {
         /// CRC header and checksum
         /// </summary>
         public struct Crc8Data {
-            public byte[] Contents;
-            public UInt8 Checksum;
+            public byte[] Contents; // Contents incl. checksum
+            public byte Checksum => Data.Crc(Data.TrimByteArray(Contents, Contents.Length - 1, Data.TrimPosition.End));
 
             /// <summary>
             /// Validates data checksum
             /// </summary>
             /// <returns><see langword="true"/> if <see cref="Checksum"/> is valid for <see cref="Contents"/></returns>
-            public bool Validate() => Data.Crc(Contents) == Checksum;
+            public bool Validate() => Contents[Contents.Length - 1] == Checksum;
+
+            /// <summary>
+            /// Corrects CRC checksum
+            /// </summary>
+            /// <returns><see cref="Contents"/> with the correct <see cref="Checksum"/></returns>
+            public byte[] Fix() {
+                if (!Validate()) {
+                    Contents[Contents.Length - 1] = Checksum;
+                }
+
+                return Contents;
+            }
 
             public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
         }
@@ -565,7 +589,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct ReferenceRawCardData {
             public bool Extension;
-            public UInt8 Revision;
+            public byte Revision;
             public ReferenceRawCardName Name;
         }
 
@@ -626,6 +650,21 @@ namespace SpdReaderWriterDll {
         public struct ModuleMaximumThicknessSide {
             public ModuleHeightData Back;
             public ModuleHeightData Front;
+        }
+
+        /// <summary>
+        /// SPD performance profiles IDs
+        /// </summary>
+        public struct ProfileId {
+            /// <summary>
+            /// Intel Extreme Memory Profile ID String
+            /// </summary>
+            public static ushort XMP = 0x0C4A;
+
+            /// <summary>
+            /// EPP Identifier String ("NVm")
+            /// </summary>
+            public static int EPP    = 0x4E566D;
         }
     }
 }
