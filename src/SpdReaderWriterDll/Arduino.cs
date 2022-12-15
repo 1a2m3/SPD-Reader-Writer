@@ -18,7 +18,6 @@ using System.IO.Ports;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using UInt8 = System.Byte;
 
 namespace SpdReaderWriterDll {
 
@@ -51,7 +50,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress) {
+        public Arduino(SerialPortSettings portSettings, string portName, byte i2cAddress) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -64,7 +63,7 @@ namespace SpdReaderWriterDll {
         /// <param name="portName">Serial port name</param>
         /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
         /// <param name="dataLength">Total EEPROM size</param>
-        public Arduino(SerialPortSettings portSettings, string portName, UInt8 i2cAddress, Spd.DataLength dataLength) {
+        public Arduino(SerialPortSettings portSettings, string portName, byte i2cAddress, Spd.DataLength dataLength) {
             PortSettings = portSettings;
             PortName     = portName;
             I2CAddress   = i2cAddress;
@@ -319,7 +318,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// I2C addresses available
         /// </summary>
-        public UInt8[] Addresses {
+        public byte[] Addresses {
             get => _addresses ?? (_addresses = Scan());
             set => _addresses = value;
         }
@@ -328,8 +327,8 @@ namespace SpdReaderWriterDll {
         /// Scans the device for I2C bus devices
         /// </summary>
         /// <returns>An array of addresses on the device's I2C bus</returns>
-        public UInt8[] Scan() {
-            Queue<UInt8> addresses = new Queue<UInt8>();
+        public byte[] Scan() {
+            Queue<byte> addresses = new Queue<byte>();
 
             lock (_portLock) {
                 try {
@@ -340,7 +339,7 @@ namespace SpdReaderWriterDll {
                             return new byte[0];
                         }
 
-                        for (UInt8 i = 0; i <= 7; i++) {
+                        for (byte i = 0; i <= 7; i++) {
                             if (Data.GetBit(response, i)) {
                                 addresses.Enqueue((byte)(80 + i));
                             }
@@ -360,7 +359,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="bitmask">Enable bitmask response</param>
         /// <returns>A bitmask representing available addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
-        public UInt8 Scan(bool bitmask) {
+        public byte Scan(bool bitmask) {
             if (bitmask) {
                 lock (_portLock) {
                     try {
@@ -414,7 +413,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets current device I2C clock
         /// </summary>
-        public UInt16 I2CClock => (UInt16)(GetI2CClock() ? 400 : 100);
+        public ushort I2CClock => (ushort)(GetI2CClock() ? 400 : 100);
 
         /// <summary>
         /// Resets the device's settings to defaults
@@ -580,7 +579,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">EEPROM address</param>
         /// <returns><see langword="true"/> if EEPROM is detected at the specified <see cref="I2CAddress"/></returns>
-        public bool ProbeAddress(UInt8 address) {
+        public bool ProbeAddress(byte address) {
             lock (_portLock) {
                 try {
                     return IsConnected &&
@@ -684,7 +683,7 @@ namespace SpdReaderWriterDll {
             lock (_portLock) {
                 try {
                     if (IsConnected) {
-                        version = Int32.Parse(
+                        version = int.Parse(
                             Data.BytesToString(ExecuteCommand(Command.GETVERSION, 8))
                         );
                     }
@@ -712,7 +711,7 @@ namespace SpdReaderWriterDll {
         public bool SetName(string name) {
             
             if (name == null) {
-                throw new ArgumentNullException("Name can't be null");
+                throw new ArgumentNullException(nameof(name));
             }
             if (name == "") {
                 throw new ArgumentException("Name can't be blank");
@@ -833,7 +832,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true"/> if DDR4 is found at <see cref="address"/></returns>
-        public bool DetectDdr4(UInt8 address) {
+        public bool DetectDdr4(byte address) {
             lock (_portLock) {
                 try {
                     return IsConnected &&
@@ -858,7 +857,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">I2C address</param>
         /// <returns><see langword="true"/> if DDR5 is found at <see cref="address"/></returns>
-        public bool DetectDdr5(UInt8 address) {
+        public bool DetectDdr5(byte address) {
             lock (_portLock) {
                 try {
                     return IsConnected &&
@@ -1145,7 +1144,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// I2C addresses available
         /// </summary>
-        private static UInt8[] _addresses;
+        private static byte[] _addresses;
 
         /// <summary>
         /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
@@ -1155,7 +1154,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private static readonly object _portLock = new object();
+        private readonly object _portLock = new object();
 
         /// <summary>
         /// FindLock object used to prevent other threads from acquiring the lock 
@@ -1406,22 +1405,22 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// A notification received header
             /// </summary>
-            public const char ALERT = '@';
+            public const char ALERT     = '@';
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has increased
             /// </summary>
-            public const char SLAVEINC = '+';
+            public const char SLAVEINC  = '+';
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
             /// </summary>
-            public const char SLAVEDEC = '-';
+            public const char SLAVEDEC  = '-';
 
             /// <summary>
             /// Notification of I2C clock frequency increase
             /// </summary>
-            public const char CLOCKINC = '/';
+            public const char CLOCKINC  = '/';
 
             /// <summary>
             /// Notification of I2C clock frequency decrease
