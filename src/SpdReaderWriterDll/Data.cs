@@ -70,7 +70,7 @@ namespace SpdReaderWriterDll {
         public static byte GetParity(object input, Parity parityType) {
 
             int bitCount = Marshal.SizeOf(input) * 8;
-            UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
+            ulong value  = Convert.ToUInt64(input) & (ulong)(Math.Pow(2, bitCount) - 1);
 
             byte result = 0;
 
@@ -98,7 +98,7 @@ namespace SpdReaderWriterDll {
         public static bool GetBit(object input, byte position) {
 
             int bitCount = Marshal.SizeOf(input) * 8;
-            UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
+            ulong value  = Convert.ToUInt64(input) & (ulong)(Math.Pow(2, bitCount) - 1);
 
             return ((value >> position) & 1) == 1;
         }
