@@ -50,12 +50,12 @@ namespace SpdReaderWriterDll.Driver {
         /// <summary>
         /// Describes driver handle open state
         /// </summary>
-        public bool IsHandleOpen => _deviceHandle != null && !_deviceHandle.IsClosed;
+        private bool IsHandleOpen => _deviceHandle != null && !_deviceHandle.IsClosed;
 
         /// <summary>
         /// Describes driver handle valid state
         /// </summary>
-        public bool IsValid => IsInstalled && _deviceHandle != null && !_deviceHandle.IsInvalid;
+        private bool IsValid => IsInstalled && _deviceHandle != null && !_deviceHandle.IsInvalid;
 
         /// <summary>
         /// Describes driver ready state
@@ -291,7 +291,7 @@ namespace SpdReaderWriterDll.Driver {
         private static bool CheckDriver() {
 
             try {
-                return _sc.ServiceType == ServiceType.KernelDriver;
+                return _sc.ServiceType == ServiceType.KernelDriver && _sc?.DisplayName == Name;
             }
             catch {
                 return false;
@@ -1111,7 +1111,7 @@ namespace SpdReaderWriterDll.Driver {
         /// <summary>
         /// Service operation timeout
         /// </summary>
-        private static readonly Int32 _timeout = 1000;
+        private static readonly int _timeout = 1000;
 
         /// <summary>
         /// IO device handle

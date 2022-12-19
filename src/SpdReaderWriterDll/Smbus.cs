@@ -174,6 +174,8 @@ namespace SpdReaderWriterDll {
             ATI    = 0x1002, // Former ATI vendor ID which is now owned by AMD, who has 2 vendor IDs
             Intel  = 0x8086,
             Nvidia = 0x10DE,
+            SiS    = 0x1039,
+            VIA    = 0x1106,
         }
 
         /// <summary>
@@ -541,7 +543,7 @@ namespace SpdReaderWriterDll {
         private void Initialize() {
 
             if (!Driver.IsReady) {
-                throw new Exception($"{nameof(WinRing0)} initialization failure.");
+                throw new Exception($"{nameof(Driver)} initialization failure.");
             }
 
             Info = GetDeviceInfo();
