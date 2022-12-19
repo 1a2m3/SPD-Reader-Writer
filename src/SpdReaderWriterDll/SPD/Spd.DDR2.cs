@@ -253,17 +253,18 @@ namespace SpdReaderWriterDll {
 
                     float normal = 15.625F;
 
+                    // Normal
                     if (RefreshPeriod == 0x80) {
                         return normal;
                     }
 
+                    // Reduced
                     if (0x81 <= RefreshPeriod && RefreshPeriod <= 0x82) {
-                        // Reduced
                         return normal * 0.25F * (RefreshPeriod - 0x80);
                     }
 
+                    // Extended
                     if (0x83 <= RefreshPeriod && RefreshPeriod <= 0x85) {
-                        // Extended
                         return normal * (1 << RefreshPeriod - 0x81);
                     }
 
@@ -540,8 +541,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Calculated die density in bits
             /// </summary>
-            public UInt64 DieDensity {
-                get => (UInt64)(
+            public ulong DieDensity {
+                get => (ulong)(
                     (1L << Addressing.Rows) *
                     (1L << Addressing.Columns) *
                     DeviceBanks *
@@ -551,8 +552,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The total memory capacity of the DRAM on the module in bytes
             /// </summary>
-            public UInt64 TotalModuleCapacity {
-                get => (UInt64)(
+            public ulong TotalModuleCapacity {
+                get => (ulong)(
                     (1L << Addressing.Rows) *
                     (1L << Addressing.Columns) *
                     DeviceBanks *
@@ -899,6 +900,11 @@ namespace SpdReaderWriterDll {
                     return crc;
                 }
             }
+
+            /// <summary>
+            /// CRC validation status
+            /// </summary>
+            bool ISpd.CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum

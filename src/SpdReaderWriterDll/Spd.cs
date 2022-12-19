@@ -144,42 +144,32 @@ namespace SpdReaderWriterDll {
         public static ushort GetManufacturerId(byte[] input) {
             ushort manufacturerId = 0;
 
+            ISpd spd = null;
+
             switch (GetRamType(input)) {
                 case RamType.DDR5:
-                    manufacturerId = (ushort)((ushort)(input[0x200] << 8 | input[0x201]) & 0x7FFF);
+                    spd = new DDR5(input);
                     break;
                 case RamType.DDR4:
-                    manufacturerId = (ushort)((input[0x140] << 8 | input[0x141]) & 0x7FFF);
+                    spd = new DDR4(input);
                     break;
                 case RamType.DDR3:
                 case RamType.DDR2_FB_DIMM:
-                    manufacturerId = (ushort)((input[0x75] << 8 | input[0x76]) & 0x7FFF);
+                    spd = new DDR3(input);
                     break;
-
-                // Vendor ID location for DDR2 and older RAM SPDs
-                default:
-                    int vendorIdOffsetStart = 0x40;
-                    int vendorIdOffsetEnd   = 0x47;
-
-                    const byte continuationCode = 0x7F;
-
-                    byte[] manufacturerIdArray = new byte[vendorIdOffsetEnd - vendorIdOffsetStart];
-
-                    for (byte i = 0; i < manufacturerIdArray.Length; i++) {
-                        manufacturerIdArray[i] = input[vendorIdOffsetStart + i];
-
-                        if (manufacturerIdArray[i] == continuationCode) {
-                            // Set manufacturer's code LSB
-                            manufacturerId = (ushort)((i + 1) << 8);
-                        }
-                        else {
-                            // Set manufacturer's code MSB
-                            manufacturerId |= manufacturerIdArray[i];
-                            break;
-                        }
-                    }
-
+                case RamType.DDR2:
+                    spd = new DDR2(input);
                     break;
+                case RamType.DDR:
+                    spd = new DDR(input);
+                    break;
+                case RamType.SDRAM:
+                    spd = new SDRAM(input);
+                    break;
+            }
+
+            if (spd != null) {
+                manufacturerId = (ushort)(spd.ManufacturerIdCode.ContinuationCode | spd.ManufacturerIdCode.ManufacturerCode << 8);
             }
 
             return manufacturerId;
@@ -388,7 +378,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Data Size prefixes
         /// </summary>
-        public enum CapacityPrefix : UInt64 {
+        public enum CapacityPrefix : ulong {
             [Description("kilo")]
             K = 1024,
             [Description("mega")]

@@ -283,38 +283,40 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ulong DieDensity {
                 get => (ulong)((1L << Addressing.Rows) *
-                                (1L << Addressing.Columns) *
-                                DensityBanks.BankAddress *
-                                DensityBanks.BankGroup *
-                                ModuleOrganization.DeviceWidth);
+                               (1L << Addressing.Columns) *
+                               DensityBanks.BankAddress *
+                               DensityBanks.BankGroup *
+                               ModuleOrganization.DeviceWidth);
             }
 
             /// <summary>
             /// The total calculated memory capacity of the DRAM on the module in bytes
             /// </summary>
             public ulong TotalModuleCapacity {
-                get => (ulong)((1L << Addressing.Rows) * 
-                                (1L << Addressing.Columns) * 
-                                DensityBanks.BankAddress * 
-                                DensityBanks.BankGroup * 
-                                (PrimaryPackageType.SignalLoading == SignalLoadingData.Single_Load_Stack
-                                    ? PrimaryPackageType.DieCount 
-                                    : 1) * 
-                                BusWidth.PrimaryBusWidth * 
-                                ModuleOrganization.PackageRankCount / 8);
+                get => (ulong)(
+                    (1L << Addressing.Rows) * 
+                    (1L << Addressing.Columns) * 
+                    DensityBanks.BankAddress * 
+                    DensityBanks.BankGroup * 
+                    (PrimaryPackageType.SignalLoading == SignalLoadingData.Single_Load_Stack
+                        ? PrimaryPackageType.DieCount 
+                        : 1) * 
+                    BusWidth.PrimaryBusWidth * 
+                    ModuleOrganization.PackageRankCount / 8);
             }
 
             /// <summary>
             /// The total programmed memory capacity of the DRAM on the module in bytes
             /// </summary>
             public ulong TotalModuleCapacityProgrammed {
-                get => (ulong)(DensityBanks.TotalCapacityPerDie / 8 * 
-                                BusWidth.PrimaryBusWidth / ModuleOrganization.DeviceWidth * 
-                                ModuleOrganization.PackageRankCount * 
-                                (PrimaryPackageType.SignalLoading == SignalLoadingData.Single_Load_Stack
-                                    ? PrimaryPackageType.DieCount
-                                    : 1) // PrimaryPackageType.DieCount is 1, when SignalLoading is Monolithic
-                                * 1024L * 1024L); 
+                get => (ulong)(
+                    DensityBanks.TotalCapacityPerDie / 8 * 
+                    BusWidth.PrimaryBusWidth / ModuleOrganization.DeviceWidth * 
+                    ModuleOrganization.PackageRankCount * 
+                    (PrimaryPackageType.SignalLoading == SignalLoadingData.Single_Load_Stack
+                        ? PrimaryPackageType.DieCount
+                        : 1) // PrimaryPackageType.DieCount is 1, when SignalLoading is Monolithic
+                    * 1024L * 1024L); 
             }
 
             /// <summary>
@@ -416,7 +418,7 @@ namespace SpdReaderWriterDll {
             public CasLatenciesData tCL {
                 get => new CasLatenciesData {
                     HighRange = Data.GetBit(RawData[23], 7),
-                    Bitmask   = (UInt32)(RawData[20] | RawData[21] << 8 | RawData[22] << 16 | RawData[23] << 24),
+                    Bitmask   = (uint)(RawData[20] | RawData[21] << 8 | RawData[22] << 16 | RawData[23] << 24),
                 };
             }
 
@@ -424,7 +426,7 @@ namespace SpdReaderWriterDll {
             /// CAS Latencies Supported data
             /// </summary>
             public struct CasLatenciesData {
-                public UInt32 Bitmask;
+                public uint Bitmask;
                 public bool HighRange;
 
                 /// <summary>
@@ -628,13 +630,28 @@ namespace SpdReaderWriterDll {
 
                         Array.Copy(
                             sourceArray      : RawData,
-                            sourceIndex      : i * sectionLength,
+                            sourceIndex      : sectionLength * i,
                             destinationArray : crc[i].Contents,
                             destinationIndex : 0,
                             length           : sectionLength);
                     }
 
                     return crc;
+                }
+            }
+
+            /// <summary>
+            /// CRC validation status
+            /// </summary>
+            bool ISpd.CrcStatus {
+                get {
+                    foreach (Crc16Data crc16Data in Crc) {
+                        if (!crc16Data.Validate()) {
+                            return false;
+                        }
+                    }
+
+                    return true;
                 }
             }
 
@@ -651,7 +668,7 @@ namespace SpdReaderWriterDll {
                         sourceArray      : Crc[i].Fix(),
                         sourceIndex      : 0,
                         destinationArray : RawData,
-                        destinationIndex : i * Crc[i].Contents.Length,
+                        destinationIndex : Crc[i].Contents.Length * i,
                         length           : Crc[i].Contents.Length);
                 }
 

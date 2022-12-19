@@ -190,17 +190,18 @@ namespace SpdReaderWriterDll {
 
                     float normal = 15.625F;
 
+                    // Normal
                     if ((RefreshPeriod & 0x7F) == 0x00) {
                         return normal;
                     }
 
+                    // Reduced
                     if (0x01 <= (RefreshPeriod & 0x7F) && (RefreshPeriod & 0x7F) <= 0x02) {
-                        // Reduced
                         return normal * 0.25F * (RefreshPeriod & 0x7F);
                     }
 
+                    // Extended
                     if (0x03 <= (RefreshPeriod & 0x7F) && (RefreshPeriod & 0x7F) <= 0x05) {
-                        // Extended
                         return (float)(normal * Math.Pow(2, (RefreshPeriod & 0x7F) - 1));
                     }
 
@@ -504,14 +505,14 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// BYTE 31 - Density of Each Row on Module
             /// </summary>
-            public UInt32 RowDensity {
+            public uint RowDensity {
                 get {
                     for (byte i = 7; i != 0; i--) {
                         if (Data.GetBit(RawData[31], i)) {
-                            return (UInt32)(4 << i);
+                            return (uint)(4 << i);
                         }
                     }
-                    return (UInt32)(RawData[31] * 4);
+                    return (uint)(RawData[31] * 4);
                 }
             }
 
@@ -582,6 +583,11 @@ namespace SpdReaderWriterDll {
                     return crc;
                 }
             }
+
+            /// <summary>
+            /// CRC validation status
+            /// </summary>
+            bool ISpd.CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum

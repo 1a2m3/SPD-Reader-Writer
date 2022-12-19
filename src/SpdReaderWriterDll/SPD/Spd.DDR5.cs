@@ -11,9 +11,6 @@
 
 using System;
 using System.ComponentModel;
-using UInt8 = System.Byte;
-using Int8 = System.SByte;
-
 
 namespace SpdReaderWriterDll {
     public partial class Spd {
@@ -32,7 +29,7 @@ namespace SpdReaderWriterDll {
             }
 
             public override string ToString() =>
-                $"{GetManufacturerName((UInt16)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0 (0x000): Number of Bytes in SPD Device
@@ -299,7 +296,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public Crc16Data[] Crc {
                 get {
-                    // Base Configuration, DRAM Parameters, and Module Parameters
+                    // Base Configuration, DRAM and Module Parameters
                     int sectionCount    =  1;
 
                     // Add 1 XMP header and 5 XMP profiles, if present
@@ -311,15 +308,13 @@ namespace SpdReaderWriterDll {
 
                     Crc16Data[] crc = new Crc16Data[sectionCount];
 
-                    // Main checksum
+                    // Base checksum
 
                     crc[0].Contents = new byte[sectionLength];
 
                     Array.Copy(
                         sourceArray      : RawData,
-                        sourceIndex      : 0 * sectionLength,
                         destinationArray : crc[0].Contents,
-                        destinationIndex : 0,
                         length           : sectionLength);
 
                     // XMP checksums
@@ -343,6 +338,22 @@ namespace SpdReaderWriterDll {
             }
 
             /// <summary>
+            /// CRC validation status
+            /// </summary>
+            bool ISpd.CrcStatus {
+                get {
+
+                    foreach (Crc16Data crc16Data in Crc) {
+                        if (!crc16Data.Validate()) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+
+            /// <summary>
             /// Fixes CRC checksums
             /// </summary>
             /// <returns><see langword="true"/> if checksum(s) has been fixed</returns>
@@ -353,9 +364,7 @@ namespace SpdReaderWriterDll {
                 if (sectionCount > 0) {
                     Array.Copy(
                         sourceArray      : Crc[0].Fix(),
-                        sourceIndex      : 0,
                         destinationArray : RawData,
-                        destinationIndex : 0,
                         length           : Crc[0].Contents.Length);
                 }
 
