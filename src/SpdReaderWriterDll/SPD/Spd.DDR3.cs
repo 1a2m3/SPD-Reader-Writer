@@ -12,8 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using UInt8 = System.Byte;
-using Int8 = System.SByte;
 
 namespace SpdReaderWriterDll {
     public partial class Spd {
@@ -31,14 +29,14 @@ namespace SpdReaderWriterDll {
                 RawData = input;
             }
 
-            public override string ToString() => $"{GetManufacturerName((UInt16)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+            public override string ToString() => $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0: Number of Bytes Used / Number of Bytes in SPD Device / CRC Coverage
             /// </summary>
             public BytesData Bytes {
                 get {
-                    UInt16 usedBytes;
+                    ushort usedBytes;
 
                     switch (Data.SubByte(RawData[0], 3, 4)) {
                         case 1:
@@ -56,7 +54,7 @@ namespace SpdReaderWriterDll {
                     }
                     return new BytesData {
                         Used = usedBytes,
-                        Total = (UInt16)(Data.SubByte(RawData[0], 6, 3) == 1 ? 256 : 0),
+                        Total = (ushort)(Data.SubByte(RawData[0], 6, 3) == 1 ? 256 : 0),
                     };
                 }
             }
@@ -159,8 +157,8 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public DensityBanksData DensityBanks {
                 get => new DensityBanksData {
-                    BankAddress         = (UInt8)Math.Pow(2, (Data.SubByte(RawData[4], 6, 3) + 3)),
-                    TotalCapacityPerDie = (UInt16)(1 << (Data.SubByte(RawData[4], 3, 4)) + 8),
+                    BankAddress         = (byte)Math.Pow(2, (Data.SubByte(RawData[4], 6, 3) + 3)),
+                    TotalCapacityPerDie = (ushort)(1 << (Data.SubByte(RawData[4], 3, 4)) + 8),
                 };
             }
 
@@ -175,7 +173,7 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Total SDRAM capacity per die, in megabits
                 /// </summary>
-                public UInt16 TotalCapacityPerDie;
+                public ushort TotalCapacityPerDie;
             }
 
             /// <summary>
@@ -183,8 +181,8 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public AddressingData Addressing {
                 get => new AddressingData {
-                    Rows    = (UInt8)(Data.SubByte(RawData[5], 5, 3) + 12),
-                    Columns = (UInt8)(Data.SubByte(RawData[5], 2, 3) + 9),
+                    Rows    = (byte)(Data.SubByte(RawData[5], 5, 3) + 12),
+                    Columns = (byte)(Data.SubByte(RawData[5], 2, 3) + 9),
                 };
             }
 
@@ -198,7 +196,7 @@ namespace SpdReaderWriterDll {
 
                     for (int i = 0; i < operability.Length; i++) {
                         operability[i].Voltage = voltages[i];
-                        operability[i].Operable = (i == 0) ? !Data.GetBit(RawData[6], (UInt8)i) : Data.GetBit(RawData[6], (UInt8)i);
+                        operability[i].Operable = (i == 0) ? !Data.GetBit(RawData[6], (byte)i) : Data.GetBit(RawData[6], (byte)i);
                     }
 
                     return operability;
@@ -220,8 +218,8 @@ namespace SpdReaderWriterDll {
                 get {
                     byte rankData = Data.SubByte(RawData[7], 5, 3);
                     return new ModuleOrganizationData {
-                        PackageRankCount = (UInt8)(rankData == 4 ? 8 : rankData + 1),
-                        DeviceWidth      = (UInt8)(4 << Data.SubByte(RawData[7], 2, 3))
+                        PackageRankCount = (byte)(rankData == 4 ? 8 : rankData + 1),
+                        DeviceWidth      = (byte)(4 << Data.SubByte(RawData[7], 2, 3))
                     };
                 }
             }
@@ -230,8 +228,8 @@ namespace SpdReaderWriterDll {
             /// Describes the organization of the SDRAM module.
             /// </summary>
             public struct ModuleOrganizationData {
-                public UInt8 PackageRankCount;
-                public UInt8 DeviceWidth;
+                public byte PackageRankCount;
+                public byte DeviceWidth;
             }
 
             /// <summary>
@@ -240,15 +238,15 @@ namespace SpdReaderWriterDll {
             public BusWidthData BusWidth {
                 get => new BusWidthData {
                     Extension       = Data.GetBit(RawData[8], 7),
-                    PrimaryBusWidth = (UInt8)(1 << Data.SubByte(RawData[8], 2, 3) + 3),
+                    PrimaryBusWidth = (byte)(1 << Data.SubByte(RawData[8], 2, 3) + 3),
                 };
             }
 
             /// <summary>
             /// Calculated die density in bits
             /// </summary>
-            public UInt64 DieDensity {
-                get => (UInt64)(
+            public ulong DieDensity {
+                get => (ulong)(
                     (1L << Addressing.Rows) *
                     (1L << Addressing.Columns) *
                     DensityBanks.BankAddress *
@@ -258,8 +256,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total memory capacity of the module calculated from SPD values in bytes
             /// </summary>
-            public UInt64 TotalModuleCapacity {
-                get => (UInt64)(
+            public ulong TotalModuleCapacity {
+                get => (ulong)(
                     (1L << Addressing.Rows) *
                     (1L << Addressing.Columns) *
                     DensityBanks.BankAddress *
@@ -270,9 +268,9 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total memory capacity based on programmed density
             /// </summary>
-            public UInt64 TotalModuleCapacityProgrammed {
+            public ulong TotalModuleCapacityProgrammed {
                 get =>
-                    (UInt64)(DensityBanks.TotalCapacityPerDie / 8 * 
+                    (ulong)(DensityBanks.TotalCapacityPerDie / 8 * 
                              BusWidth.PrimaryBusWidth / ModuleOrganization.DeviceWidth * 
                              ModuleOrganization.PackageRankCount) * 1024L * 1024L;
             }
@@ -322,7 +320,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public struct Timing {
                 public int Medium;
-                public Int8 Fine;
+                public sbyte Fine;
 
                 /// <summary>
                 /// Allows Timing values to be divided by each other to get clock cycles
@@ -367,7 +365,7 @@ namespace SpdReaderWriterDll {
             public Timing tCKmin {
                 get => new Timing {
                     Medium = RawData[12],
-                    Fine   = (Int8)RawData[34]
+                    Fine   = (sbyte)RawData[34]
                 };
             }
 
@@ -376,7 +374,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public CasLatenciesData tCL {
                 get => new CasLatenciesData {
-                    Bitmask = (UInt16)(RawData[14] | RawData[15] << 8),
+                    Bitmask = (ushort)(RawData[14] | RawData[15] << 8),
                 };
             }
 
@@ -384,11 +382,11 @@ namespace SpdReaderWriterDll {
             /// Define which CAS Latency (CL) values are supported
             /// </summary>
             public struct CasLatenciesData {
-                public UInt16 Bitmask;
+                public ushort Bitmask;
 
                 public int[] ToArray() {
                     Queue<int> latencies = new Queue<int>();
-                    for (UInt8 i = 0; i < 16; i++) {
+                    for (byte i = 0; i < 16; i++) {
                         if (Data.GetBit(Bitmask, i)) {
                             latencies.Enqueue(i + 4);
                         }
@@ -400,7 +398,7 @@ namespace SpdReaderWriterDll {
                 public override string ToString() {
 
                     string latenciesString = "";
-                    foreach (UInt8 latency in this.ToArray()) {
+                    foreach (byte latency in this.ToArray()) {
                         latenciesString += $"{latency},";
                     }
 
@@ -417,7 +415,7 @@ namespace SpdReaderWriterDll {
             public Timing tAAmin {
                 get => new Timing {
                     Medium = RawData[16],
-                    Fine   = (Int8)RawData[35]
+                    Fine   = (sbyte)RawData[35]
                 };
             }
 
@@ -436,7 +434,7 @@ namespace SpdReaderWriterDll {
             public Timing tRCDmin {
                 get => new Timing {
                     Medium = RawData[18],
-                    Fine   = (Int8)RawData[36]
+                    Fine   = (sbyte)RawData[36]
                 };
             }
 
@@ -455,7 +453,7 @@ namespace SpdReaderWriterDll {
             public Timing tRPmin {
                 get => new Timing {
                     Medium = RawData[20],
-                    Fine   = (Int8)RawData[37]
+                    Fine   = (sbyte)RawData[37]
                 };
             }
 
@@ -464,7 +462,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public Timing tRASmin {
                 get => new Timing {
-                    Medium = (Int16)(RawData[22] | Data.SubByte(RawData[21], 3, 4) << 8),
+                    Medium = (short)(RawData[22] | Data.SubByte(RawData[21], 3, 4) << 8),
                 };
             }
 
@@ -473,7 +471,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public Timing tRCmin {
                 get => new Timing {
-                    Medium = (Int16)(RawData[23] | Data.SubByte(RawData[21], 7, 4) << 8),
+                    Medium = (short)(RawData[23] | Data.SubByte(RawData[21], 7, 4) << 8),
                 };
             }
 
@@ -483,7 +481,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public Timing tRFCmin {
                 get => new Timing {
-                    Medium = (Int16)(RawData[24] | RawData[25] << 8),
+                    Medium = (short)(RawData[24] | RawData[25] << 8),
                 };
             }
 
@@ -501,7 +499,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public Timing tFAWmin {
                 get => new Timing {
-                    Medium = (Int16)(RawData[29] | Data.SubByte(RawData[28], 3, 4) << 8),
+                    Medium = (short)(RawData[29] | Data.SubByte(RawData[28], 3, 4) << 8),
                 };
             }
 
@@ -511,7 +509,7 @@ namespace SpdReaderWriterDll {
             public PrimaryPackageTypeData SDRAMDeviceType {
                 get => new PrimaryPackageTypeData {
                     Monolithic    = !Data.GetBit(RawData[33], 7),
-                    DieCount      = (UInt8)((Data.SubByte(RawData[33], 6, 3) * 1) << (Data.SubByte(RawData[33], 6, 3) - 1)),
+                    DieCount      = (byte)((Data.SubByte(RawData[33], 6, 3) * 1) << (Data.SubByte(RawData[33], 6, 3) - 1)),
                     SignalLoading = (SignalLoadingData)(Data.SubByte(RawData[33], 1, 2)),
                 };
             }
@@ -521,7 +519,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public MaximumActivateFeaturesData SDRAMMaximumActiveCount {
                 get => new MaximumActivateFeaturesData {
-                    MaximumActivateWindow = (UInt16)(8192 >> Data.SubByte(RawData[41], 5, 2)),
+                    MaximumActivateWindow = (ushort)(8192 >> Data.SubByte(RawData[41], 5, 2)),
                     MaximumActivateCount  = (MaximumActivateCount)Data.SubByte(RawData[41], 3, 4),
                 };
             }
@@ -585,9 +583,7 @@ namespace SpdReaderWriterDll {
 
                     Array.Copy(
                         sourceArray      : RawData,
-                        sourceIndex      : 0,
                         destinationArray : crc.Contents,
-                        destinationIndex : 0,
                         length           : crc.Contents.Length);
 
                     // Get CRC from SPD
@@ -601,6 +597,11 @@ namespace SpdReaderWriterDll {
                     return crc;
                 }
             }
+
+            /// <summary>
+            /// CRC validation status
+            /// </summary>
+            bool ISpd.CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum
@@ -660,7 +661,7 @@ namespace SpdReaderWriterDll {
 
                     return new ReferenceRawCardData {
                         Extension = Data.GetBit(RawData[62], 7),
-                        Revision  = (UInt8)(rev == 0 ? Data.SubByte(RawData[62], 6, 2) : rev),
+                        Revision  = (byte)(rev == 0 ? Data.SubByte(RawData[62], 6, 2) : rev),
                         Name      = cardValue == 0b11111
                             ? ReferenceRawCardName.ZZ
                             : (ReferenceRawCardName)cardValue + (Data.BoolToNum(Data.GetBit(RawData[62], 7)) << 5)
@@ -673,8 +674,8 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ModuleHeightData ModuleHeight {
                 get => new ModuleHeightData {
-                    Minimum = (UInt8)(Data.SubByte(RawData[60], 4, 5) + 14),
-                    Maximum = (UInt8)(Data.SubByte(RawData[60], 4, 5) + 15),
+                    Minimum = (byte)(Data.SubByte(RawData[60], 4, 5) + 14),
+                    Maximum = (byte)(Data.SubByte(RawData[60], 4, 5) + 15),
                     Unit    = HeightUnit.mm
                 };
             }
@@ -686,12 +687,12 @@ namespace SpdReaderWriterDll {
                 get => new ModuleMaximumThicknessSide {
                     Back = new ModuleHeightData {
                         Minimum = Data.SubByte(RawData[61], 7, 4),
-                        Maximum = (UInt8)(Data.SubByte(RawData[61], 7, 4) + 1),
+                        Maximum = (byte)(Data.SubByte(RawData[61], 7, 4) + 1),
                         Unit    = HeightUnit.mm
                     },
                     Front = new ModuleHeightData {
                         Minimum = Data.SubByte(RawData[61], 3, 4),
-                        Maximum = (UInt8)(Data.SubByte(RawData[61], 3, 4) + 1),
+                        Maximum = (byte)(Data.SubByte(RawData[61], 3, 4) + 1),
                         Unit    = HeightUnit.mm
                     }
                 };
@@ -721,7 +722,7 @@ namespace SpdReaderWriterDll {
                 get {
                     Xmp10ProfileData[] xmpProfile = new Xmp10ProfileData[2];
 
-                    for (UInt8 i = 0; i < xmpProfile.Length; i++) {
+                    for (byte i = 0; i < xmpProfile.Length; i++) {
                         xmpProfile[i].Number = i;
                     }
 
@@ -735,12 +736,12 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public struct Xmp10ProfileData {
 
-                private UInt8 _offset => (UInt8)(Number * 35);
+                private byte _offset => (byte)(Number * 35);
 
                 /// <summary>
                 /// XMP profile number
                 /// </summary>
-                public UInt8 Number {
+                public byte Number {
                     get => _number;
                     set {
                         if (value > 1) {
@@ -753,7 +754,7 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Profile number
                 /// </summary>
-                private UInt8 _number;
+                private byte _number;
 
                 /// <summary>
                 /// Byte 178: Intel Extreme Memory Profile
@@ -771,13 +772,13 @@ namespace SpdReaderWriterDll {
                 /// Byte 178: Number of DIMMs per channel Organization
                 /// </summary>
                 public byte ChannelConfig {
-                    get => Data.SubByte(RawData[178], (UInt8)((Number * 2) + 1), 2);
+                    get => Data.SubByte(RawData[178], (byte)((Number * 2) + 1), 2);
                 }
 
                 /// <summary>
                 /// Byte 179: Intel Extreme Memory Profile Revision
                 /// </summary>
-                public UInt8 Version => RawData[179];
+                public byte Version => RawData[179];
 
                 /// <summary>
                 /// Byte 180: Medium Timebase (MTB) Dividend for Profile 1
@@ -806,8 +807,8 @@ namespace SpdReaderWriterDll {
                 /// Describes the Modules Voltage Level
                 /// </summary>
                 public struct VoltageLevelData {
-                    public UInt8 Integer;
-                    public UInt8 Fraction;
+                    public byte Integer;
+                    public byte Fraction;
 
                     public override string ToString() => $"{Integer + Fraction * 0.05F:F2}";
                 }
@@ -818,7 +819,7 @@ namespace SpdReaderWriterDll {
                 public Timing tCKmin {
                     get => new Timing {
                         Medium = RawData[186 + _offset],
-                        Fine   = (Int8)RawData[211 + _offset]
+                        Fine   = (sbyte)RawData[211 + _offset]
                     };
                 }
 
@@ -828,7 +829,7 @@ namespace SpdReaderWriterDll {
                 public Timing tAAmin {
                     get => new Timing {
                         Medium = RawData[187 + _offset],
-                        Fine   = (Int8)RawData[212 + _offset]
+                        Fine   = (sbyte)RawData[212 + _offset]
                     };
                 }
 
@@ -838,7 +839,7 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public CasLatenciesData CasLatencies {
                     get => new CasLatenciesData {
-                        Bitmask = (UInt16)(RawData[188 + _offset] | RawData[189 + _offset] << 8)
+                        Bitmask = (ushort)(RawData[188 + _offset] | RawData[189 + _offset] << 8)
                     };
                 }
 
@@ -848,7 +849,7 @@ namespace SpdReaderWriterDll {
                 public Timing tRPmin {
                     get => new Timing {
                         Medium = RawData[191 + _offset],
-                        Fine   = (Int8)RawData[213 + _offset]
+                        Fine   = (sbyte)RawData[213 + _offset]
                     };
                 }
 
@@ -858,7 +859,7 @@ namespace SpdReaderWriterDll {
                 public Timing tRCDmin {
                     get => new Timing {
                         Medium = RawData[192 + _offset],
-                        Fine   = (Int8)RawData[214 + _offset]
+                        Fine   = (sbyte)RawData[214 + _offset]
                     };
                 }
 
@@ -877,7 +878,7 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public Timing tRASmin {
                     get => new Timing {
-                        Medium = (Int16)(RawData[195 + _offset] | Data.SubByte(RawData[194 + _offset], 3, 4) << 8)
+                        Medium = (short)(RawData[195 + _offset] | Data.SubByte(RawData[194 + _offset], 3, 4) << 8)
                     };
                 }
 
@@ -887,8 +888,8 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public Timing tRCmin {
                     get => new Timing {
-                        Medium = (Int16)(RawData[196 + _offset] | Data.SubByte(RawData[194 + _offset], 7, 4) << 8),
-                        Fine   = (Int8)RawData[215 + _offset]
+                        Medium = (short)(RawData[196 + _offset] | Data.SubByte(RawData[194 + _offset], 7, 4) << 8),
+                        Fine   = (sbyte)RawData[215 + _offset]
                     };
                 }
 
@@ -898,7 +899,7 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public Timing tREFI {
                     get => new Timing {
-                        Medium = (Int16)(RawData[197 + _offset] | RawData[198 + _offset] << 8)
+                        Medium = (short)(RawData[197 + _offset] | RawData[198 + _offset] << 8)
                     };
                 }
 
@@ -908,7 +909,7 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public Timing tRFCmin {
                     get => new Timing {
-                        Medium = (Int16)(RawData[199 + _offset] | RawData[200 + _offset] << 8)
+                        Medium = (short)(RawData[199 + _offset] | RawData[200 + _offset] << 8)
                     };
                 }
 
@@ -936,7 +937,7 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public Timing tFAWmin {
                     get => new Timing {
-                        Medium = (Int16)(RawData[204 + _offset] | RawData[203 + _offset] << 8)
+                        Medium = (short)(RawData[204 + _offset] | RawData[203 + _offset] << 8)
                     };
                 }
 
