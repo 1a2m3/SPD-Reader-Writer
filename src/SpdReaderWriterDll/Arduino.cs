@@ -951,10 +951,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Indicates whether or not a response is expected after <see cref="ExecuteCommand(byte)"/>
         /// </summary>
-        public static bool ResponseExpected {
-            get => _responseExpected;
-            private set => _responseExpected = value;
-        }
+        public static bool ResponseExpected { get; private set; }
 
         /// <summary>
         /// Byte stack containing data received from Serial Port
@@ -964,13 +961,10 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Indicates whether data reception is complete
         /// </summary>
-        public static bool DataReceiving {
-            get => _dataReceiving;
-            private set => _dataReceiving = value;
-        }
-        
+        public static bool DataReceiving { get; private set; }
+
         /// <summary>
-        /// Raises alert flag
+        /// Raises an alert
         /// </summary>
         private void RaiseAlert(ArduinoEventArgs e) {
             OnAlertReceived(e);
@@ -1005,16 +999,13 @@ namespace SpdReaderWriterDll {
             _bytesReceived += receiver.BytesToRead;
 
             if (!ResponseExpected) {
-                if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == Alert.ALERT) {
+                if (receiver.BytesToRead >= 2 && (byte)receiver.ReadByte() == (byte)Alert.ALERT) {
 
-                    byte notification = (byte)receiver.ReadByte();
+                    byte notificationReceived = (byte)receiver.ReadByte();
 
-                    if (notification == Alert.SLAVEINC || notification == Alert.SLAVEDEC 
-                                                       || 
-                        notification == Alert.CLOCKINC || notification == Alert.CLOCKDDEC) {
-
+                    if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
                         RaiseAlert(new ArduinoEventArgs {
-                            Notification = notification
+                            Notification = (Alert)notificationReceived
                         });
                     }
                 }
@@ -1160,16 +1151,6 @@ namespace SpdReaderWriterDll {
         /// FindLock object used to prevent other threads from acquiring the lock 
         /// </summary>
         private readonly object _findLock = new object();
-
-        /// <summary>
-        /// Indicates whether data reception is complete
-        /// </summary>
-        private static bool _dataReceiving;
-
-        /// <summary>
-        /// Indicates whether or not a response is expected after <see cref="ExecuteCommand(byte)"/>
-        /// </summary>
-        private static bool _responseExpected;
 
         /// <summary>
         /// Device commands
@@ -1400,32 +1381,42 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Alerts received from Arduino
         /// </summary>
-        public struct Alert {
+        public enum Alert {
 
             /// <summary>
             /// A notification received header
             /// </summary>
-            public const char ALERT     = '@';
+            ALERT     = '@',
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has increased
             /// </summary>
-            public const char SLAVEINC  = '+';
+            SLAVEINC  = '+',
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
             /// </summary>
-            public const char SLAVEDEC  = '-';
+            SLAVEDEC  = '-',
 
             /// <summary>
             /// Notification of I2C clock frequency increase
             /// </summary>
-            public const char CLOCKINC  = '/';
+            CLOCKINC  = '/',
 
             /// <summary>
             /// Notification of I2C clock frequency decrease
             /// </summary>
-            public const char CLOCKDDEC = '\\';
+            CLOCKDDEC = '\\',
+
+            /// <summary>
+            /// Notification of SPD5 hub entering offline mode (RSWP allowed)
+            /// </summary>
+            OFFLINE   = '(',
+
+            /// <summary>
+            /// Notification of SPD5 hub entering online mode
+            /// </summary>
+            ONLINE    = ')',
         }
 
         /// <summary>
@@ -1436,7 +1427,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Notification event argument
             /// </summary>
-            public byte Notification { get; set; }
+            public Alert Notification { get; set; }
 
             /// <summary>
             /// Provides a value to use with events that do not have event data
