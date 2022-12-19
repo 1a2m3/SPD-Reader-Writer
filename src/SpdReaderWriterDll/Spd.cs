@@ -169,7 +169,7 @@ namespace SpdReaderWriterDll {
             }
 
             if (spd != null) {
-                manufacturerId = (ushort)(spd.ManufacturerIdCode.ContinuationCode | spd.ManufacturerIdCode.ManufacturerCode << 8);
+                manufacturerId = (ushort)(spd.ManufacturerIdCode.ContinuationCode << 8 | spd.ManufacturerIdCode.ManufacturerCode);
             }
 
             return manufacturerId;
@@ -214,52 +214,48 @@ namespace SpdReaderWriterDll {
         /// <returns>Model part number</returns>
         public static string GetModulePartNumberName(byte[] input) {
 
-            int[] modelNameLocation;
+            ISpd spd = null;
 
-            switch (GetRamType(input)) {
+            RamType rt = GetRamType(input);
 
-                // Part number location for DDR5 SPDs
+            switch (rt) {
                 case RamType.DDR5:
-                    modelNameLocation = new[] { 0x209, 0x226 };
+                    spd = new DDR5(input);
                     break;
-
-                // Part number location for DDR4 SPDs
                 case RamType.DDR4:
-                    modelNameLocation = new[] { 0x149, 0x15C };
+                    spd = new DDR4(input);
                     break;
-
-                // Part number location for DDR3 SPDs
                 case RamType.DDR3:
                 case RamType.DDR2_FB_DIMM:
-                    modelNameLocation = new[] { 0x80, 0x91 };
+                    spd = new DDR3(input);
                     break;
-
-                // Part number for Kingston DDR2 and DDR SPDs
-                case RamType.DDR2 when GetManufacturerId(input) == 0x0198:
-                case RamType.DDR  when GetManufacturerId(input) == 0x0198:
-                    modelNameLocation = new[] { 0xF0, 0xFF };
+                case RamType.DDR2:
+                    spd = new DDR2(input);
                     break;
-
-                // Part number location for DDR2 and older RAM SPDs
-                default:
-                    modelNameLocation = new[] { 0x49, 0x5A };
+                case RamType.DDR:
+                    spd = new DDR(input);
+                    break;
+                case RamType.SDRAM:
+                    spd = new SDRAM(input);
                     break;
             }
 
-            if (input.Length < modelNameLocation[1]) {
-                throw new InvalidDataException("Incomplete SPD Data");
+            // Part number for Kingston DDR2 and DDR SPDs
+            if ((rt == RamType.DDR2 || rt == RamType.DDR) && GetManufacturerId(input) == 0x0198) {
+
+                char[] chars = new char[16];
+
+                Array.Copy(
+                    sourceArray      : input,
+                    sourceIndex      : input.Length - chars.Length,
+                    destinationArray : chars,
+                    destinationIndex : 0,
+                    length           : chars.Length);
+
+                return Data.BytesToString(chars);
             }
 
-            char[] chars = new char[modelNameLocation[1] - modelNameLocation[0] + 1];
-
-            Array.Copy(
-                sourceArray      : input,
-                sourceIndex      : modelNameLocation[0],
-                destinationArray : chars,
-                destinationIndex : 0,
-                length           : chars.Length);
-
-            return Data.BytesToString(chars);
+            return spd != null ? spd.PartNumber : string.Empty;
         }
 
         /// <summary>
