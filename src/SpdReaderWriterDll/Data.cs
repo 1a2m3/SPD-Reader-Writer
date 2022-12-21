@@ -15,6 +15,7 @@ using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace SpdReaderWriterDll {
 
@@ -251,28 +252,36 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Allows to extract compressed contents header
+        /// </summary>
+        /// <param name="input">GZip contents byte array</param>
+        /// <param name="outputSize">Number of bytes to read</param>
+        /// <returns>Decompressed header byte array</returns>
+        public static byte[] GzipPeek(byte[] input, int outputSize) {
+            return DecompressGzip(input, outputSize, true);
+        }
+
+        /// <summary>
         /// Compresses contents to GZip
         /// </summary>
         /// <param name="input">Contents byte array</param>
         /// <returns>Compressed byte array</returns>
         private static byte[] CompressGzip(byte[] input) {
-            
-            using (MemoryStream inputStream = new MemoryStream(input)) {
-                using (MemoryStream outputStream = new MemoryStream()) {
-                    using (GZipStream zipStream = new GZipStream(outputStream, CompressionMode.Compress)) {
 
-                        byte[] buffer = new byte[16384];
-                        int count;
+            using (MemoryStream inputStream = new MemoryStream(input), outputStream = new MemoryStream()) {
+                using (GZipStream zipStream = new GZipStream(outputStream, CompressionMode.Compress)) {
 
-                        do {
-                            count = inputStream.Read(buffer, 0, buffer.Length);
-                            zipStream.Write(buffer, 0, count);
+                    byte[] buffer = new byte[16384];
+                    int count;
 
-                        } while (count > 0);
-                    }
+                    do {
+                        count = inputStream.Read(buffer, 0, buffer.Length);
+                        zipStream.Write(buffer, 0, count);
 
-                    return outputStream.ToArray();
+                    } while (count > 0);
                 }
+
+                return outputStream.ToArray();
             }
         }
 
@@ -282,17 +291,31 @@ namespace SpdReaderWriterDll {
         /// <param name="input">GZip contents byte array</param>
         /// <returns>Decompressed byte array</returns>
         private static byte[] DecompressGzip(byte[] input) {
+            return DecompressGzip(input, 16384, false);
+        }
 
-            using (MemoryStream outputStream = new MemoryStream()) {
-                using (GZipStream zipStream = new GZipStream(new MemoryStream(input), CompressionMode.Decompress)) {
+        /// <summary>
+        /// Decompresses GZip contents
+        /// </summary>
+        /// <param name="input">GZip contents byte array</param>
+        /// <param name="bufferSize">Buffer size</param>
+        /// <param name="peek">When set to <see langword="true"/> to read header only, or <see langword="false"/> to get full data</param>
+        /// <returns>Decompressed byte array</returns>
+        private static byte[] DecompressGzip(byte[] input, int bufferSize, bool peek) {
 
-                    byte[] buffer = new byte[16384];
+            using (MemoryStream outputStream = new MemoryStream(), inputStream = new MemoryStream(input)) {
+                using (GZipStream zipStream = new GZipStream(inputStream, CompressionMode.Decompress)) {
+
+                    byte[] buffer = new byte[bufferSize];
                     int count;
 
                     do {
                         count = zipStream.Read(buffer, 0, buffer.Length);
                         if (count > 0) {
                             outputStream.Write(buffer, 0, count);
+                            if (peek) {
+                                break;
+                            }
                         }
                     } while (count > 0);
                 }
@@ -307,7 +330,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte array</param>
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString(byte[] input) {
-            return System.Text.Encoding.Default.GetString(input).Trim();
+            return Encoding.Default.GetString(input).Trim();
         }
 
         /// <summary>
@@ -317,14 +340,14 @@ namespace SpdReaderWriterDll {
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString(char[] input) {
 
-            string output = "";
+            StringBuilder sbOutput = new StringBuilder();
 
             // Process ASCII printable characters only
             foreach (char c in input) {
-                output += IsAscii(c) ? c.ToString() : "";
+                sbOutput.Append(IsAscii(c) ? c.ToString() : "");
             }
 
-            return output;
+            return sbOutput.ToString();
         }
 
         /// <summary>
@@ -483,6 +506,31 @@ namespace SpdReaderWriterDll {
             return IsEven(input) ? input : input + 1;
         }
 
+        /// <summary>
+        /// Compares two byte arrays
+        /// </summary>
+        /// <param name="a1">First byte array</param>
+        /// <param name="b1">Second byte array</param>
+        /// <returns><see langword="true"/> if both arrays are equal</returns>
+        public static bool CompareByteArray(byte[] a1, byte[] b1) {
+
+            if (a1 == b1) {
+                return true;
+            }
+
+            if (a1?.Length == b1?.Length) {
+                int i = 0;
+                while (i < a1.Length && a1[i] == b1[i]) {
+                    i++;
+                }
+                if (i == a1.Length) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
         /// <summary>
         /// Trims byte array
         /// </summary>
