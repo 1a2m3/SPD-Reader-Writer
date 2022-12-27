@@ -297,39 +297,68 @@ namespace SpdReaderWriterDll {
             public Crc16Data[] Crc {
                 get {
                     // Base Configuration, DRAM and Module Parameters
-                    int sectionCount    =  1;
-
-                    // Add 1 XMP header and 5 XMP profiles, if present
-                    if (XmpPresense) {
-                        sectionCount += 1 + 5;
+                    int sectionCount =  1;
+                    
+                    // Add 1 AMD Expo profile, if present
+                    if (ExpoPresence) {
+                        sectionCount++;
                     }
 
-                    ushort sectionLength = 512;
+                    // Add 1 XMP header and up to 5 XMP profiles, if present
+                    if (XmpPresence) {
+
+                        // XMP header
+                        sectionCount++;
+
+                        // XMP profiles
+                        for (int i = 0; i <= 5; i++) {
+                            if (RawData[i * Xmp30ProfileData.Length + Xmp30ProfileData.Offset] == 0x30) {
+                                sectionCount++;
+                            }
+                        }
+                    }
 
                     Crc16Data[] crc = new Crc16Data[sectionCount];
 
                     // Base checksum
-
-                    crc[0].Contents = new byte[sectionLength];
+                    ushort baseSectionLength = 512;
+                    crc[0].Contents = new byte[baseSectionLength];
 
                     Array.Copy(
                         sourceArray      : RawData,
                         destinationArray : crc[0].Contents,
-                        length           : sectionLength);
-
-                    // XMP checksums
+                        length           : crc[0].Contents.Length);
 
                     if (sectionCount > 1) {
-                        for (byte i = 1; i < sectionCount; i++) {
 
-                            crc[i].Contents = new byte[Xmp30ProfileData.xmpLength];
+                        byte i = 1; // Profile counter
+                        byte j = 1; // Offset counter
+
+                        while (i < sectionCount) {
+
+                            int offset = Xmp30ProfileData.Offset + (j - 1) * Xmp30ProfileData.Length;
+                            j++;
+
+                            // XMP checksum(s)
+                            if (XmpPresence && (RawData[offset] == 0x30 || offset == Xmp30ProfileData.Offset)) {
+                                crc[i].Contents = new byte[Xmp30ProfileData.Length];
+                            }
+                            // Expo checksum
+                            else if (ExpoPresence && offset == ExpoProfileData.Offset) {
+                                crc[i].Contents = new byte[ExpoProfileData.Length];
+                            }
+                            else {
+                                continue;
+                            }
 
                             Array.Copy(
                                 sourceArray      : RawData,
-                                sourceIndex      : Xmp30ProfileData.xmpOffset + (i - 1) * Xmp30ProfileData.xmpLength,
+                                sourceIndex      : offset,
                                 destinationArray : crc[i].Contents,
                                 destinationIndex : 0,
-                                length           : Xmp30ProfileData.xmpLength);
+                                length           : crc[i].Contents.Length);
+
+                            i++;
                         }
                     }
 
@@ -369,13 +398,34 @@ namespace SpdReaderWriterDll {
                 }
 
                 if (sectionCount > 1) {
-                    for (int i = 1; i < sectionCount; i++) {
+
+                    byte i = 1; // Profile counter
+                    byte j = 1; // Offset counter
+
+                    while (i < sectionCount) {
+
+                        int destinationIndex = Xmp30ProfileData.Offset + (j - 1) * Xmp30ProfileData.Length;
+                        j++;
+
+                        if (ExpoPresence && 
+                            Crc[i].Contents.Length == ExpoProfileData.Length && 
+                            Data.MatchArray(Crc[i].Contents, ProfileId.EXPO, 0)) {
+                            destinationIndex = ExpoProfileData.Offset;
+                        }
+                        else if (
+                            !(XmpPresence && Crc[i].Contents.Length == Xmp30ProfileData.Length &&
+                             (RawData[destinationIndex] == 0x30 || destinationIndex == Xmp30ProfileData.Offset))) {
+                            continue;
+                        }
+                        
                         Array.Copy(
                             sourceArray      : Crc[i].Fix(),
                             sourceIndex      : 0,
                             destinationArray : RawData,
-                            destinationIndex : Xmp30ProfileData.xmpOffset + (i - 1) * Xmp30ProfileData.xmpLength,
-                            length           : Xmp30ProfileData.xmpLength);
+                            destinationIndex : destinationIndex,
+                            length           : Crc[i].Contents.Length);
+
+                        i++;
                     }
                 }
 
@@ -453,8 +503,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// XMP header (magic bytes)
             /// </summary>
-            public bool XmpPresense {
-                get => (RawData[0x280] << 8 | RawData[0x281]) == ProfileId.XMP;
+            public bool XmpPresence {
+                get => Data.MatchArray(RawData, ProfileId.XMP, Xmp30ProfileData.Offset);
             }
 
             /// <summary>
@@ -472,9 +522,23 @@ namespace SpdReaderWriterDll {
             /// DDR5 XMP 3.0 data
             /// </summary>
             public struct Xmp30ProfileData {
+                public static ushort Length = 64;
+                public static ushort Offset = 0x280; // 640
+            }
 
-                public static ushort xmpLength = 64;
-                public static ushort xmpOffset = 640;
+            /// <summary>
+            /// AMD Expo presence
+            /// </summary>
+            public bool ExpoPresence {
+                get => Data.MatchArray(RawData, ProfileId.EXPO, ExpoProfileData.Offset);
+            }
+
+            /// <summary>
+            /// DDR5 AMD Expo data
+            /// </summary>
+            public struct ExpoProfileData {
+                public static ushort Length = 128;
+                public static ushort Offset = 0x340; // 832
             }
         }
     }
