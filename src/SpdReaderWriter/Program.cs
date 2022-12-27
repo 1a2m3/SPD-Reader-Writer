@@ -255,7 +255,7 @@ namespace SpdReaderWriter {
             string mode = Args[0];
             string filePath = Args.Length >= 4 ? Args[3] : "";
             bool silent = Args.Length >= 5 && Args[4] == "/silent";
-            byte i2CAddress = (byte)Int32.Parse(Args[2]);
+            byte i2CAddress = (byte)int.Parse(Args[2]);
 
             if (filePath.Length < 1) {
                 throw new Exception("File path is mandatory for write mode.");
@@ -325,7 +325,7 @@ namespace SpdReaderWriter {
         private static void ReadEeprom() {
             string filePath = Args.Length >= 4 ? Args[3] : "";
             bool silent = Args.Length >= 5 && Args[4] == "/silent";
-            byte i2CAddress = (byte)Int32.Parse(Args[2]);
+            byte i2CAddress = (byte)int.Parse(Args[2]);
             byte[] spdDump = new byte[0];
             string name;
 
@@ -354,7 +354,7 @@ namespace SpdReaderWriter {
             }
             else {
                 spdDump = new byte[Smbus.MaxSpdSize];
-                Smbus.BusNumber = (byte)Int32.Parse(Args[1]);
+                Smbus.BusNumber = (byte)int.Parse(Args[1]);
                 Smbus.I2CAddress = i2CAddress;
                 name = $"{Smbus} ({Smbus.BusNumber})";
 
@@ -417,7 +417,7 @@ namespace SpdReaderWriter {
 
             if (Args.Length == 3) { // Block # was specified
                 try {
-                    block = new[] { Int32.Parse(Args[2]) };
+                    block = new[] { int.Parse(Args[2]) };
                 }
                 catch {
                     throw new Exception("Block number should be specified in decimal notation.");
@@ -467,7 +467,7 @@ namespace SpdReaderWriter {
                 }
                 else {
                     int i = -1;
-                    Int32.TryParse(Args[1], out i);
+                    int.TryParse(Args[1], out i);
                     if (i != -1) {
                         addresses = Smbus.Scan();
                     }
@@ -506,8 +506,7 @@ namespace SpdReaderWriter {
 
             // Check FW version
             string firmwareFile = Data.BytesToString(Data.Gzip(Resources.Firmware.SpdReaderWriter_ino, Data.GzipMethod.Decompress));
-            if (Reader.GetFirmwareVersion() <
-                Int32.Parse(firmwareFile.Split(new string[] { "#define VERSION " }, StringSplitOptions.None)[1].Split(' ')[0].Trim())) {
+            if (Reader.GetFirmwareVersion() < Arduino.IncludedFirmwareVersion) {
                 throw new Exception($"The device on port {portName} requires its firmware to be updated.");
             }
 
@@ -541,7 +540,7 @@ namespace SpdReaderWriter {
         /// Looks for Arduino devices
         /// </summary>
         private static void FindArduino() {
-            string[] devices = new Arduino(ReaderSettings).Find();
+            string[] devices = Arduino.Find(ReaderSettings);
             if (devices.Length > 0) {
                 foreach (string portName in devices) {
                     Console.WriteLine($"Found Arduino on Serial Port: {portName}\n");
