@@ -1,4 +1,4 @@
-﻿/*
+/*
     Arduino based EEPROM SPD reader and writer
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    For overclockers and PC hardware enthusiasts
@@ -297,7 +297,7 @@ namespace SpdReaderWriterDll {
             public Crc16Data[] Crc {
                 get {
                     // Base Configuration, DRAM and Module Parameters
-                    int sectionCount =  1;
+                    int sectionCount = 1;
                     
                     // Add 1 AMD Expo profile, if present
                     if (ExpoPresence) {
