@@ -20,7 +20,7 @@ using System.Text;
 namespace SpdReaderWriterDll {
 
     /// <summary>
-    /// Data class which works with bytes, bits, streams, and other types of data
+    /// Data class which works with bytes, bits, strings, streams, and other types of data
     /// </summary>
     public class Data {
 
@@ -439,11 +439,23 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Returns first index of matching array bytes in the source array
         /// </summary>
-        /// <param name="source">Source array</param>
+        /// <param name="source">Source byte array</param>
         /// <param name="pattern">Matching pattern</param>
         /// <returns>First index of matching array bytes</returns>
         public static int FindArray(byte[] source, byte[] pattern) {
-            
+
+            if (source == null) {
+                throw new NullReferenceException(nameof(source));
+            }
+
+            if (pattern == null) {
+                throw new NullReferenceException(nameof(pattern));
+            }
+
+            if (pattern.Length > source.Length) {
+                throw new ArgumentOutOfRangeException($"{nameof(pattern)} cannot be greater than {nameof(source)}");
+            }
+
             int maxFirstCharSlot = source.Length - pattern.Length + 1;
             
             for (int i = 0; i < maxFirstCharSlot; i++) {
@@ -464,6 +476,40 @@ namespace SpdReaderWriterDll {
             }
 
             return -1;
+        }
+
+        /// <summary>
+        /// Checks if source array contains input pattern at the specified offset
+        /// </summary>
+        /// <param name="source">Source byte array</param>
+        /// <param name="pattern">Matching pattern</param>
+        /// <param name="offset">Source array offset</param>
+        /// <returns><see langword="true"/> if <see cref="pattern"/> is present in <see cref="source"/> at <see cref="offset"/></returns>
+        public static bool MatchArray(byte[] source, byte[] pattern, int offset) {
+
+            if (source == null) {
+                throw new NullReferenceException(nameof(source));
+            }
+
+            if (pattern == null) {
+                throw new NullReferenceException(nameof(pattern));
+            }
+
+            if (pattern.Length > source.Length) {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            if (pattern.Length + offset > source.Length) {
+                throw new IndexOutOfRangeException(nameof(offset));
+            }
+
+            for (int i = 0; i < pattern.Length; i++) {
+                if (source[offset + i] != pattern[i]) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -549,7 +595,7 @@ namespace SpdReaderWriterDll {
             }
 
             if (newSize > input.Length) {
-                throw new IndexOutOfRangeException($"{nameof(newSize)} cannot be greater than {nameof(input)} length");
+                throw new ArgumentOutOfRangeException($"{nameof(newSize)} cannot be greater than {nameof(input)}");
             }
 
             byte[] newArray = new byte[newSize];
