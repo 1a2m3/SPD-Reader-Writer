@@ -601,7 +601,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// CRC validation status
             /// </summary>
-            bool ISpd.CrcStatus => Crc.Validate();
+            public bool CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum
@@ -615,7 +615,7 @@ namespace SpdReaderWriterDll {
                 RawData[126] = (byte)(validCrc & 0xFF);
                 RawData[127] = (byte)(validCrc >> 8);
 
-                return Crc.Validate();
+                return CrcStatus;
             }
 
             /// <summary>
@@ -683,8 +683,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 61 (Unbuffered): Module Maximum Thickness
             /// </summary>
-            public ModuleMaximumThicknessSide ModuleMaximumThickness {
-                get => new ModuleMaximumThicknessSide {
+            public ModuleMaximumThicknessSideData ModuleMaximumThickness {
+                get => new ModuleMaximumThicknessSideData {
                     Back = new ModuleHeightData {
                         Minimum = Data.SubByte(RawData[61], 7, 4),
                         Maximum = (byte)(Data.SubByte(RawData[61], 7, 4) + 1),
@@ -703,8 +703,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// XMP header (magic bytes)
             /// </summary>
-            public bool XmpPresense {
-                get => (RawData[176] << 8 | RawData[177]) == ProfileId.XMP;
+            public bool XmpPresence {
+                get => Data.MatchArray(RawData, ProfileId.XMP, 176);
             }
 
             /// <summary>
@@ -973,7 +973,7 @@ namespace SpdReaderWriterDll {
                 }
 
                 /// <summary>
-                /// Byte 206 or 241: Write to Read & Read to Write CMD Turn-around Time Optimizations
+                /// Byte 206 or 241: Write to Read and Read to Write CMD Turn-around Time Optimizations
                 /// Byte 207 or 242: Back 2 Back CMD Turn-around Time Optimizations
                 /// </summary>
                 public CmdTurnAroundTimeOptimizationData CmdTurnAroundTimeOptimizations {

@@ -587,7 +587,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// CRC validation status
             /// </summary>
-            bool ISpd.CrcStatus => Crc.Validate();
+            public bool CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum
@@ -600,7 +600,7 @@ namespace SpdReaderWriterDll {
                     destinationArray : RawData,
                     length           : Crc.Contents.Length);
 
-                return Crc.Validate();
+                return CrcStatus;
             }
 
             /// <summary>

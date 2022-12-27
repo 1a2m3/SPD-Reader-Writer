@@ -665,7 +665,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// CRC validation status
             /// </summary>
-            bool ISpd.CrcStatus => Crc.Validate();
+            public bool CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum

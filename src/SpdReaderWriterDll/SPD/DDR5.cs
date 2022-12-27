@@ -1,4 +1,4 @@
-/*
+﻿/*
     Arduino based EEPROM SPD reader and writer
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    For overclockers and PC hardware enthusiasts
@@ -122,6 +122,11 @@ namespace SpdReaderWriterDll {
             }
 
             /// <summary>
+            /// Asymmetric DRAM values offset
+            /// </summary>
+            private const int ASYMM_RAM_DATA_OFFSET = 4;
+
+            /// <summary>
             /// Byte 4 (0x004): First SDRAM Density and Package
             /// Byte 8 (0x008): Second SDRAM Density and Package
             /// </summary>
@@ -129,15 +134,14 @@ namespace SpdReaderWriterDll {
                 get {
                     DensityPackageData[] densityPackage = new DensityPackageData[2];
 
-                    int step = 4;
                     byte[] densityList = { 0, 4, 8, 12, 16, 24, 32, 48, 64 };
 
                     for (byte i = 0; i < densityPackage.Length; i++) {
 
-                        byte diePerPackageValue = Data.SubByte(RawData[4 + step * i], 7, 4);
+                        byte diePerPackageValue = Data.SubByte(RawData[4 + ASYMM_RAM_DATA_OFFSET * i], 7, 4);
 
                         densityPackage[i].DiePerPackageCount = (byte)(diePerPackageValue == 0 ? 1 : diePerPackageValue);
-                        densityPackage[i].DieDensity         = densityList[Data.SubByte(RawData[4 + step * i], 3, 4)];
+                        densityPackage[i].DieDensity         = densityList[Data.SubByte(RawData[4 + ASYMM_RAM_DATA_OFFSET * i], 3, 4)];
                     }
 
                     return densityPackage;
@@ -166,11 +170,9 @@ namespace SpdReaderWriterDll {
                 get {
                     AddressingData[] addressing = new AddressingData[2];
 
-                    int step = 4;
-
                     for (byte i = 0; i < addressing.Length; i++) {
-                        addressing[i].Columns = (byte)(Data.SubByte(RawData[5 + step * i], 7, 3) + 10);
-                        addressing[i].Rows    = (byte)(Data.SubByte(RawData[5 + step * i], 4, 5) + 16);
+                        addressing[i].Columns = (byte)(Data.SubByte(RawData[5 + ASYMM_RAM_DATA_OFFSET * i], 7, 3) + 10);
+                        addressing[i].Rows    = (byte)(Data.SubByte(RawData[5 + ASYMM_RAM_DATA_OFFSET * i], 4, 5) + 16);
                     }
 
                     return addressing;
@@ -185,10 +187,8 @@ namespace SpdReaderWriterDll {
                 get {
                     byte[] ioWidth = new byte[2];
 
-                    int step = 4;
-
                     for (int i = 0; i < ioWidth.Length; i++) {
-                        ioWidth[i] = Data.SubByte(RawData[6 + step * i], 7, 3);
+                        ioWidth[i] = Data.SubByte(RawData[6 + ASYMM_RAM_DATA_OFFSET * i], 7, 3);
                     }
 
                     return ioWidth;
@@ -203,11 +203,9 @@ namespace SpdReaderWriterDll {
                 get {
                     BankGroupsData[] bankGroups = new BankGroupsData[2];
 
-                    int step = 4;
-
                     for (int i = 0; i < bankGroups.Length; i++) {
-                        bankGroups[i].BankGroupCount        = (byte)Math.Pow(2, Data.SubByte(RawData[7 + step * i], 7, 3));
-                        bankGroups[i].BankPerBankGroupCount = (byte)Math.Pow(2, Data.SubByte(RawData[7 + step * i], 2, 3));
+                        bankGroups[i].BankGroupCount        = (byte)Math.Pow(2, Data.SubByte(RawData[7 + ASYMM_RAM_DATA_OFFSET * i], 7, 3));
+                        bankGroups[i].BankPerBankGroupCount = (byte)Math.Pow(2, Data.SubByte(RawData[7 + ASYMM_RAM_DATA_OFFSET * i], 2, 3));
                     }
 
                     return bankGroups;
@@ -244,7 +242,7 @@ namespace SpdReaderWriterDll {
             /// Module Organization Rank Mix
             /// </summary>
             public enum RankMix {
-                Symmetrical = 0,
+                Symmetrical  = 0,
                 Asymmetrical = 1
             }
 
@@ -369,9 +367,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// CRC validation status
             /// </summary>
-            bool ISpd.CrcStatus {
+            public bool CrcStatus {
                 get {
-
                     foreach (Crc16Data crc16Data in Crc) {
                         if (!crc16Data.Validate()) {
                             return false;
@@ -407,11 +404,13 @@ namespace SpdReaderWriterDll {
                         int destinationIndex = Xmp30ProfileData.Offset + (j - 1) * Xmp30ProfileData.Length;
                         j++;
 
+                        // AMD Expo
                         if (ExpoPresence && 
                             Crc[i].Contents.Length == ExpoProfileData.Length && 
                             Data.MatchArray(Crc[i].Contents, ProfileId.EXPO, 0)) {
                             destinationIndex = ExpoProfileData.Offset;
                         }
+                        // Not Intel XMP
                         else if (
                             !(XmpPresence && Crc[i].Contents.Length == Xmp30ProfileData.Length &&
                              (RawData[destinationIndex] == 0x30 || destinationIndex == Xmp30ProfileData.Offset))) {
@@ -429,13 +428,7 @@ namespace SpdReaderWriterDll {
                     }
                 }
 
-                foreach (Crc16Data crc16Data in Crc) {
-                    if (!crc16Data.Validate()) {
-                        return false;
-                    }
-                }
-
-                return true;
+                return CrcStatus;
             }
 
             /// <summary>
@@ -510,7 +503,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// XMP profile type
             /// </summary>
-            public enum XmpProfileName {
+            public enum XmpProfileType {
                 Performance,
                 Extreme,
                 Fastest,
@@ -524,6 +517,9 @@ namespace SpdReaderWriterDll {
             public struct Xmp30ProfileData {
                 public static ushort Length = 64;
                 public static ushort Offset = 0x280; // 640
+                
+                public XmpProfileType Type;
+                public string Name;
             }
 
             /// <summary>

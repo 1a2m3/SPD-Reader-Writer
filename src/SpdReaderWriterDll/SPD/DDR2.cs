@@ -44,7 +44,7 @@ namespace SpdReaderWriterDll {
                 };
             }
 
-            public int SpdBytesUsed => Bytes.Used;
+            int ISpd.SpdBytesUsed => Bytes.Used;
 
             /// <summary>
             /// Byte 2: Memory Type
@@ -904,7 +904,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// CRC validation status
             /// </summary>
-            bool ISpd.CrcStatus => Crc.Validate();
+            public bool CrcStatus => Crc.Validate();
 
             /// <summary>
             /// Fixes CRC checksum
@@ -917,7 +917,7 @@ namespace SpdReaderWriterDll {
                     destinationArray : RawData, 
                     length           : Crc.Contents.Length);
 
-                return Crc.Validate();
+                return CrcStatus;
             }
 
             /// <summary>
@@ -1019,8 +1019,9 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// EPP Identifier String ("NVm")
             /// </summary>
-            public bool EppPresense {
-                get => (RawData[101] << 16 | RawData[100] << 8 | RawData[99]) == ProfileId.EPP;
+            public bool EppPresence {
+                get => Data.MatchArray(RawData, ProfileId.EPP, 99); 
+                //(RawData[101] << 16 | RawData[100] << 8 | RawData[99]) == ProfileId.EPP;
             }
 
             /// <summary>
