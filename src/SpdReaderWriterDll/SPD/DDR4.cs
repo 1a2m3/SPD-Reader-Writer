@@ -643,7 +643,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// CRC validation status
             /// </summary>
-            bool ISpd.CrcStatus {
+            public bool CrcStatus {
                 get {
                     foreach (Crc16Data crc16Data in Crc) {
                         if (!crc16Data.Validate()) {
@@ -672,8 +672,7 @@ namespace SpdReaderWriterDll {
                         length           : Crc[i].Contents.Length);
                 }
 
-                return Crc[0].Validate() && 
-                       Crc[1].Validate();
+                return CrcStatus;
             }
 
             // Module-Specific Section: Bytes 128~191 (0x080~0x0BF)
@@ -707,8 +706,8 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Byte 129 (0x081): Module Maximum Thickness
             /// </summary>
-            public ModuleMaximumThicknessSide ModuleMaximumThickness {
-                get => new ModuleMaximumThicknessSide {
+            public ModuleMaximumThicknessSideData ModuleMaximumThickness {
+                get => new ModuleMaximumThicknessSideData {
                     Back = new ModuleHeightData {
                         Minimum = Data.SubByte(RawData[129], 7, 4),
                         Maximum = (byte)(Data.SubByte(RawData[129], 7, 4) + 1),
@@ -847,8 +846,9 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// XMP header (magic bytes)
             /// </summary>
-            public bool XmpPresense {
-                get => (RawData[384] << 8 | RawData[385]) == ProfileId.XMP;
+            public bool XmpPresence {
+                get => Data.MatchArray(RawData, ProfileId.XMP, 384);
+                //(RawData[384] << 8 | RawData[385]) == ProfileId.XMP;
             }
 
             /// <summary>
