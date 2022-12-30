@@ -12,6 +12,8 @@
 using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
+using System.Text;
 using SpdReaderWriterDll.Properties;
 
 namespace SpdReaderWriterDll {
@@ -482,7 +484,7 @@ namespace SpdReaderWriterDll {
 
             public override string ToString() {
                 ushort year = (ushort)(Data.ByteToBinaryCodedDecimal(Year) + 2000);
-                byte week  = Data.ByteToBinaryCodedDecimal(Week);
+                byte week   = Data.ByteToBinaryCodedDecimal(Week);
 
                 return 0 < week && week < 53 ? $"{year:D4}/{week:D2}" : "";
             }
@@ -495,13 +497,14 @@ namespace SpdReaderWriterDll {
             public byte[] SerialNumber;
 
             public override string ToString() {
-                string output = "";
+
+                StringBuilder sb = new StringBuilder();
 
                 foreach (byte b in SerialNumber) {
-                    output += $"{b:X2}";
+                    sb.Append($"{b:X2}");
                 }
 
-                return output;
+                return sb.ToString();
             }
         }
 
@@ -583,6 +586,7 @@ namespace SpdReaderWriterDll {
         /// Reference Raw Card
         /// </summary>
         /// <remarks>
+        /// DDR5: https://www.jedec.org/standards-documents/focus/memory-module-designs-dimms/ddr5/all
         /// DDR4: https://www.jedec.org/standards-documents/focus/memory-module-designs-dimms/ddr4/all
         /// DDR3: https://www.jedec.org/standards-documents/focus/memory-module-designs-dimms/ddr3/all
         /// </remarks>
@@ -608,13 +612,13 @@ namespace SpdReaderWriterDll {
                 string value = "";
 
                 if (Minimum == Maximum) {
-                    value += Maximum;
+                    value = $"{Maximum}";
                 }
                 else if (Minimum < Maximum) {
-                    value += $"{Minimum}-{Maximum}";
+                    value = $"{Minimum}-{Maximum}";
                 }
                 else if (Minimum > Maximum) {
-                    value += $"{Minimum}+";
+                    value = $"{Minimum}+";
                 }
 
                 return $"{value} {Unit}";
@@ -633,24 +637,29 @@ namespace SpdReaderWriterDll {
         /// Defines the maximum thickness in millimeters of the fully assembled module including heat spreaders
         /// or other added components above the module circuit board surface
         /// </summary>
-        public struct ModuleMaximumThicknessSide {
+        public struct ModuleMaximumThicknessSideData {
             public ModuleHeightData Back;
             public ModuleHeightData Front;
         }
 
         /// <summary>
-        /// SPD performance profiles IDs
+        /// SPD performance profiles IDs as they appear in SPD
         /// </summary>
         public struct ProfileId {
             /// <summary>
-            /// Intel Extreme Memory Profile ID String
+            /// Intel Extreme Memory Profile ID String ("magic bytes")
             /// </summary>
-            public static ushort XMP = 0x0C4A;
+            public static byte[] XMP = { 0x0C, 0x4A };
 
             /// <summary>
             /// EPP Identifier String ("NVm")
             /// </summary>
-            public static int EPP    = 0x4E566D;
+            public static byte[] EPP => Encoding.ASCII.GetBytes("NVm").Reverse().ToArray();
+
+            /// <summary>
+            /// AMD EXPO Identifier String ("EXPO")
+            /// </summary>
+            public static byte[] EXPO => Encoding.ASCII.GetBytes("EXPO");
         }
     }
 }
