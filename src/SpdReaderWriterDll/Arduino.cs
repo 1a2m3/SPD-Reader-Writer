@@ -1443,7 +1443,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Provides a value to use with events that do not have event data
             /// </summary>
-            public static readonly ArduinoEventArgs Empty = new ArduinoEventArgs();
+            public new static readonly ArduinoEventArgs Empty = new ArduinoEventArgs();
         }
     }
 }
