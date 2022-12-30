@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data;
 using System.Globalization;
 
 namespace SpdReaderWriterDll {
@@ -27,8 +28,18 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR4(byte[] input) {
-                RawData = input;
+                if (input.Length == (int)Length) {
+                    RawData = input;
+                }
+                else {
+                    throw new DataException();
+                }
             }
+
+            /// <summary>
+            /// Total SPD size
+            /// </summary>
+            public DataLength Length => DataLength.DDR4;
 
             public override string ToString() =>
                 $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
