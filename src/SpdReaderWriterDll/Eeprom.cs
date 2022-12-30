@@ -10,6 +10,7 @@
 */
 
 using System;
+using System.ComponentModel;
 
 namespace SpdReaderWriterDll {
     /// <summary>
@@ -147,11 +148,6 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// EEPROM local page number
-        /// </summary>
-        private static byte _eepromPageNumber;
-
-        /// <summary>
         /// Reset EEPROM page address
         /// </summary>
         /// <param name="controller">SMBus controller instance</param>
@@ -177,22 +173,14 @@ namespace SpdReaderWriterDll {
 
             if (DetectDdr5(controller)) {
                 // DDR5 page
-                controller.WriteByte(controller, controller.I2CAddress, Spd5Register.MR11 & Spd5Register.MEMREG, eepromPageNumber);
+                controller.WriteByte(controller, controller.I2CAddress, Spd5Register.MEMREG & Spd5Register.MR11, eepromPageNumber);
             }
             else {
                 // DDR4 page
                 controller.WriteByte(controller, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
             }
 
-            _eepromPageNumber = eepromPageNumber;
-        }
-
-        /// <summary>
-        /// Gets currently selected EEPROM page number
-        /// </summary>
-        /// <returns>Last set EEPROM page number</returns>
-        private static byte GetPageAddress() {
-            return _eepromPageNumber;
+            PageNumber = eepromPageNumber;
         }
 
         /// <summary>
@@ -212,7 +200,7 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            byte targetPage = 0;
+            byte targetPage;
 
             if (DetectDdr5(controller)) {
                 targetPage = (byte)(offset >> 7);
@@ -221,7 +209,7 @@ namespace SpdReaderWriterDll {
                 targetPage = (byte)(offset >> 8);
             }
 
-            if (targetPage != GetPageAddress()) {
+            if (targetPage != PageNumber) {
                 SetPageAddress(controller, targetPage);
             }
         }
@@ -649,6 +637,11 @@ namespace SpdReaderWriterDll {
         }
 
         #endregion
+        
+        /// <summary>
+        /// EEPROM or SPD5 hub page number
+        /// </summary>
+        public static byte PageNumber { get; set; }
 
         /// <summary>
         /// DDR4 EEPROM commands
@@ -672,7 +665,7 @@ namespace SpdReaderWriterDll {
 
             internal const byte CWP  = 0x66;
 
-            // PSWP commands
+            // PSWP bitmask
             internal const byte PWPB = 0b0110;
         }
 
@@ -701,13 +694,17 @@ namespace SpdReaderWriterDll {
         /// DDR5 Slave Device LID Codes
         /// </summary>
         internal struct LidCode {
+            // SPD5 hub
             internal const byte SpdHub = 0b1010;
+
             // Registering Clock Driver
             internal const byte Rcd    = 0b1011;
+
             // Power Management ICs
             internal const byte Pmic0  = 0b1001;
             internal const byte Pmic1  = 0b1000;
             internal const byte Pmic2  = 0b1100;
+
             // Temperature sensors
             internal const byte Ts0    = 0b0010;
             internal const byte Ts1    = 0b0110;
@@ -729,22 +726,27 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Unprotected
             /// </summary>
+            [Description("Unprotected")]
             None,
             /// <summary>
             /// Permanent software write protection
             /// </summary>
+            [Description("Permanent software write protection")]
             PSWP,
             /// <summary>
             /// Reversible software write protection
             /// </summary>
+            [Description("Reversible software write protection")]
             RSWP,
             /// <summary>
             /// Hardware write protection
             /// </summary>
+            [Description("Hardware write protection")] 
             HWP,
             /// <summary>
             /// BIOS SPD write disable
             /// </summary>
+            [Description("BIOS SPD write disable")] 
             SPDWD,
         }
     }
