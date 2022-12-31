@@ -28,6 +28,5 @@ namespace SpdReaderWriterDll {
         ulong TotalModuleCapacity { get; }
         bool CrcStatus { get; }
         bool FixCrc();
-        string ToString();
     }
 }

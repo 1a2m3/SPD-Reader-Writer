@@ -15,13 +15,16 @@ namespace SpdReaderWriterDll {
     /// Driver interface
     /// </summary>
     public interface IDriver {
-        bool IsInstalled { get; }
-        bool IsServiceRunning { get; }
-        bool IsReady { get; }
 
+        // Driver functions
         bool InstallDriver();
         bool RemoveDriver();
         bool StartDriver();
         bool StopDriver();
+
+        // Driver info and status
+        bool IsInstalled { get; }
+        bool IsServiceRunning { get; }
+        bool IsReady { get; }
     }
 }
