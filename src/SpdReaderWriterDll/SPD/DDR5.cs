@@ -1,4 +1,4 @@
-﻿/*
+/*
     Arduino based EEPROM SPD reader and writer
    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
    For overclockers and PC hardware enthusiasts
@@ -11,9 +11,7 @@
 
 using System;
 using System.ComponentModel;
-using UInt8 = System.Byte;
-using Int8 = System.SByte;
-
+using System.Data;
 
 namespace SpdReaderWriterDll {
     public partial class Spd {
@@ -28,11 +26,21 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR5(byte[] input) {
-                RawData = input;
+                if (input.Length == (int)Length) {
+                    RawData = input;
+                }
+                else {
+                    throw new DataException();
+                }
             }
 
+            /// <summary>
+            /// Total SPD size
+            /// </summary>
+            public DataLength Length => DataLength.DDR5;
+
             public override string ToString() =>
-                $"{GetManufacturerName((UInt16)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0 (0x000): Number of Bytes in SPD Device
@@ -125,6 +133,11 @@ namespace SpdReaderWriterDll {
             }
 
             /// <summary>
+            /// Asymmetric DRAM values offset
+            /// </summary>
+            private const int ASYMM_RAM_DATA_OFFSET = 4;
+
+            /// <summary>
             /// Byte 4 (0x004): First SDRAM Density and Package
             /// Byte 8 (0x008): Second SDRAM Density and Package
             /// </summary>
@@ -132,15 +145,14 @@ namespace SpdReaderWriterDll {
                 get {
                     DensityPackageData[] densityPackage = new DensityPackageData[2];
 
-                    int step = 4;
                     byte[] densityList = { 0, 4, 8, 12, 16, 24, 32, 48, 64 };
 
                     for (byte i = 0; i < densityPackage.Length; i++) {
 
-                        byte diePerPackageValue = Data.SubByte(RawData[4 + step * i], 7, 4);
+                        byte diePerPackageValue = Data.SubByte(RawData[4 + ASYMM_RAM_DATA_OFFSET * i], 7, 4);
 
                         densityPackage[i].DiePerPackageCount = (byte)(diePerPackageValue == 0 ? 1 : diePerPackageValue);
-                        densityPackage[i].DieDensity         = densityList[Data.SubByte(RawData[4 + step * i], 3, 4)];
+                        densityPackage[i].DieDensity         = densityList[Data.SubByte(RawData[4 + ASYMM_RAM_DATA_OFFSET * i], 3, 4)];
                     }
 
                     return densityPackage;
@@ -169,11 +181,9 @@ namespace SpdReaderWriterDll {
                 get {
                     AddressingData[] addressing = new AddressingData[2];
 
-                    int step = 4;
-
                     for (byte i = 0; i < addressing.Length; i++) {
-                        addressing[i].Columns = (byte)(Data.SubByte(RawData[5 + step * i], 7, 3) + 10);
-                        addressing[i].Rows    = (byte)(Data.SubByte(RawData[5 + step * i], 4, 5) + 16);
+                        addressing[i].Columns = (byte)(Data.SubByte(RawData[5 + ASYMM_RAM_DATA_OFFSET * i], 7, 3) + 10);
+                        addressing[i].Rows    = (byte)(Data.SubByte(RawData[5 + ASYMM_RAM_DATA_OFFSET * i], 4, 5) + 16);
                     }
 
                     return addressing;
@@ -188,10 +198,8 @@ namespace SpdReaderWriterDll {
                 get {
                     byte[] ioWidth = new byte[2];
 
-                    int step = 4;
-
                     for (int i = 0; i < ioWidth.Length; i++) {
-                        ioWidth[i] = Data.SubByte(RawData[6 + step * i], 7, 3);
+                        ioWidth[i] = Data.SubByte(RawData[6 + ASYMM_RAM_DATA_OFFSET * i], 7, 3);
                     }
 
                     return ioWidth;
@@ -206,11 +214,9 @@ namespace SpdReaderWriterDll {
                 get {
                     BankGroupsData[] bankGroups = new BankGroupsData[2];
 
-                    int step = 4;
-
                     for (int i = 0; i < bankGroups.Length; i++) {
-                        bankGroups[i].BankGroupCount        = (byte)Math.Pow(2, Data.SubByte(RawData[7 + step * i], 7, 3));
-                        bankGroups[i].BankPerBankGroupCount = (byte)Math.Pow(2, Data.SubByte(RawData[7 + step * i], 2, 3));
+                        bankGroups[i].BankGroupCount        = (byte)Math.Pow(2, Data.SubByte(RawData[7 + ASYMM_RAM_DATA_OFFSET * i], 7, 3));
+                        bankGroups[i].BankPerBankGroupCount = (byte)Math.Pow(2, Data.SubByte(RawData[7 + ASYMM_RAM_DATA_OFFSET * i], 2, 3));
                     }
 
                     return bankGroups;
@@ -247,7 +253,7 @@ namespace SpdReaderWriterDll {
             /// Module Organization Rank Mix
             /// </summary>
             public enum RankMix {
-                Symmetrical = 0,
+                Symmetrical  = 0,
                 Asymmetrical = 1
             }
 
@@ -276,11 +282,10 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total memory capacity of the DRAM on a DIMM
             /// </summary>
-            public UInt64 TotalModuleCapacity {
+            public ulong TotalModuleCapacity {
                 get {
                     return ModuleOrganization.RankMix == RankMix.Symmetrical
-                        ?
-                        (UInt64)(
+                        ? (ulong)(
                         // Number of channels per DIMM *
                         ChannelBusWidth.ChannelCount *
                         // Primary bus width per channel / SDRAM I/O Width *
@@ -290,10 +295,151 @@ namespace SpdReaderWriterDll {
                         // SDRAM density per die / 8 *
                         DensityPackage[0].DieDensity / 8 *
                         // Package ranks per channel
-                        ModuleOrganization.PackageRankCount
-                        )
+                        ModuleOrganization.PackageRankCount)
                         : 0;
                 }
+            }
+
+            /// <summary>
+            /// CRC checksums
+            /// </summary>
+            public Crc16Data[] Crc {
+                get {
+                    // Base Configuration, DRAM and Module Parameters
+                    int sectionCount = 1;
+                    
+                    // Add 1 AMD Expo profile, if present
+                    if (ExpoPresence) {
+                        sectionCount++;
+                    }
+
+                    // Add 1 XMP header and up to 5 XMP profiles, if present
+                    if (XmpPresence) {
+
+                        // XMP header
+                        sectionCount++;
+
+                        // XMP profiles
+                        for (int i = 0; i <= 5; i++) {
+                            if (RawData[i * Xmp30ProfileData.Length + Xmp30ProfileData.Offset] == 0x30) {
+                                sectionCount++;
+                            }
+                        }
+                    }
+
+                    Crc16Data[] crc = new Crc16Data[sectionCount];
+
+                    // Base checksum
+                    ushort baseSectionLength = 512;
+                    crc[0].Contents = new byte[baseSectionLength];
+
+                    Array.Copy(
+                        sourceArray      : RawData,
+                        destinationArray : crc[0].Contents,
+                        length           : crc[0].Contents.Length);
+
+                    if (sectionCount > 1) {
+
+                        byte i = 1; // Profile counter
+                        byte j = 1; // Offset counter
+
+                        while (i < sectionCount) {
+
+                            int offset = Xmp30ProfileData.Offset + (j - 1) * Xmp30ProfileData.Length;
+                            j++;
+
+                            // XMP checksum(s)
+                            if (XmpPresence && (RawData[offset] == 0x30 || offset == Xmp30ProfileData.Offset)) {
+                                crc[i].Contents = new byte[Xmp30ProfileData.Length];
+                            }
+                            // Expo checksum
+                            else if (ExpoPresence && offset == ExpoProfileData.Offset) {
+                                crc[i].Contents = new byte[ExpoProfileData.Length];
+                            }
+                            else {
+                                continue;
+                            }
+
+                            Array.Copy(
+                                sourceArray      : RawData,
+                                sourceIndex      : offset,
+                                destinationArray : crc[i].Contents,
+                                destinationIndex : 0,
+                                length           : crc[i].Contents.Length);
+
+                            i++;
+                        }
+                    }
+
+                    return crc;
+                }
+            }
+
+            /// <summary>
+            /// CRC validation status
+            /// </summary>
+            public bool CrcStatus {
+                get {
+                    foreach (Crc16Data crc16Data in Crc) {
+                        if (!crc16Data.Validate()) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                }
+            }
+
+            /// <summary>
+            /// Fixes CRC checksums
+            /// </summary>
+            /// <returns><see langword="true"/> if checksum(s) has been fixed</returns>
+            public bool FixCrc() {
+
+                int sectionCount = Crc.Length;
+
+                if (sectionCount > 0) {
+                    Array.Copy(
+                        sourceArray      : Crc[0].Fix(),
+                        destinationArray : RawData,
+                        length           : Crc[0].Contents.Length);
+                }
+
+                if (sectionCount > 1) {
+
+                    byte i = 1; // Profile counter
+                    byte j = 1; // Offset counter
+
+                    while (i < sectionCount) {
+
+                        int destinationIndex = Xmp30ProfileData.Offset + (j - 1) * Xmp30ProfileData.Length;
+                        j++;
+
+                        // AMD Expo
+                        if (ExpoPresence && 
+                            Crc[i].Contents.Length == ExpoProfileData.Length && 
+                            Data.MatchArray(Crc[i].Contents, ProfileId.EXPO, 0)) {
+                            destinationIndex = ExpoProfileData.Offset;
+                        }
+                        // Not Intel XMP
+                        else if (
+                            !(XmpPresence && Crc[i].Contents.Length == Xmp30ProfileData.Length &&
+                             (RawData[destinationIndex] == 0x30 || destinationIndex == Xmp30ProfileData.Offset))) {
+                            continue;
+                        }
+                        
+                        Array.Copy(
+                            sourceArray      : Crc[i].Fix(),
+                            sourceIndex      : 0,
+                            destinationArray : RawData,
+                            destinationIndex : destinationIndex,
+                            length           : Crc[i].Contents.Length);
+
+                        i++;
+                    }
+                }
+
+                return CrcStatus;
             }
 
             /// <summary>
@@ -356,6 +502,50 @@ namespace SpdReaderWriterDll {
 
                     return Data.BytesToString(chars);
                 }
+            }
+
+            /// <summary>
+            /// XMP header (magic bytes)
+            /// </summary>
+            public bool XmpPresence {
+                get => Data.MatchArray(RawData, ProfileId.XMP, Xmp30ProfileData.Offset);
+            }
+
+            /// <summary>
+            /// XMP profile type
+            /// </summary>
+            public enum XmpProfileType {
+                Performance,
+                Extreme,
+                Fastest,
+                User1,
+                User2
+            }
+
+            /// <summary>
+            /// DDR5 XMP 3.0 data
+            /// </summary>
+            public struct Xmp30ProfileData {
+                public static ushort Length = 64;
+                public static ushort Offset = 0x280; // 640
+                
+                public XmpProfileType Type;
+                public string Name;
+            }
+
+            /// <summary>
+            /// AMD Expo presence
+            /// </summary>
+            public bool ExpoPresence {
+                get => Data.MatchArray(RawData, ProfileId.EXPO, ExpoProfileData.Offset);
+            }
+
+            /// <summary>
+            /// DDR5 AMD Expo data
+            /// </summary>
+            public struct ExpoProfileData {
+                public static ushort Length = 128;
+                public static ushort Offset = 0x340; // 832
             }
         }
     }

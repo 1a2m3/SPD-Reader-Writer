@@ -13,20 +13,18 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using Microsoft.Win32.SafeHandles;
 using SpdReaderWriterDll.Properties;
-using UInt8 = System.Byte;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterDll.Driver {
 
     /// <summary>
-    /// Kernel driver (WinRing0) class
+    /// WinRing0 Kernel driver class
     /// </summary>
-    public class WinRing0 : IDisposable {
+    public class WinRing0 : IDisposable, IDriver {
 
         /// <summary>
         /// Describes driver installation state
@@ -38,13 +36,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public bool IsServiceRunning {
             get {
-                if (!IsInstalled) {
-                    return false;
-                }
-
                 try {
                     _sc?.Refresh();
-                    return _sc?.ServiceName != null && _sc.Status == ServiceControllerStatus.Running;
+                    return IsInstalled && _sc?.ServiceName != null && _sc.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -55,12 +49,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Describes driver handle open state
         /// </summary>
-        public bool IsHandleOpen => _deviceHandle != null && !_deviceHandle.IsClosed;
+        private bool IsHandleOpen => _deviceHandle != null && !_deviceHandle.IsClosed;
 
         /// <summary>
         /// Describes driver handle valid state
         /// </summary>
-        public bool IsValid => IsInstalled && _deviceHandle !=null && !_deviceHandle.IsInvalid;
+        private bool IsValid => IsInstalled && _deviceHandle != null && !_deviceHandle.IsInvalid;
 
         /// <summary>
         /// Describes driver ready state
@@ -71,6 +65,7 @@ namespace SpdReaderWriterDll {
         /// Initializes kernel driver
         /// </summary>
         public WinRing0() {
+
             if (IsInstalled && IsServiceRunning) {
                 _disposeOnExit = false;
             }
@@ -104,7 +99,7 @@ namespace SpdReaderWriterDll {
 
             int refCount = 0;
 
-            DeviceIoControl(Kernel32.IoControlCode.GET_REFCOUNT, null, ref refCount);
+            DeviceIoControl(NtBaseApi.IoControlCode.WR0_GET_REFCOUNT, null, ref refCount);
 
             if (_disposeOnExit && refCount <= 1) {
                 StopDriver();
@@ -113,8 +108,8 @@ namespace SpdReaderWriterDll {
 
             _deviceHandle = null;
 
-            Advapi32.CloseServiceHandle(_servicePtr);
-            Advapi32.CloseServiceHandle(_managerPtr);
+            Win32BaseApi.CloseServiceHandle(_servicePtr);
+            Win32BaseApi.CloseServiceHandle(_managerPtr);
         }
 
         /// <summary>
@@ -124,9 +119,12 @@ namespace SpdReaderWriterDll {
         private bool ExtractDriver() {
 
             // Read applicable driver from resources depending on OS platform
-            byte[] driverFileContents = Data.Gzip(Environment.Is64BitOperatingSystem ? Resources.Driver.WinRing0x64_sys : Resources.Driver.WinRing0_sys, Data.GzipMethod.Decompress);
+            byte[] driverFileContents = Data.Gzip(Environment.Is64BitOperatingSystem
+                    ? Resources.Driver.WinRing0x64_sys
+                    : Resources.Driver.WinRing0_sys,
+                Data.GzipMethod.Decompress);
 
-            if (!(File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName)))) {
+            if (!(File.Exists(_fileName) && Data.CompareByteArray(driverFileContents, File.ReadAllBytes(_fileName)))) {
 
                 // Save driver to local file
                 try {
@@ -137,14 +135,14 @@ namespace SpdReaderWriterDll {
                 }
             }
 
-            return File.Exists(_fileName) && driverFileContents.SequenceEqual(File.ReadAllBytes(_fileName));
+            return File.Exists(_fileName) && Data.CompareByteArray(driverFileContents, File.ReadAllBytes(_fileName));
         }
 
         /// <summary>
         /// Installs kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if the driver is successfully installed</returns>
-        private bool InstallDriver() {
+        public bool InstallDriver() {
 
             if (!ExtractDriver()) {
                 return false;
@@ -154,43 +152,43 @@ namespace SpdReaderWriterDll {
                 return false;
             }
 
-            _servicePtr = Advapi32.CreateService(
+            _servicePtr = Win32BaseApi.CreateService(
                 hSCManager       : _managerPtr,
-                lpServiceName    : _name,
-                lpDisplayName    : _name,
-                dwDesiredAccess  : Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
-                dwServiceType    : Advapi32.ServiceType.SERVICE_KERNEL_DRIVER,
-                dwStartType      : Advapi32.StartType.SERVICE_DEMAND_START,
-                dwErrorControl   : Advapi32.ErrorControl.SERVICE_ERROR_NORMAL,
+                lpServiceName    : Name,
+                lpDisplayName    : Name,
+                dwDesiredAccess  : Win32BaseApi.ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
+                dwServiceType    : Win32BaseApi.ServiceType.SERVICE_KERNEL_DRIVER,
+                dwStartType      : Win32BaseApi.StartType.SERVICE_DEMAND_START,
+                dwErrorControl   : Win32BaseApi.ErrorControl.SERVICE_ERROR_NORMAL,
                 lpBinaryPathName : _fileName);
 
             if (_servicePtr == IntPtr.Zero) {
                 return false;
             }
 
-            Advapi32.CloseServiceHandle(_servicePtr);
+            Win32BaseApi.CloseServiceHandle(_servicePtr);
 
             return true;
         }
-        
+
         /// <summary>
         /// Deletes kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully deleted</returns>
-        private bool RemoveDriver() {
+        public bool RemoveDriver() {
 
             if (_managerPtr == IntPtr.Zero) {
                 return false;
             }
 
-            _servicePtr = Advapi32.OpenService(_managerPtr, _name, Advapi32.ServiceRights.SERVICE_ALL_ACCESS);
+            _servicePtr = Win32BaseApi.OpenService(_managerPtr, Name, Win32BaseApi.ServiceRights.SERVICE_ALL_ACCESS);
 
             if (_servicePtr == IntPtr.Zero) {
                 return false;
             }
 
-            return Advapi32.DeleteService(_servicePtr) &&
-                   Advapi32.CloseServiceHandle(_servicePtr);
+            return Win32BaseApi.DeleteService(_servicePtr) &&
+                   Win32BaseApi.CloseServiceHandle(_servicePtr);
         }
 
         /// <summary>
@@ -220,13 +218,11 @@ namespace SpdReaderWriterDll {
         /// Starts kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully started</returns>
-        private bool StartDriver() {
+        public bool StartDriver() {
 
             if (!IsInstalled) {
                 return false;
             }
-
-            _sc = new ServiceController(_name);
 
             try {
                 if (_sc.Status == ServiceControllerStatus.Running) {
@@ -251,9 +247,7 @@ namespace SpdReaderWriterDll {
         /// Stops kernel driver
         /// </summary>
         /// <returns><see langref="true"/> if driver is successfully stopped</returns>
-        private bool StopDriver() {
-
-            _sc = new ServiceController(_name);
+        public bool StopDriver() {
 
             try {
                 if (_sc.Status != ServiceControllerStatus.Stopped) {
@@ -275,13 +269,12 @@ namespace SpdReaderWriterDll {
                     }
                 }
 
-                return _sc.Status == ServiceControllerStatus.Stopped || 
+                return _sc.Status == ServiceControllerStatus.Stopped ||
                        _sc.Status == ServiceControllerStatus.StopPending;
             }
             catch {
                 try {
-                    _sc = new ServiceController(_name);
-                    return _sc.Status == ServiceControllerStatus.Stopped || 
+                    return _sc.Status == ServiceControllerStatus.Stopped ||
                            _sc.Status == ServiceControllerStatus.StopPending;
                 }
                 catch {
@@ -296,10 +289,8 @@ namespace SpdReaderWriterDll {
         /// <returns><see langref="true"/> if the driver is installed</returns>
         private static bool CheckDriver() {
 
-            _sc = new ServiceController(_name);
-
             try {
-                return _sc.ServiceType == ServiceType.KernelDriver;
+                return _sc.ServiceType == ServiceType.KernelDriver && _sc?.DisplayName == Name;
             }
             catch {
                 return false;
@@ -312,17 +303,17 @@ namespace SpdReaderWriterDll {
         /// <returns><see langref="true"/> if driver handle is successfully opened</returns>
         private bool OpenDriverHandle() {
 
-            IntPtr driverHandle = Kernel32.CreateFile(
-                lpFileName            : $@"\\.\{_name}",
-                dwDesiredAccess       : Kernel32.FileAccess.GENERIC_READWRITE,
-                dwShareMode           : Kernel32.FileShare.FILE_SHARE_READWRITE,
+            IntPtr driverHandle = NtBaseApi.CreateFile(
+                lpFileName            : $@"\\.\{Name}",
+                dwDesiredAccess       : NtBaseApi.FileAccess.GENERIC_READWRITE,
+                dwShareMode           : NtBaseApi.FileShare.FILE_SHARE_READWRITE,
                 lpSecurityAttributes  : IntPtr.Zero,
-                dwCreationDisposition : Kernel32.FileMode.OPEN_EXISTING,
-                dwFlagsAndAttributes  : Kernel32.FileAttributes.FILE_ATTRIBUTE_NORMAL,
+                dwCreationDisposition : NtBaseApi.FileMode.OPEN_EXISTING,
+                dwFlagsAndAttributes  : NtBaseApi.FileAttributes.FILE_ATTRIBUTE_NORMAL,
                 hTemplateFile         : IntPtr.Zero);
 
             _deviceHandle = new SafeFileHandle(driverHandle, true);
-            
+
             if (_deviceHandle.IsInvalid) {
                 _deviceHandle.Close();
                 _deviceHandle.Dispose();
@@ -352,16 +343,16 @@ namespace SpdReaderWriterDll {
         /// <param name="revision">Revision number</param>
         /// <param name="release">Release number</param>
         /// <returns>Driver version</returns>
-        public UInt32 GetDriverVersion(ref byte major, ref byte minor, ref byte revision, ref byte release) {
+        public uint GetDriverVersion(ref byte major, ref byte minor, ref byte revision, ref byte release) {
 
-            UInt32 output = default;
+            uint output = default;
 
-            DeviceIoControl(Kernel32.IoControlCode.GET_DRIVER_VERSION, null, ref output);
+            DeviceIoControl(NtBaseApi.IoControlCode.WR0_GET_DRIVER_VERSION, null, ref output);
 
             major    = (byte)(output >> 24);
             minor    = (byte)(output >> 16);
             revision = (byte)(output >> 8);
-            release  = (byte) output;
+            release  = (byte)output;
 
             return output;
         }
@@ -374,23 +365,23 @@ namespace SpdReaderWriterDll {
         /// <param name="inputData">Input parameters</param>
         /// <param name="outputData">Output data returned by the driver</param>
         /// <returns><see lang="true"/> if the operation succeeds</returns>
-        private static bool DeviceIoControl<T>(UInt32 ioControlCode, object inputData, ref T outputData) {
+        private static bool DeviceIoControl<T>(uint ioControlCode, object inputData, ref T outputData) {
 
             if (!_isReady) {
                 return false;
             }
 
-            UInt32 inputSize      = (UInt32)(inputData == null ? 0 : Marshal.SizeOf(inputData));
-            UInt32 returnedLength = default;
+            uint inputSize      = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+            uint returnedLength = default;
             object outputBuffer   = outputData;
 
-            bool result = Kernel32.DeviceIoControl(
+            bool result = NtBaseApi.DeviceIoControl(
                 hDevice         : _deviceHandle,
                 dwIoControlCode : ioControlCode,
                 lpInBuffer      : inputData,
                 nInBufferSize   : inputSize,
                 lpOutBuffer     : outputBuffer,
-                nOutBufferSize  : (UInt32)Marshal.SizeOf(outputBuffer),
+                nOutBufferSize  : (uint)Marshal.SizeOf(outputBuffer),
                 lpBytesReturned : out returnedLength,
                 lpOverlapped    : IntPtr.Zero);
 
@@ -405,16 +396,16 @@ namespace SpdReaderWriterDll {
         /// <param name="ioControlCode">IOCTL code</param>
         /// <param name="inputData">Input parameters</param>
         /// <returns><see lang="true"/> if the operation succeeds</returns>
-        private static bool DeviceIoControl(UInt32 ioControlCode, object inputData) {
+        private static bool DeviceIoControl(uint ioControlCode, object inputData) {
 
             if (!_isReady) {
                 return false;
             }
 
-            UInt32 inputSize      = (UInt32)(inputData == null ? 0 : Marshal.SizeOf(inputData));
-            UInt32 returnedLength = default;
+            uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+            uint returnedLength = default;
 
-            return Kernel32.DeviceIoControl(
+            return NtBaseApi.DeviceIoControl(
                 hDevice         : _deviceHandle,
                 dwIoControlCode : ioControlCode,
                 lpInBuffer      : inputData,
@@ -434,7 +425,7 @@ namespace SpdReaderWriterDll {
         /// <param name="dev">PCI Device Number</param>
         /// <param name="func">PCI Function Number</param>
         /// <returns>PCI Device Address</returns>
-        public static UInt32 PciBusDevFunc(UInt32 bus, UInt32 dev, UInt32 func) {
+        public static uint PciBusDevFunc(uint bus, uint dev, uint func) {
             return ((bus & 0xFF) << 8) | ((dev & 0x1F) << 3) | (func & 0x07);
         }
 
@@ -443,8 +434,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">PCI Device Address</param>
         /// <returns>PCI Bus Number</returns>
-        public static UInt8 PciGetBus(UInt32 address) {
-            return (UInt8)((address >> 8) & 0xFF);
+        public static byte PciGetBus(uint address) {
+            return (byte)((address >> 8) & 0xFF);
         }
 
         /// <summary>
@@ -452,8 +443,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">PCI Device Address</param>
         /// <returns>PCI Device Number</returns>
-        public static UInt8 PciGetDev(UInt32 address) {
-            return (UInt8)((address >> 3) & 0x1F);
+        public static byte PciGetDev(uint address) {
+            return (byte)((address >> 3) & 0x1F);
         }
 
         /// <summary>
@@ -461,15 +452,15 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">PCI Device Address</param>
         /// <returns>PCI Function Number</returns>
-        public static UInt8 PciGetFunc(UInt32 address) {
-            return (UInt8)(address & 0x07);
+        public static byte PciGetFunc(uint address) {
+            return (byte)(address & 0x07);
         }
 
         /// <summary>
         /// Sets the maximum PCI bus index to scan by <see cref="FindPciDeviceById"/> and <see cref="FindPciDeviceByClass"/>
         /// </summary>
         /// <param name="max">Maximum PCI bus index to scan</param>
-        public void SetPciMaxBusIndex(UInt8 max) {
+        public void SetPciMaxBusIndex(byte max) {
             gPciNumberOfBus = max;
         }
 
@@ -480,29 +471,29 @@ namespace SpdReaderWriterDll {
         /// <param name="deviceId">Device ID</param>
         /// <param name="index">Device index to find</param>
         /// <returns>PCI Device Address matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public UInt32 FindPciDeviceById(UInt16 vendorId, UInt16 deviceId, UInt16 index) {
+        public uint FindPciDeviceById(ushort vendorId, ushort deviceId, ushort index) {
 
             if (index > gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction) {
                 throw new ArgumentOutOfRangeException();
             }
 
-            UInt32 pciAddress = UInt32.MaxValue;
-            UInt32 count      = 0;
+            uint pciAddress = uint.MaxValue;
+            uint count = 0;
 
             if (vendorId == default || deviceId == default || index == 0) {
                 return pciAddress;
             }
 
-            for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
-                for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
+            for (ushort bus = 0; bus <= gPciNumberOfBus; bus++) {
+                for (byte dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt32.MaxValue) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == ushort.MaxValue) {
                         continue;
                     }
 
-                    for (UInt8 func = 0; func < gPciNumberOfFunction; func++) {
+                    for (byte func = 0; func < gPciNumberOfFunction; func++) {
 
-                        if (ReadPciConfigDword(PciBusDevFunc(bus, dev, func), 0x00) != (UInt32)((deviceId << 16) | vendorId)) {
+                        if (ReadPciConfigDword(PciBusDevFunc(bus, dev, func), 0x00) != (uint)((deviceId << 16) | vendorId)) {
                             continue;
                         }
 
@@ -524,8 +515,8 @@ namespace SpdReaderWriterDll {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public UInt32[] FindPciDeviceByIdArray(UInt16 vendorId, UInt16 deviceId) {
-            return FindPciDeviceByIdArray(vendorId, deviceId, (UInt16)(gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction));
+        public uint[] FindPciDeviceByIdArray(ushort vendorId, ushort deviceId) {
+            return FindPciDeviceByIdArray(vendorId, deviceId, (ushort)(gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction));
         }
 
         /// <summary>
@@ -535,36 +526,36 @@ namespace SpdReaderWriterDll {
         /// <param name="deviceId">Device ID</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
         /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public UInt32[] FindPciDeviceByIdArray(UInt16 vendorId, UInt16 deviceId, UInt16 maxCount) {
+        public uint[] FindPciDeviceByIdArray(ushort vendorId, ushort deviceId, ushort maxCount) {
 
             if (maxCount > gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction || maxCount == 0) {
                 throw new ArgumentOutOfRangeException();
             }
 
-            UInt32 count = 0;
+            uint count = 0;
 
             if (vendorId == default || deviceId == default) {
-                return new UInt32[0];
+                return new uint[0];
             }
 
-            Queue <UInt32> result = new Queue<UInt32>();
+            Queue<uint> result = new Queue<uint>();
 
-            for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
+            for (ushort bus = 0; bus <= gPciNumberOfBus; bus++) {
 
                 if (ReadPciConfigWord(PciBusDevFunc(bus, 0x00, 0x00), 0x00) != vendorId) {
                     continue;
                 }
 
-                for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
+                for (byte dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt16.MaxValue) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == ushort.MaxValue) {
                         continue;
                     }
 
-                    for (UInt8 func = 0; func < gPciNumberOfFunction; func++) {
+                    for (byte func = 0; func < gPciNumberOfFunction; func++) {
 
                         if (ReadPciConfigDword(PciBusDevFunc(bus, dev, func), 0x00) !=
-                            (UInt32)(vendorId | (deviceId << 16))) {
+                            (uint)(vendorId | (deviceId << 16))) {
                             continue;
                         }
 
@@ -588,26 +579,26 @@ namespace SpdReaderWriterDll {
         /// <param name="programIf">Program Interface</param>
         /// <param name="index">Device index to find</param>
         /// <returns>PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public UInt32 FindPciDeviceByClass(UInt8 baseClass, UInt8 subClass, UInt8 programIf, UInt16 index) {
+        public uint FindPciDeviceByClass(byte baseClass, byte subClass, byte programIf, ushort index) {
 
             if (index > gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction) {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            UInt32 pciAddress = UInt32.MaxValue;
-            UInt32 count      = 0;
+            uint pciAddress = uint.MaxValue;
+            uint count      = 0;
 
-            for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
-                for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
+            for (ushort bus = 0; bus <= gPciNumberOfBus; bus++) {
+                for (byte dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt16.MaxValue) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == ushort.MaxValue) {
                         continue;
                     }
 
-                    for (UInt8 func = 0; func < gPciNumberOfFunction; func++) {
+                    for (byte func = 0; func < gPciNumberOfFunction; func++) {
 
                         if ((ReadPciConfigDword(PciBusDevFunc(bus, dev, func), 0x08) & 0xFFFFFF00) !=
-                            (UInt32)(baseClass << 24 | subClass << 16 | programIf << 8)) {
+                            (uint)(baseClass << 24 | subClass << 16 | programIf << 8)) {
                             continue;
                         }
 
@@ -630,8 +621,8 @@ namespace SpdReaderWriterDll {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <returns>An array of PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public UInt32[] FindPciDeviceByClassArray(UInt8 baseClass, UInt8 subClass, UInt8 programIf) {
-            return FindPciDeviceByClassArray(baseClass, subClass, programIf, (UInt16)(gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction));
+        public uint[] FindPciDeviceByClassArray(byte baseClass, byte subClass, byte programIf) {
+            return FindPciDeviceByClassArray(baseClass, subClass, programIf, (ushort)(gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction));
         }
 
         /// <summary>
@@ -642,31 +633,31 @@ namespace SpdReaderWriterDll {
         /// <param name="programIf">Program Interface</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
         /// <returns>An array of PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public UInt32[] FindPciDeviceByClassArray(UInt8 baseClass, UInt8 subClass, UInt8 programIf, UInt16 maxCount) {
+        public uint[] FindPciDeviceByClassArray(byte baseClass, byte subClass, byte programIf, ushort maxCount) {
 
             if (maxCount > gPciNumberOfBus * gPciNumberOfDevice * gPciNumberOfFunction) {
                 throw new ArgumentOutOfRangeException(nameof(maxCount));
             }
 
             if (maxCount == 0) {
-                return new UInt32[0];
+                return new uint[0];
             }
 
-            UInt32 count = 0;
+            uint count = 0;
 
-            Queue<UInt32> result = new Queue<UInt32>();
+            Queue<uint> result = new Queue<uint>();
 
-            for (UInt16 bus = 0; bus <= gPciNumberOfBus; bus++) {
-                for (UInt8 dev = 0; dev < gPciNumberOfDevice; dev++) {
+            for (ushort bus = 0; bus <= gPciNumberOfBus; bus++) {
+                for (byte dev = 0; dev < gPciNumberOfDevice; dev++) {
 
-                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == UInt16.MaxValue) {
+                    if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == ushort.MaxValue) {
                         continue;
                     }
 
-                    for (UInt8 func = 0; func < gPciNumberOfFunction; func++) {
+                    for (byte func = 0; func < gPciNumberOfFunction; func++) {
 
                         if ((ReadPciConfigDword(PciBusDevFunc(bus, dev, func), 0x08) & 0xFFFFFF00) !=
-                            (UInt32)(baseClass << 24 | subClass << 16 | programIf << 8)) {
+                            (uint)(baseClass << 24 | subClass << 16 | programIf << 8)) {
                             continue;
                         }
 
@@ -688,7 +679,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <returns>Returns a byte value read from the specified PCI configuration address</returns>
-        public byte ReadPciConfigByte(UInt32 pciAddress, UInt32 regAddress) {
+        public byte ReadPciConfigByte(uint pciAddress, uint regAddress) {
 
             ReadPciConfigByteEx(pciAddress, regAddress, out byte output);
 
@@ -702,80 +693,80 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="output">Byte value read from the specified PCI configuration address</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadPciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, out byte output) {
+        public bool ReadPciConfigByteEx(uint pciAddress, uint regAddress, out byte output) {
 
-            output = UInt8.MaxValue;
-            
+            output = byte.MaxValue;
+
             ReadPciConfigInput pciData = new ReadPciConfigInput {
                 PciAddress = pciAddress,
                 RegAddress = regAddress,
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
-        /// Reads a UInt16 value from the specified PCI configuration address
+        /// Reads a ushort value from the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <returns>Returns a UInt16 value read from the specified PCI configuration address.</returns>
-        public UInt16 ReadPciConfigWord(UInt32 pciAddress, UInt32 regAddress) {
+        /// <returns>Returns a ushort value read from the specified PCI configuration address.</returns>
+        public ushort ReadPciConfigWord(uint pciAddress, uint regAddress) {
 
-            ReadPciConfigWordEx(pciAddress, regAddress, out UInt16 output);
+            ReadPciConfigWordEx(pciAddress, regAddress, out ushort output);
 
             return output;
         }
 
         /// <summary>
-        /// Reads a UInt16 value from the specified PCI configuration address
+        /// Reads a ushort value from the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <param name="output">UInt16 value read from the specified PCI configuration address.</param>
+        /// <param name="output">ushort value read from the specified PCI configuration address.</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadPciConfigWordEx(UInt32 pciAddress, UInt32 regAddress, out UInt16 output) {
+        public bool ReadPciConfigWordEx(uint pciAddress, uint regAddress, out ushort output) {
 
-            output = UInt16.MaxValue;
-            
+            output = ushort.MaxValue;
+
             ReadPciConfigInput pciData = new ReadPciConfigInput {
                 PciAddress = pciAddress,
                 RegAddress = regAddress
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
-        /// Reads a UInt32 value from the specified PCI configuration address
+        /// Reads a uint value from the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <returns>Returns a UInt32 value read from the specified PCI configuration address.</returns>
-        public UInt32 ReadPciConfigDword(UInt32 pciAddress, UInt32 regAddress) {
+        /// <returns>Returns a uint value read from the specified PCI configuration address.</returns>
+        public uint ReadPciConfigDword(uint pciAddress, uint regAddress) {
 
-            ReadPciConfigDwordEx(pciAddress, regAddress, out UInt32 output);
+            ReadPciConfigDwordEx(pciAddress, regAddress, out uint output);
 
             return output;
         }
 
         /// <summary>
-        /// Reads a UInt32 value from the specified PCI configuration address
+        /// Reads a uint value from the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <param name="output">UInt32 value read from the specified PCI configuration address.</param>
+        /// <param name="output">uint value read from the specified PCI configuration address.</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadPciConfigDwordEx(UInt32 pciAddress, UInt32 regAddress, out UInt32 output) {
+        public bool ReadPciConfigDwordEx(uint pciAddress, uint regAddress, out uint output) {
 
-            output = UInt32.MaxValue;
-            
+            output = uint.MaxValue;
+
             ReadPciConfigInput pciData = new ReadPciConfigInput {
                 PciAddress = pciAddress,
                 RegAddress = regAddress
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_PCI_CONFIG, pciData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_PCI_CONFIG, pciData, ref output);
         }
 
         /// <summary>
@@ -784,7 +775,7 @@ namespace SpdReaderWriterDll {
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Byte value to write to the configuration register</param>
-        public void WritePciConfigByte(UInt32 pciAddress, UInt32 regAddress, byte value) {
+        public void WritePciConfigByte(uint pciAddress, uint regAddress, byte value) {
             WritePciConfigByteEx(pciAddress, regAddress, value);
         }
 
@@ -795,7 +786,7 @@ namespace SpdReaderWriterDll {
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Byte value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WritePciConfigByteEx(UInt32 pciAddress, UInt32 regAddress, byte value) {
+        public bool WritePciConfigByteEx(uint pciAddress, uint regAddress, byte value) {
 
             WritePciConfigInputByte pciData = new WritePciConfigInputByte {
                 PciAddress = pciAddress,
@@ -803,29 +794,29 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_PCI_CONFIG, pciData);
         }
 
         /// <summary>
-        /// Writes a UInt16 value to the specified PCI configuration address
+        /// Writes a ushort value to the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <param name="value">UInt16 value to write to the configuration register</param>
-        public void WritePciConfigWord(UInt32 pciAddress, UInt32 regAddress, UInt16 value) {
+        /// <param name="value">ushort value to write to the configuration register</param>
+        public void WritePciConfigWord(uint pciAddress, uint regAddress, ushort value) {
             WritePciConfigWordEx(pciAddress, regAddress, value);
         }
 
         /// <summary>
-        /// Writes a UInt16 value to the specified PCI configuration address
+        /// Writes a ushort value to the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
         /// <param name="value">Word value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WritePciConfigWordEx(UInt32 pciAddress, UInt32 regAddress, UInt16 value) {
+        public bool WritePciConfigWordEx(uint pciAddress, uint regAddress, ushort value) {
 
-            // Check UInt16 boundary alignment
+            // Check ushort boundary alignment
             if ((regAddress & 1) != 0) {
                 return false;
             }
@@ -836,29 +827,29 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_PCI_CONFIG, pciData);
         }
 
         /// <summary>
-        /// Writes a UInt32 value to the specified PCI configuration address
+        /// Writes a uint value to the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <param name="value">UInt32 value to write to the configuration register</param>
-        public void WritePciConfigDword(UInt32 pciAddress, UInt32 regAddress, UInt32 value) {
+        /// <param name="value">uint value to write to the configuration register</param>
+        public void WritePciConfigDword(uint pciAddress, uint regAddress, uint value) {
             WritePciConfigDwordEx(pciAddress, regAddress, value);
         }
 
         /// <summary>
-        /// Writes a UInt32 value to the specified PCI configuration address
+        /// Writes a uint value to the specified PCI configuration address
         /// </summary>
         /// <param name="pciAddress">PCI device address</param>
         /// <param name="regAddress">Configuration register address</param>
-        /// <param name="value">UInt32 value to write to the configuration register</param>
+        /// <param name="value">uint value to write to the configuration register</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WritePciConfigDwordEx(UInt32 pciAddress, UInt32 regAddress, UInt32 value) {
+        public bool WritePciConfigDwordEx(uint pciAddress, uint regAddress, uint value) {
 
-            // Check UInt32 boundary alignment
+            // Check uint boundary alignment
             if ((regAddress & 3) != 0) {
                 return false;
             }
@@ -869,7 +860,7 @@ namespace SpdReaderWriterDll {
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_PCI_CONFIG, pciData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_PCI_CONFIG, pciData);
         }
 
         /// <summary>
@@ -877,8 +868,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct ReadPciConfigInput {
-            public UInt32 PciAddress;
-            public UInt32 RegAddress;
+            public uint PciAddress;
+            public uint RegAddress;
         }
 
         /// <summary>
@@ -886,8 +877,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WritePciConfigInputByte {
-            public UInt32 PciAddress;
-            public UInt32 RegAddress;
+            public uint PciAddress;
+            public uint RegAddress;
             public byte   Value;
         }
 
@@ -896,9 +887,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WritePciConfigInputWord {
-            public UInt32 PciAddress;
-            public UInt32 RegAddress;
-            public UInt16 Value;
+            public uint PciAddress;
+            public uint RegAddress;
+            public ushort Value;
         }
 
         /// <summary>
@@ -906,25 +897,25 @@ namespace SpdReaderWriterDll {
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WritePciConfigInputDword {
-            public UInt32 PciAddress;
-            public UInt32 RegAddress;
-            public UInt32 Value;
+            public uint PciAddress;
+            public uint RegAddress;
+            public uint Value;
         }
 
         /// <summary>
         /// Maximum number of PCI buses assigned by <see cref="SetPciMaxBusIndex"/>
         /// </summary>
-        private UInt8 gPciNumberOfBus            = 255;
+        private byte gPciNumberOfBus = 255;
 
         /// <summary>
         /// Maximum number of PCI devices per bus
         /// </summary>
-        private const UInt8 gPciNumberOfDevice   = 32;
+        private const byte gPciNumberOfDevice = 32;
 
         /// <summary>
         /// Maximum number of PCI functions per device
         /// </summary>
-        private const UInt8 gPciNumberOfFunction = 8;
+        private const byte gPciNumberOfFunction = 8;
 
         #endregion
 
@@ -935,7 +926,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="port">I/O port address</param>
         /// <returns>Byte value read from the specified <paramref name="port">I/O port address</paramref></returns>
-        public byte ReadIoPortByte(UInt16 port) {
+        public byte ReadIoPortByte(ushort port) {
 
             ReadIoPortByteEx(port, out byte output);
 
@@ -948,73 +939,73 @@ namespace SpdReaderWriterDll {
         /// <param name="port">I/O port address</param>
         /// <param name="output">Byte value read from the specified <paramref name="port">I/O port address</paramref></param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadIoPortByteEx(UInt16 port, out byte output) {
+        public bool ReadIoPortByteEx(ushort port, out byte output) {
 
-            output = UInt8.MaxValue;
+            output = byte.MaxValue;
 
             ReadIoPortInput portData = new ReadIoPortInput {
                 PortNumber = port
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_BYTE, portData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_IO_PORT_BYTE, portData, ref output);
         }
 
         /// <summary>
-        /// Reads a UInt16 value from the specified I/O port address
+        /// Reads a ushort value from the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <returns>UInt16 value read from the specified <paramref name="port">I/O port address</paramref></returns>
-        public UInt16 ReadIoPortWord(UInt16 port) {
+        /// <returns>ushort value read from the specified <paramref name="port">I/O port address</paramref></returns>
+        public ushort ReadIoPortWord(ushort port) {
 
-            ReadIoPortWordEx(port, out UInt16 output);
+            ReadIoPortWordEx(port, out ushort output);
 
             return output;
         }
 
         /// <summary>
-        /// Reads a UInt16 value from the specified I/O port address
+        /// Reads a ushort value from the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <param name="output">UInt16 value read from the specified <paramref name="port">I/O port address</paramref></param>
+        /// <param name="output">ushort value read from the specified <paramref name="port">I/O port address</paramref></param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadIoPortWordEx(UInt16 port, out UInt16 output) {
+        public bool ReadIoPortWordEx(ushort port, out ushort output) {
 
-            output = UInt16.MaxValue;
+            output = ushort.MaxValue;
 
             ReadIoPortInput portData = new ReadIoPortInput {
                 PortNumber = port
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_WORD, portData, ref output);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_IO_PORT_WORD, portData, ref output);
         }
 
         /// <summary>
-        /// Reads a UInt32 value from the specified I/O port address
+        /// Reads a uint value from the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <returns>UInt32 value read from the specified <paramref name="port">I/O port address</paramref></returns>
-        public UInt32 ReadIoPortDword(UInt16 port) {
+        /// <returns>uint value read from the specified <paramref name="port">I/O port address</paramref></returns>
+        public uint ReadIoPortDword(ushort port) {
 
-            ReadIoPortDwordEx(port, out UInt32 output);
+            ReadIoPortDwordEx(port, out uint output);
 
             return output;
         }
 
         /// <summary>
-        /// Reads a UInt32 value from the specified I/O port address
+        /// Reads a uint value from the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <param name="output">UInt32 value read from the specified <paramref name="port">I/O port address</paramref></param>
+        /// <param name="output">uint value read from the specified <paramref name="port">I/O port address</paramref></param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool ReadIoPortDwordEx(UInt16 port, out UInt32 output) {
+        public bool ReadIoPortDwordEx(ushort port, out uint output) {
 
-            output = UInt32.MaxValue;
+            output = uint.MaxValue;
 
             ReadIoPortInput portData = new ReadIoPortInput {
                 PortNumber = port
             };
-            
-            return DeviceIoControl(Kernel32.IoControlCode.READ_IO_PORT_DWORD, portData, ref output);
+
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_READ_IO_PORT_DWORD, portData, ref output);
         }
 
         /// <summary>
@@ -1022,7 +1013,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="port">I/O port address</param>
         /// <param name="value">Byte value to write to the port</param>
-        public void WriteIoPortByte(UInt16 port, byte value) {
+        public void WriteIoPortByte(ushort port, byte value) {
             WriteIoPortByteEx(port, value);
         }
 
@@ -1032,64 +1023,64 @@ namespace SpdReaderWriterDll {
         /// <param name="port">I/O port address</param>
         /// <param name="value">Byte value to write to the port</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WriteIoPortByteEx(UInt16 port, byte value) {
+        public bool WriteIoPortByteEx(ushort port, byte value) {
 
             WriteIoPortInput portData = new WriteIoPortInput {
                 PortNumber = port,
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_BYTE, portData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_IO_PORT_BYTE, portData);
         }
 
         /// <summary>
-        /// Writes a UInt16 value to the specified I/O port address
+        /// Writes a ushort value to the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <param name="value">UInt16 value to write to the port</param>
-        public void WriteIoPortWord(UInt16 port, UInt16 value) {
+        /// <param name="value">ushort value to write to the port</param>
+        public void WriteIoPortWord(ushort port, ushort value) {
             WriteIoPortWordEx(port, value);
         }
 
         /// <summary>
-        /// Writes a UInt16 value to the specified I/O port address
+        /// Writes a ushort value to the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <param name="value">UInt16 value to write to the port</param>
+        /// <param name="value">ushort value to write to the port</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WriteIoPortWordEx(UInt16 port, UInt16 value) {
+        public bool WriteIoPortWordEx(ushort port, ushort value) {
 
             WriteIoPortInput portData = new WriteIoPortInput {
                 PortNumber = port,
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_WORD, portData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_IO_PORT_WORD, portData);
         }
 
         /// <summary>
-        /// Writes a UInt32 value to the specified I/O port address
+        /// Writes a uint value to the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <param name="value">UInt32 value to write to the port</param>
-        public void WriteIoPortDword(UInt16 port, UInt32 value) {
+        /// <param name="value">uint value to write to the port</param>
+        public void WriteIoPortDword(ushort port, uint value) {
             WriteIoPortDwordEx(port, value);
         }
 
         /// <summary>
-        /// Writes a UInt32 value to the specified I/O port address
+        /// Writes a uint value to the specified I/O port address
         /// </summary>
         /// <param name="port">I/O port address</param>
-        /// <param name="value">UInt32 value to write to the port</param>
+        /// <param name="value">uint value to write to the port</param>
         /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool WriteIoPortDwordEx(UInt16 port, UInt32 value) {
+        public bool WriteIoPortDwordEx(ushort port, uint value) {
 
             WriteIoPortInput portData = new WriteIoPortInput {
                 PortNumber = port,
                 Value      = value
             };
 
-            return DeviceIoControl(Kernel32.IoControlCode.WRITE_IO_PORT_DWORD, portData);
+            return DeviceIoControl(NtBaseApi.IoControlCode.WR0_WRITE_IO_PORT_DWORD, portData);
         }
 
         /// <summary>
@@ -1097,7 +1088,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct ReadIoPortInput {
-            public UInt32 PortNumber;
+            public uint PortNumber;
         }
 
         /// <summary>
@@ -1105,8 +1096,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         [StructLayout(LayoutKind.Sequential, Pack = 1)]
         private struct WriteIoPortInput {
-            public UInt32 PortNumber;
-            public UInt32 Value;
+            public uint PortNumber;
+            public uint Value;
         }
 
         #endregion
@@ -1114,12 +1105,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Driver and service name
         /// </summary>
-        private static readonly string _name = "WinRing0_1_2_0"; // WinRing0_1_2_0
+        private static readonly string Name = "WinRing0_1_2_0"; // WinRing0_1_2_0
 
         /// <summary>
         /// Service operation timeout
         /// </summary>
-        private static readonly Int32 _timeout = 1000;
+        private static readonly int _timeout = 1000;
 
         /// <summary>
         /// IO device handle
@@ -1129,7 +1120,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service controller for the driver
         /// </summary>
-        private static ServiceController _sc;
+        private static ServiceController _sc = new ServiceController(Name);
 
         /// <summary>
         /// Driver ready state
@@ -1139,7 +1130,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Service control manager pointer
         /// </summary>
-        private IntPtr _managerPtr = Advapi32.OpenSCManager(dwAccess: Advapi32.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
+        private IntPtr _managerPtr = Win32BaseApi.OpenSCManager(dwAccess: Win32BaseApi.ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
 
         /// <summary>
         /// Service object pointer
@@ -1149,9 +1140,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
-                                    Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
-        
+        private static string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
+                                           Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+
         /// <summary>
         /// Indicates whether the driver service should be stopped and deleted on exit
         /// </summary>
@@ -1160,7 +1151,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Windows NT Kernel BASE API
         /// </summary>
-        private class Kernel32 {
+        private class NtBaseApi {
 
             /// <summary>
             /// Creates or opens a file or I/O device.
@@ -1187,12 +1178,12 @@ namespace SpdReaderWriterDll {
             /// The requested access to the file or device used by <see cref="CreateFile"/>
             /// </summary>
             internal enum FileAccess {
-                GENERIC_NEITHER              = 0,
-                GENERIC_ALL                  = 1 << 28,
-                GENERIC_EXECUTE              = 1 << 29,
-                GENERIC_WRITE                = 1 << 30,
-                GENERIC_READ                 = 1 << 31,
-                GENERIC_READWRITE            = GENERIC_WRITE | GENERIC_READ,
+                GENERIC_NEITHER   = 0,
+                GENERIC_ALL       = 1 << 28,
+                GENERIC_EXECUTE   = 1 << 29,
+                GENERIC_WRITE     = 1 << 30,
+                GENERIC_READ      = 1 << 31,
+                GENERIC_READWRITE = GENERIC_WRITE | GENERIC_READ,
             }
 
             /// <summary>
@@ -1203,22 +1194,22 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Prevents other processes from opening a file or device if they request delete, read, or write access.
                 /// </summary>
-                FILE_SHARE_EXCLUSIVE         = 0x00000000,
+                FILE_SHARE_EXCLUSIVE = 0x00000000,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request delete access.
                 /// </summary>
-                FILE_SHARE_DELETE            = 0x00000004,
+                FILE_SHARE_DELETE    = 0x00000004,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read access.
                 /// </summary>
-                FILE_SHARE_READ              = 0x00000001,
+                FILE_SHARE_READ      = 0x00000001,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request write access.
                 /// </summary>
-                FILE_SHARE_WRITE             = 0x00000002,
+                FILE_SHARE_WRITE     = 0x00000002,
 
                 /// <summary>
                 /// Enables subsequent open operations on a file or device to request read and write access.
@@ -1234,27 +1225,27 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Creates a new file, only if it does not already exist.
                 /// </summary>
-                CREATE_NEW                   = 1,
+                CREATE_NEW        = 1,
 
                 /// <summary>
                 /// Creates a new file, always. 
                 /// </summary>
-                CREATE_ALWAYS                = 2,
+                CREATE_ALWAYS     = 2,
 
                 /// <summary>
                 /// Opens a file or device, only if it exists. 
                 /// </summary>
-                OPEN_EXISTING                = 3,
+                OPEN_EXISTING     = 3,
 
                 /// <summary>
                 /// Opens a file, always. 
                 /// </summary>
-                OPEN_ALWAYS                  = 4,
+                OPEN_ALWAYS       = 4,
 
                 /// <summary>
                 /// Opens a file and truncates it so that its size is zero bytes, only if it exists. 
                 /// </summary>
-                TRUNCATE_EXISTING            = 5,
+                TRUNCATE_EXISTING = 5,
             }
 
             /// <summary>
@@ -1262,7 +1253,7 @@ namespace SpdReaderWriterDll {
             /// This parameter can include any combination of the available file attributes or <see cref="FILE_ATTRIBUTE_NORMAL"/>
             /// All other file attributes override <see cref="FILE_ATTRIBUTE_NORMAL"/>.
             /// </summary>
-            internal enum FileAttributes : UInt32 {
+            internal enum FileAttributes : uint {
 
                 /// <summary>
                 /// The file is read only. Applications can read the file, but cannot write to or delete it.
@@ -1335,7 +1326,7 @@ namespace SpdReaderWriterDll {
                 /// The file or device is being opened or created for asynchronous I/O. 
                 /// </summary>
                 FILE_FLAG_OVERLAPPED         = 0x40000000,
-                
+
                 /// <summary>
                 /// Access will occur according to POSIX rules. This includes allowing multiple files with names, differing only in case, for file systems that support that naming. 
                 /// </summary>
@@ -1392,26 +1383,26 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// Winring0 Device type code
                 /// </summary>
-                public static readonly UInt32 DEVICE_TYPE = 0x9C40;     // 40000
+                public static readonly uint WR0_DEVICE_TYPE = 0x9C40;     // 40000
 
-                public static UInt32 GET_DRIVER_VERSION   = 0x9C402000; // CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 GET_REFCOUNT         = 0x9C402004; // CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_MSR             = 0x9C402084; // CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 WRITE_MSR            = 0x9C402088; // CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_PMC             = 0x9C40208C; // CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 HALT                 = 0x9C402090; // CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
-                public static UInt32 READ_IO_PORT         = 0x9C4060C4; // CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_IO_PORT        = 0x9C40A0C8; // CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 READ_IO_PORT_BYTE    = 0x9C4060CC; // CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 READ_IO_PORT_WORD    = 0x9C4060D0; // CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 READ_IO_PORT_DWORD   = 0x9C4060D4; // CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_IO_PORT_BYTE   = 0x9C40A0D8; // CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 WRITE_IO_PORT_WORD   = 0x9C40A0DC; // CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 WRITE_IO_PORT_DWORD  = 0x9C40A0E0; // CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 READ_MEMORY          = 0x9C406104; // CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_MEMORY         = 0x9C40A108; // CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA);
-                public static UInt32 READ_PCI_CONFIG      = 0x9C406144; // CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA); 
-                public static UInt32 WRITE_PCI_CONFIG     = 0x9C40A148; // CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static uint WR0_GET_DRIVER_VERSION   = 0x9C402000; // CTL_CODE(function: 0x800, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static uint WR0_GET_REFCOUNT         = 0x9C402004; // CTL_CODE(function: 0x801, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static uint WR0_READ_MSR             = 0x9C402084; // CTL_CODE(function: 0x821, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static uint WR0_WRITE_MSR            = 0x9C402088; // CTL_CODE(function: 0x822, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static uint WR0_READ_PMC             = 0x9C40208C; // CTL_CODE(function: 0x823, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static uint WR0_HALT                 = 0x9C402090; // CTL_CODE(function: 0x824, access: IOCTL_ACCESS.FILE_ANY_ACCESS);
+                public static uint WR0_READ_IO_PORT         = 0x9C4060C4; // CTL_CODE(function: 0x831, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static uint WR0_WRITE_IO_PORT        = 0x9C40A0C8; // CTL_CODE(function: 0x832, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static uint WR0_READ_IO_PORT_BYTE    = 0x9C4060CC; // CTL_CODE(function: 0x833, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static uint WR0_READ_IO_PORT_WORD    = 0x9C4060D0; // CTL_CODE(function: 0x834, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static uint WR0_READ_IO_PORT_DWORD   = 0x9C4060D4; // CTL_CODE(function: 0x835, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static uint WR0_WRITE_IO_PORT_BYTE   = 0x9C40A0D8; // CTL_CODE(function: 0x836, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static uint WR0_WRITE_IO_PORT_WORD   = 0x9C40A0DC; // CTL_CODE(function: 0x837, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static uint WR0_WRITE_IO_PORT_DWORD  = 0x9C40A0E0; // CTL_CODE(function: 0x838, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static uint WR0_READ_MEMORY          = 0x9C406104; // CTL_CODE(function: 0x841, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static uint WR0_WRITE_MEMORY         = 0x9C40A108; // CTL_CODE(function: 0x842, access: IOCTL_ACCESS.FILE_WRITE_DATA);
+                public static uint WR0_READ_PCI_CONFIG      = 0x9C406144; // CTL_CODE(function: 0x851, access: IOCTL_ACCESS.FILE_READ_DATA); 
+                public static uint WR0_WRITE_PCI_CONFIG     = 0x9C40A148; // CTL_CODE(function: 0x852, access: IOCTL_ACCESS.FILE_WRITE_DATA);
             }
 
             /// <summary>
@@ -1420,8 +1411,8 @@ namespace SpdReaderWriterDll {
             /// <param name="function">Identifies the function to be performed by the driver.</param>
             /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
             /// <returns>An I/O control code</returns>
-            internal static UInt32 CTL_CODE(uint function, IOCTL_ACCESS access) {
-                return CTL_CODE(IoControlCode.DEVICE_TYPE, function, IOCTL_METHOD.METHOD_BUFFERED, access);
+            internal static uint CTL_CODE(uint function, IOCTL_ACCESS access) {
+                return CTL_CODE(IoControlCode.WR0_DEVICE_TYPE, function, IOCTL_METHOD.METHOD_BUFFERED, access);
             }
 
             /// <summary>
@@ -1432,10 +1423,10 @@ namespace SpdReaderWriterDll {
             /// <param name="method">Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP. Use one of the <see cref="IOCTL_METHOD"/> constants.</param>
             /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
             /// <returns>An I/O control code</returns>
-            internal static UInt32 CTL_CODE(uint deviceType, uint function, IOCTL_METHOD method, IOCTL_ACCESS access) {
-                return (deviceType << 16) | ((uint)access << 14) | (uint)((UInt16)(function) << 2) | (uint)method;
+            internal static uint CTL_CODE(uint deviceType, uint function, IOCTL_METHOD method, IOCTL_ACCESS access) {
+                return (deviceType << 16) | ((uint)access << 14) | (uint)((ushort)(function) << 2) | (uint)method;
             }
-            
+
             /// <summary>
             /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
             /// </summary>
@@ -1470,17 +1461,17 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
                 /// </summary>
-                FILE_ANY_ACCESS   = 0,
+                FILE_ANY_ACCESS      = 0,
 
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
                 /// </summary>
-                FILE_READ_DATA    = 1,
+                FILE_READ_DATA       = 1,
 
                 /// <summary>
                 /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
                 /// </summary>
-                FILE_WRITE_DATA   = 2,
+                FILE_WRITE_DATA      = 2,
 
                 /// <summary>
                 /// The caller must have both read and write access rights
@@ -1493,13 +1484,13 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <returns>Calling thread's last-error code</returns>
             [DllImport("kernel32.dll")]
-            internal static extern UInt16 GetLastError();
+            internal static extern ushort GetLastError();
         }
 
         /// <summary>
         /// Advanced Windows 32 Base API (services)
         /// </summary>
-        private static class Advapi32 {
+        private static class Win32BaseApi {
 
             /// <summary>
             /// Establishes a connection to the service control manager on <paramref name="machineName"/> and opens the specified service control manager <paramref name="databaseName"/>.
@@ -1526,7 +1517,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Service Security and Access Rights for the Service Control Manager
             /// </summary>
-            internal enum ServiceAccessRights : UInt32 {
+            internal enum ServiceAccessRights : uint {
                 SC_MANAGER_ALL_ACCESS         = 0xF003F,
                 SC_MANAGER_CREATE_SERVICE     = 0x00002,
                 SC_MANAGER_CONNECT            = 0x00001,
@@ -1572,7 +1563,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The service type
             /// </summary>
-            internal enum ServiceType : UInt32 {
+            internal enum ServiceType : uint {
 
                 /// <summary>
                 /// Driver service
@@ -1613,59 +1604,59 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The service start options
             /// </summary>
-            internal enum StartType : UInt32 {
+            internal enum StartType : uint {
                 /// <summary>
                 /// A device driver started by the system loader. This value is valid only for driver services
                 /// </summary>
-                SERVICE_BOOT_START          = 0x00000000,
+                SERVICE_BOOT_START   = 0x00000000,
 
                 /// <summary>
                 /// A device driver started by the IoInitSystem function. This value is valid only for driver services
                 /// </summary>
-                SERVICE_SYSTEM_START        = 0x00000001,
+                SERVICE_SYSTEM_START = 0x00000001,
 
                 /// <summary>
                 /// A service started automatically by the service control manager during system startup
                 /// </summary>
-                SERVICE_AUTO_START          = 0x00000002,
+                SERVICE_AUTO_START   = 0x00000002,
 
                 /// <summary>
                 /// A service started by the service control manager when a process calls the <see cref="StartService"/> function
                 /// </summary>
-                SERVICE_DEMAND_START        = 0x00000003,
+                SERVICE_DEMAND_START = 0x00000003,
 
                 /// <summary>
                 /// A service that cannot be started. Attempts to start the service result in the error code ERROR_SERVICE_DISABLED
                 /// </summary>
-                SERVICE_DISABLED            = 0x00000004,
+                SERVICE_DISABLED     = 0x00000004,
             }
 
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
             /// </summary>
-            internal enum ErrorControl : UInt32 {
-                
+            internal enum ErrorControl : uint {
+
                 /// <summary>
                 /// The startup program ignores the error and continues the startup operation
                 /// </summary>
-                SERVICE_ERROR_IGNORE        = 0x00000000,
-                
+                SERVICE_ERROR_IGNORE   = 0x00000000,
+
                 /// <summary>
                 /// The startup program logs the error in the event log but continues the startup operation
                 /// </summary>
-                SERVICE_ERROR_NORMAL        = 0x00000001,
-                
+                SERVICE_ERROR_NORMAL   = 0x00000001,
+
                 /// <summary>
                 /// The startup program logs the error in the event log.
                 /// If the last-known-good configuration is being started, the startup operation continues.
                 /// Otherwise, the system is restarted with the last-known-good configuration.
                 /// </summary>
-                SERVICE_ERROR_SEVERE        = 0x00000002,
+                SERVICE_ERROR_SEVERE   = 0x00000002,
 
                 /// <summary>
                 /// The startup program logs the error in the event log, if possible
                 /// </summary>
-                SERVICE_ERROR_CRITICAL      = 0x00000003,
+                SERVICE_ERROR_CRITICAL = 0x00000003,
             }
 
             /// <summary>
@@ -1675,15 +1666,15 @@ namespace SpdReaderWriterDll {
                 /// <summary>
                 /// The operation completed successfully
                 /// </summary>
-                NO_ERROR                    = unchecked((int)0x80070000),
+                NO_ERROR                = unchecked((int)0x80070000),
                 /// <summary>
                 /// The specified service already exists
                 /// </summary>
-                SERVICE_EXISTS              = unchecked((int)0x80070431),
+                SERVICE_EXISTS          = unchecked((int)0x80070431),
                 /// <summary>
                 /// An instance of the service is already running
                 /// </summary>
-                SERVICE_ALREADY_RUNNING     = unchecked((int)0x80070420),
+                SERVICE_ALREADY_RUNNING = unchecked((int)0x80070420),
             }
 
             /// <summary>
@@ -1810,7 +1801,7 @@ namespace SpdReaderWriterDll {
                                                SERVICE_STOP |
                                                SERVICE_PAUSE_CONTINUE |
                                                SERVICE_INTERROGATE |
-                                               SERVICE_USER_DEFINED_CONTROL,
+                                               SERVICE_USER_DEFINED_CONTROL
             }
 
             /// <summary>
@@ -1827,7 +1818,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Control codes for <see cref="ControlService"/>
             /// </summary>
-            internal enum ServiceControlCode : UInt32 {
+            internal enum ServiceControlCode : uint {
 
                 /// <summary>
                 /// Notifies a paused service that it should resume.
@@ -1892,114 +1883,114 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// The type of service for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusServiceType : UInt32 {
+            internal enum ServiceStatusServiceType : uint {
 
                 /// <summary>
                 /// The service is a file system driver. 
                 /// </summary>
-                SERVICE_FILE_SYSTEM_DRIVER     = 0x00000002,
+                SERVICE_FILE_SYSTEM_DRIVER  = 0x00000002,
 
                 /// <summary>
                 /// The service is a device driver. 
                 /// </summary>
-                SERVICE_KERNEL_DRIVER          = 0x00000001,
+                SERVICE_KERNEL_DRIVER       = 0x00000001,
 
                 /// <summary>
                 /// The service runs in its own process. 
                 /// </summary>
-                SERVICE_WIN32_OWN_PROCESS      = 0x00000010,
+                SERVICE_WIN32_OWN_PROCESS   = 0x00000010,
 
                 /// <summary>
                 /// The service shares a process with other services. 
                 /// </summary>
-                SERVICE_WIN32_SHARE_PROCESS    = 0x00000020,
+                SERVICE_WIN32_SHARE_PROCESS = 0x00000020,
 
                 /// <summary>
                 /// The service runs in its own process under the logged-on user account. 
                 /// </summary>
-                SERVICE_USER_OWN_PROCESS       = 0x00000050,
+                SERVICE_USER_OWN_PROCESS    = 0x00000050,
 
                 /// <summary>
                 /// The service shares a process with one or more other services that run under the logged-on user account. 
                 /// </summary>
-                SERVICE_USER_SHARE_PROCESS     = 0x00000060,
+                SERVICE_USER_SHARE_PROCESS  = 0x00000060,
             }
 
             /// <summary>
             /// The current state of the service for <see cref="ServiceStatus"/>. 
             /// </summary>
-            internal enum ServiceStatusCurrentState : UInt32 {
+            internal enum ServiceStatusCurrentState : uint {
 
                 /// <summary>
                 /// The service continue is pending. 
                 /// </summary>
-                SERVICE_CONTINUE_PENDING       = 0x00000005,
+                SERVICE_CONTINUE_PENDING = 0x00000005,
 
                 /// <summary>
                 /// The service pause is pending. 
                 /// </summary>
-                SERVICE_PAUSE_PENDING          = 0x00000006,
+                SERVICE_PAUSE_PENDING    = 0x00000006,
 
                 /// <summary>
                 /// The service is paused.
                 /// </summary>
-                SERVICE_PAUSED                 = 0x00000007,
+                SERVICE_PAUSED           = 0x00000007,
 
                 /// <summary>
                 /// The service is running. 
                 /// </summary>
-                SERVICE_RUNNING                = 0x00000004,
+                SERVICE_RUNNING          = 0x00000004,
 
                 /// <summary>
                 /// The service is starting. 
                 /// </summary>
-                SERVICE_START_PENDING          = 0x00000002,
+                SERVICE_START_PENDING    = 0x00000002,
 
                 /// <summary>
                 /// The service is stopping. 
                 /// </summary>
-                SERVICE_STOP_PENDING           = 0x00000003,
+                SERVICE_STOP_PENDING     = 0x00000003,
 
                 /// <summary>
                 /// The service is not running. 
                 /// </summary>
-                SERVICE_STOPPED                = 0x00000001,
+                SERVICE_STOPPED          = 0x00000001,
             }
 
             /// <summary>
             /// The control codes the service accepts and processes in its handler function for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusControlsAccepted : UInt32 {
+            internal enum ServiceStatusControlsAccepted : uint {
 
                 /// <summary>
                 /// The service is a network component that can accept changes in its binding without being stopped and restarted.
                 /// </summary>
-                SERVICE_ACCEPT_NETBINDCHANGE   = 0x00000010,
+                SERVICE_ACCEPT_NETBINDCHANGE  = 0x00000010,
 
                 /// <summary>
                 /// The service can reread its startup parameters without being stopped and restarted.
                 /// </summary>
-                SERVICE_ACCEPT_PARAMCHANGE     = 0x00000008,
+                SERVICE_ACCEPT_PARAMCHANGE    = 0x00000008,
 
                 /// <summary>
                 /// The service can be paused and continued.
                 /// </summary>
-                SERVICE_ACCEPT_PAUSE_CONTINUE  = 0x00000002,
+                SERVICE_ACCEPT_PAUSE_CONTINUE = 0x00000002,
 
                 /// <summary>
                 /// The service can perform preshutdown tasks.
                 /// </summary>
-                SERVICE_ACCEPT_PRESHUTDOWN     = 0x00000100,
+                SERVICE_ACCEPT_PRESHUTDOWN    = 0x00000100,
 
                 /// <summary>
                 /// The service is notified when system shutdown occurs.
                 /// </summary>
-                SERVICE_ACCEPT_SHUTDOWN        = 0x00000004,
+                SERVICE_ACCEPT_SHUTDOWN       = 0x00000004,
 
                 /// <summary>
                 /// The service can be stopped.
                 /// </summary>
-                SERVICE_ACCEPT_STOP            = 0x00000001,
+                SERVICE_ACCEPT_STOP           = 0x00000001,
             }
 
             /// <summary>

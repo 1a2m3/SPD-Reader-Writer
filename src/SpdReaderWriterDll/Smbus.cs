@@ -15,7 +15,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using UInt8 = System.Byte;
+using SpdReaderWriterDll.Driver;
 
 namespace SpdReaderWriterDll {
 
@@ -27,11 +27,9 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Kernel Driver instance
         /// </summary>
-        public WinRing0 Driver {
-            get => _driver;
-            set => _driver = value;
-        }
-        internal static WinRing0 _driver;
+        public static WinRing0 Driver {
+            get;
+        } = new WinRing0();
 
         /// <summary>
         /// Kernel Driver version
@@ -39,8 +37,8 @@ namespace SpdReaderWriterDll {
         public string Version {
             get {
                 byte[] v = new byte[4];
-                if (_driver != null && _driver.IsReady) {
-                    _driver.GetDriverVersion(ref v[0], ref v[1], ref v[2], ref v[3]);
+                if (Driver != null && Driver.IsReady) {
+                    Driver.GetDriverVersion(ref v[0], ref v[1], ref v[2], ref v[3]);
                 }
 
                 return $"{v[0]}.{v[1]}.{v[2]}.{v[3]}";
@@ -54,11 +52,15 @@ namespace SpdReaderWriterDll {
             public VendorId VendorId;
             public DeviceId DeviceId;
         }
+
+        /// <summary>
+        /// Smbus Device Info
+        /// </summary>
         public DeviceInfo Info {
             get => _info;
             set => _info = value;
         }
-        private static DeviceInfo _info;
+        private DeviceInfo _info;
 
         /// <summary>
         /// SMBus bus number
@@ -71,17 +73,17 @@ namespace SpdReaderWriterDll {
                 Eeprom.ResetPageAddress(this);
             }
         }
-        private static byte _busNumber;
+        private byte _busNumber;
 
         /// <summary>
         /// Last set slave address
         /// </summary>
-        public UInt8 I2CAddress;
+        public byte I2CAddress;
 
         /// <summary>
         /// Maximum SPD size on this device
         /// </summary>
-        public UInt16 MaxSpdSize;
+        public ushort MaxSpdSize;
 
         /// <summary>
         /// SPD BIOS write disable state (ICH/PCH only)
@@ -95,7 +97,7 @@ namespace SpdReaderWriterDll {
             get => _pciDevice;
             set => _pciDevice = value;
         }
-        private static PciDevice _pciDevice;
+        private PciDevice _pciDevice;
 
         /// <summary>
         /// IO port instance
@@ -104,7 +106,7 @@ namespace SpdReaderWriterDll {
             get => _ioPort;
             set => _ioPort = value;
         }
-        private static IoPort _ioPort;
+        private IoPort _ioPort;
 
         /// <summary>
         /// Initialize SMBus with default settings
@@ -126,9 +128,7 @@ namespace SpdReaderWriterDll {
         public void Dispose() {
             ioPort    = null;
             pciDevice = null;
-            Info      = default;
-            Driver    = null;
-
+            
             if (!IsRunning) {
                 I2CAddress       = 0;
                 SMBuses          = null;
@@ -143,7 +143,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>Human readable SMBus name in a form of platform vendor name and chipset model name</returns>
         public override string ToString() {
-            return $"{_info.VendorId} {_info.DeviceId}";
+            return $"{Info.VendorId} {Info.DeviceId}";
         }
 
         /// <summary>
@@ -159,28 +159,30 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Available SMBuses
         /// </summary>
-        public UInt8[] SMBuses;
+        public byte[] SMBuses;
 
         /// <summary>
         /// Available slave addresses on selected bus
         /// </summary>
-        public UInt8[] Addresses;
+        public byte[] Addresses;
 
         /// <summary>
         /// Platform Vendor ID
         /// </summary>
-        public enum VendorId : UInt16 {
+        public enum VendorId : ushort {
             AMD    = 0x1022,
             ATI    = 0x1002, // Former ATI vendor ID which is now owned by AMD, who has 2 vendor IDs
             Intel  = 0x8086,
             Nvidia = 0x10DE,
+            SiS    = 0x1039,
+            VIA    = 0x1106,
         }
 
         /// <summary>
         /// Intel: ICH/PCH device ID (LPC/eSPI controller or ISA bridge)
         /// AMD:   SMBus device ID
         /// </summary>
-        public enum DeviceId : UInt16 {
+        public enum DeviceId : ushort {
 
             // Old pre-PCH hardware
 
@@ -403,7 +405,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Intel CPU SMBus Device ID
         /// </summary>
-        public enum SkylakeXDeviceId : UInt16 {
+        public enum SkylakeXDeviceId : ushort {
             // LGA 2066 SKL-X & CLX-X IMC Smbus
             CpuImcSmbus = 0x2085,
         }
@@ -478,7 +480,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="deviceId">Chipset DeviceID</param>
         /// <returns><see langword="true"/> if <paramref name="deviceId"/> is present in the <see cref="DeviceId"/> enum</returns>
-        private static bool CheckChipsetSupport(DeviceId deviceId) {
+        private bool CheckChipsetSupport(DeviceId deviceId) {
             return Enum.IsDefined(typeof(DeviceId), deviceId);
         }
 
@@ -487,7 +489,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="deviceId">Chipset DeviceID</param>
         /// <returns><see langword="true"/> if <paramref name="deviceId"/> belongs to Skylake-X or Cascade Lake-X platform</returns>
-        private static bool IsSkylakeX(DeviceId deviceId) {
+        private bool IsSkylakeX(DeviceId deviceId) {
 
             DeviceId[] SkylakeX = {
                 DeviceId.X299,
@@ -500,13 +502,13 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets platform type
         /// </summary>
-        private static Platform PlatformType {
+        private Platform PlatformType {
             get {
-                if (IsSkylakeX(_info.DeviceId)) {
+                if (IsSkylakeX(Info.DeviceId)) {
                     return Platform.SkylakeX;
                 }
 
-                if (CheckChipsetSupport(_info.DeviceId)) {
+                if (CheckChipsetSupport(Info.DeviceId)) {
                     return Platform.Default;
                 }
 
@@ -540,22 +542,17 @@ namespace SpdReaderWriterDll {
         /// </summary>
         private void Initialize() {
 
-            try {
-                Driver = new WinRing0();
+            if (!Driver.IsReady) {
+                throw new Exception($"{nameof(Driver)} initialization failure.");
+            }
 
-                if (Driver.IsReady) {
-                    Info = GetDeviceInfo();
-                }
-            }
-            catch (Exception e) {
-                throw new Exception($"{nameof(WinRing0)} initialization failure: {e.Message}");
-            }
+            Info = GetDeviceInfo();
 
             switch (Info.VendorId) {
                 // Skylake-X
                 case VendorId.Intel when PlatformType == Platform.SkylakeX:
                     // Locate CPU SMBus controller
-                    pciDevice = new PciDevice(PciDevice.FindDeviceById((UInt16)Info.VendorId, (UInt16)SkylakeXDeviceId.CpuImcSmbus));
+                    pciDevice = new PciDevice(PciDevice.FindDeviceById((ushort)Info.VendorId, (ushort)SkylakeXDeviceId.CpuImcSmbus));
                     break;
                 // ICH/PCH
                 case VendorId.Intel:
@@ -566,7 +563,7 @@ namespace SpdReaderWriterDll {
                         pciDevice = new PciDevice(PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus));
 
                         // Read IO port address and info
-                        UInt16 ioPortAddress = pciDevice.ReadWord(PciDevice.RegisterOffset.BaseAddress[4]);
+                        ushort ioPortAddress = pciDevice.ReadWord(PciDevice.RegisterOffset.BaseAddress[4]);
 
                         // Check SPD write disable bit
                         SpdWriteDisabled = Data.GetBit(pciDevice.ReadByte(0x40), 4);
@@ -575,7 +572,7 @@ namespace SpdReaderWriterDll {
                         if ((ioPortAddress & 1) == 1) {
 
                             // Initialize new SMBus IO port instance
-                            ioPort = new IoPort((UInt16)(ioPortAddress & 0xFFFE));
+                            ioPort = new IoPort((ushort)(ioPortAddress & 0xFFFE));
                         }
                     }
 
@@ -585,14 +582,14 @@ namespace SpdReaderWriterDll {
                     pciDevice = new PciDevice(PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus));
 
                     // AMD AM4, AM1, FM1, FM2(+)
-                    if ((pciDevice.DeviceId == (UInt16)DeviceId.FCH && pciDevice.RevisionId >= 0x49) ||
-                        (pciDevice.DeviceId == (UInt16)DeviceId.Hudson2 && pciDevice.RevisionId >= 0x41)) {
+                    if ((pciDevice.DeviceId == (ushort)DeviceId.FCH && pciDevice.RevisionId >= 0x49) ||
+                        (pciDevice.DeviceId == (ushort)DeviceId.Hudson2 && pciDevice.RevisionId >= 0x41)) {
 
                         // PMIO registers accessible via IO ports
-                        const UInt16 SB800_PIIX4_SMB_IDX = 0xCD6;
-                        const UInt16 SB800_PIIX4_SMB_DAT = 0xCD7;
+                        const ushort SB800_PIIX4_SMB_IDX = 0xCD6;
+                        const ushort SB800_PIIX4_SMB_DAT = 0xCD7;
 
-                        byte smb_en = 0x00;
+                        byte smb_en = 0x00; // AMD && (Hudson2 && revision >= 0x41 || FCH && revision >= 0x49)
 
                         IoPort _ioPort = new IoPort();
 
@@ -604,10 +601,10 @@ namespace SpdReaderWriterDll {
 
                         byte smb_en_status = (byte)(smba_en_lo & 0x10);
 
-                        UInt16 piix4_smba; // Primary bus
+                        ushort piix4_smba; // Primary bus
 
                         if (smb_en_status > 0) {
-                            piix4_smba = (UInt16)(smba_en_hi << 8); // 0x0B00
+                            piix4_smba = (ushort)(smba_en_hi << 8); // 0x0B00
 
                             if (piix4_smba != 0x00) {
                                 ioPort = new IoPort(piix4_smba);
@@ -622,7 +619,7 @@ namespace SpdReaderWriterDll {
             BusNumber         = 0;
             byte[] scanResult = Scan();
             Addresses         = scanResult;
-            MaxSpdSize        = scanResult.Length > 0 ? GetMaxSpdSize(scanResult[0]) : (UInt16)Spd.DataLength.Unknown;
+            MaxSpdSize        = scanResult.Length > 0 ? GetMaxSpdSize(scanResult[0]) : (ushort)Spd.DataLength.Unknown;
             SMBuses           = FindBus();
         }
 
@@ -630,7 +627,7 @@ namespace SpdReaderWriterDll {
         /// Get platform information
         /// </summary>
         /// <returns>Platform and chipset Device/Vendor ID</returns>
-        public static DeviceInfo GetDeviceInfo() {
+        public DeviceInfo GetDeviceInfo() {
 
             DeviceInfo result  = new DeviceInfo();
             PciDevice platform = new PciDevice();
@@ -641,7 +638,7 @@ namespace SpdReaderWriterDll {
                 case VendorId.Intel:
                     // Find ISA bridge to get chipset ID
                     try {
-                        UInt32 isa = PciDevice.FindDeviceByClass(PciDevice.BaseClass.Bridge, PciDevice.SubClass.Isa);
+                        uint isa = PciDevice.FindDeviceByClass(PciDevice.BaseClass.Bridge, PciDevice.SubClass.Isa);
                         result.DeviceId = (DeviceId)new PciDevice(isa).DeviceId;
                     }
                     catch {
@@ -652,7 +649,7 @@ namespace SpdReaderWriterDll {
 
                 case VendorId.AMD:
                 case VendorId.Nvidia:
-                    UInt32 smbus = PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus);
+                    uint smbus = PciDevice.FindDeviceByClass(PciDevice.BaseClass.Serial, PciDevice.SubClass.Smbus);
                     result.DeviceId = (DeviceId)new PciDevice(smbus).DeviceId;
                     break;
             }
@@ -666,7 +663,7 @@ namespace SpdReaderWriterDll {
         /// <returns>An array of bytes containing SMBus numbers</returns>
         public byte[] FindBus() {
 
-            UInt8 originalBus = BusNumber;
+            byte originalBus = BusNumber;
 
             try {
                 Queue<byte> result = new Queue<byte>();
@@ -715,7 +712,7 @@ namespace SpdReaderWriterDll {
         /// Scan SMBus for available slave devices
         /// </summary>
         /// <returns>An array of available bus addresses</returns>
-        public UInt8[] Scan() {
+        public byte[] Scan() {
             return Scan(this, minimumResults: false);
         }
 
@@ -750,7 +747,7 @@ namespace SpdReaderWriterDll {
         /// <param name="minimumResults">Set to <see langword="true"/> to stop scanning once at least one slave address is found,
         /// or <see langword="false"/> to scan the entire range</param>
         /// <returns>An array of found bus addresses on <see cref="BusNumber"/></returns>
-        private UInt8[] Scan(Smbus controller, bool minimumResults) {
+        private byte[] Scan(Smbus controller, bool minimumResults) {
 
             Queue<byte> result = new Queue<byte>();
 
@@ -778,7 +775,7 @@ namespace SpdReaderWriterDll {
         /// <param name="slaveAddress">Slave address</param>
         /// <returns><see langword="true"/> if <paramref name="controller"/> responds with
         /// <see cref="SmbStatus.Success"/> or <see cref="SmbStatus.Ready"/></returns>
-        public static bool ReadByte(Smbus controller, byte slaveAddress) {
+        public bool ReadByte(Smbus controller, byte slaveAddress) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -802,7 +799,7 @@ namespace SpdReaderWriterDll {
         /// <param name="slaveAddress">Slave address</param>
         /// <param name="offset">Byte position</param>
         /// <returns>Byte value read from the device</returns>
-        public static byte ReadByte(Smbus controller, byte slaveAddress, UInt16 offset) {
+        public byte ReadByte(Smbus controller, byte slaveAddress, ushort offset) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -828,7 +825,7 @@ namespace SpdReaderWriterDll {
         /// <param name="slaveAddress">Slave address</param>
         /// <returns><see langword="true"/> if <paramref name="controller"/> responds with
         /// <see cref="SmbStatus.Success"/> or <see cref="SmbStatus.Ready"/></returns>
-        public static bool WriteByte(Smbus controller, UInt8 slaveAddress) {
+        public bool WriteByte(Smbus controller, byte slaveAddress) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -854,7 +851,7 @@ namespace SpdReaderWriterDll {
         /// <param name="value">Byte value</param>
         /// <returns><see langwod="true"/> if <paramref name="controller"/> responds with
         /// <see cref="SmbStatus.Success"/> or <see cref="SmbStatus.Ready"/></returns>
-        public static bool WriteByte(Smbus controller, UInt8 slaveAddress, UInt16 offset, byte value) {
+        public bool WriteByte(Smbus controller, byte slaveAddress, ushort offset, byte value) {
 
             SmbusData busData = new SmbusData {
                 BusNumber   = controller.BusNumber,
@@ -879,7 +876,7 @@ namespace SpdReaderWriterDll {
         /// <param name="smbusData">SMBus input data</param>
         /// <returns><see langword="true"/> if SMBus doesn't return
         /// <see cref="SmbStatus.Error"/> or <see cref="SmbStatus.Timeout"/></returns>
-        private static bool ExecuteCommand(ref SmbusData smbusData) {
+        private bool ExecuteCommand(ref SmbusData smbusData) {
 
             if (PlatformType == Platform.Unknown) {
                 return false;
@@ -888,15 +885,15 @@ namespace SpdReaderWriterDll {
             if (PlatformType == Platform.SkylakeX) {
                 // Set input for writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    _pciDevice.WriteByte(
+                    pciDevice.WriteByte(
                         offset : (byte)(SkylakeXSmbusRegister.Input + smbusData.BusNumber * 4),
                         value  : smbusData.Input);
                 }
 
                 // Set slave address, offset, and Execute command
-                _pciDevice.WriteDword(
-                    offset : (UInt8)(SkylakeXSmbusRegister.Offset + smbusData.BusNumber * 4),
-                    value  : (UInt32)(
+                pciDevice.WriteDword(
+                    offset : (byte)(SkylakeXSmbusRegister.Offset + smbusData.BusNumber * 4),
+                    value  : (uint)(
                         // Enable byte read
                         0x20 << 24 |
                         // Execute command
@@ -930,29 +927,29 @@ namespace SpdReaderWriterDll {
                 }
 
                 if (smbusData.AccessMode == SmbusAccessMode.Read) {
-                    smbusData.Output = _pciDevice.ReadByte(
+                    smbusData.Output = pciDevice.ReadByte(
                         offset : (byte)(SkylakeXSmbusRegister.Output + smbusData.BusNumber * 4));
                 }
             }
-            else if (PlatformType == Platform.Default && _info.VendorId == VendorId.Nvidia) {
+            else if (PlatformType == Platform.Default && Info.VendorId == VendorId.Nvidia) {
 
                 if (smbusData.BusNumber > 0) {
                     return false;
                 }
 
                 // Set Smbus address
-                _ioPort.WriteByte(
+                ioPort.WriteByte(
                     offset : NvidiaSmbusRegister.Address,
-                    value  : (UInt8)(smbusData.Address << 1));
+                    value  : (byte)(smbusData.Address << 1));
 
                 // Set offset
-                _ioPort.WriteByte(
+                ioPort.WriteByte(
                     offset : NvidiaSmbusRegister.Command,
-                    value  : (UInt8)smbusData.Offset);
+                    value  : (byte)smbusData.Offset);
 
                 // Set data byte register if Write mode is set
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    _ioPort.WriteByte(
+                    ioPort.WriteByte(
                         offset : NvidiaSmbusRegister.Data,
                         value  : smbusData.Input);
                 }
@@ -983,7 +980,7 @@ namespace SpdReaderWriterDll {
                 }
 
                 // Execute command
-                _ioPort.WriteByte(
+                ioPort.WriteByte(
                     offset : NvidiaSmbusRegister.Protocol,
                     value  : protocolCmd);
 
@@ -1009,20 +1006,20 @@ namespace SpdReaderWriterDll {
 
                 // Read and assign output if read mode is specified
                 if (smbusData.AccessMode == SmbusAccessMode.Read) {
-                    smbusData.Output = _ioPort.ReadByte(NvidiaSmbusRegister.Data);
+                    smbusData.Output = ioPort.ReadByte(NvidiaSmbusRegister.Data);
                 }
             }
-            else if (PlatformType == Platform.Default && _info.VendorId != VendorId.Nvidia) {
+            else if (PlatformType == Platform.Default && Info.VendorId != VendorId.Nvidia) {
                 // These platforms don't support multiple SMbuses
-                if (smbusData.BusNumber > 0 && _info.VendorId == VendorId.Intel) {
+                if (smbusData.BusNumber > 0 && Info.VendorId == VendorId.Intel) {
                     return false;
                 }
 
                 // Alternative AMD SMBus
-                UInt8 portOffset = 0;
+                byte portOffset = 0;
 
-                if (_info.VendorId == VendorId.AMD) {
-                    portOffset = (UInt8)(_busNumber * 20);
+                if (Info.VendorId == VendorId.AMD) {
+                    portOffset = (byte)(BusNumber * 20);
                 }
 
                 // Clear status bitmask to reset status
@@ -1032,8 +1029,8 @@ namespace SpdReaderWriterDll {
                                        SmbusStatus.Failed;
 
                 // Reset status 
-                _ioPort.WriteByte(
-                    offset : (UInt8)(DefaultSmbusRegister.Status + portOffset),
+                ioPort.WriteByte(
+                    offset : (byte)(DefaultSmbusRegister.Status + portOffset),
                     value  : clearStatusMask);
 
                 // Wait for ready status
@@ -1043,20 +1040,20 @@ namespace SpdReaderWriterDll {
                 }
 
                 // Set slave address
-                _ioPort.WriteByte(
-                    offset : (UInt8)(DefaultSmbusRegister.Address + portOffset),
+                ioPort.WriteByte(
+                    offset : (byte)(DefaultSmbusRegister.Address + portOffset),
                     value  : (byte)(smbusData.Address << 1 | (smbusData.AccessMode == SmbusAccessMode.Read ? 1 : 0)));
 
                 // Set input data for writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    _ioPort.WriteByte(
-                        offset : (UInt8)(DefaultSmbusRegister.Data0 + portOffset),
+                    ioPort.WriteByte(
+                        offset : (byte)(DefaultSmbusRegister.Data0 + portOffset),
                         value  : smbusData.Input);
                 }
 
                 // Set offset
-                _ioPort.WriteByte(
-                    offset : (UInt8)(DefaultSmbusRegister.HostCmd + portOffset),
+                ioPort.WriteByte(
+                    offset : (byte)(DefaultSmbusRegister.HostCmd + portOffset),
                     value  : (byte)smbusData.Offset);
 
                 // Command type
@@ -1079,8 +1076,8 @@ namespace SpdReaderWriterDll {
                 }
 
                 // Execute
-                _ioPort.WriteByte(
-                    offset : (UInt8)(DefaultSmbusRegister.Control + portOffset),
+                ioPort.WriteByte(
+                    offset : (byte)(DefaultSmbusRegister.Control + portOffset),
                     value  : (byte)(SmbusCmd.Interrupt | smbusDataCmd | SmbusCmd.Start));
 
                 // Wait after writing
@@ -1096,7 +1093,7 @@ namespace SpdReaderWriterDll {
                         timeout  : 1000)) {
 
                     // Abort current execution
-                    _ioPort.WriteByte((UInt8)(DefaultSmbusRegister.Control + portOffset), SmbusCmd.Stop);
+                    ioPort.WriteByte((byte)(DefaultSmbusRegister.Control + portOffset), SmbusCmd.Stop);
 
                     smbusData.Status = SmbStatus.Timeout;
                     return false;
@@ -1112,7 +1109,7 @@ namespace SpdReaderWriterDll {
 
                 // Read and assign output if read mode is specified
                 if (smbusData.AccessMode == SmbusAccessMode.Read) {
-                    smbusData.Output = _ioPort.ReadByte(offset: DefaultSmbusRegister.Data0);
+                    smbusData.Output = ioPort.ReadByte(offset: DefaultSmbusRegister.Data0);
                 }
             }
 
@@ -1173,9 +1170,9 @@ namespace SpdReaderWriterDll {
         /// SMBus data for <see cref="ExecuteCommand"/>
         /// </summary>
         public struct SmbusData {
-            internal UInt8 BusNumber;
-            internal UInt8 Address;
-            internal UInt16 Offset;
+            internal byte BusNumber;
+            internal byte Address;
+            internal ushort Offset;
             internal SmbusAccessMode AccessMode;
             internal SmbusDataCommand DataCommand;
             internal byte Input;
@@ -1205,20 +1202,20 @@ namespace SpdReaderWriterDll {
         /// Command execution delays
         /// </summary>
         private struct ExecutionDelay {
-            internal static readonly UInt8 WriteDelay = 10;
-            internal static readonly UInt8 WaitDelay  =  0;
+            internal static readonly byte WriteDelay = 10;
+            internal static readonly byte WaitDelay  =  0;
         }
 
         /// <summary>
         /// Gets SMBus status
         /// </summary>
         /// <returns>SMBus status</returns>
-        public static SmbStatus GetBusStatus() {
+        public SmbStatus GetBusStatus() {
 
             byte status;
 
             if (PlatformType == Platform.SkylakeX) {
-                status = _pciDevice.ReadByte((byte)(SkylakeXSmbusRegister.Status + _busNumber * 4));
+                status = pciDevice.ReadByte((byte)(SkylakeXSmbusRegister.Status + BusNumber * 4));
 
                 if ((status & SkylakeXSmbusStatus.Busy) > 0) {
                     return SmbStatus.Busy;
@@ -1238,8 +1235,8 @@ namespace SpdReaderWriterDll {
                 return SmbStatus.Ready;
             }
 
-            if (_info.VendorId == VendorId.Nvidia) {
-                status = _ioPort.ReadByte(NvidiaSmbusRegister.Status);
+            if (Info.VendorId == VendorId.Nvidia) {
+                status = ioPort.ReadByte(NvidiaSmbusRegister.Status);
 
                 switch (status) {
                     case NvidiaSmbusStatus.Done:
@@ -1252,7 +1249,7 @@ namespace SpdReaderWriterDll {
 
             if (PlatformType == Platform.Default) {
 
-                status = _ioPort.ReadByte(DefaultSmbusRegister.Status);
+                status = ioPort.ReadByte(DefaultSmbusRegister.Status);
 
                 // Check status flags
                 if ((status & (SmbusStatus.Failed |
@@ -1290,7 +1287,7 @@ namespace SpdReaderWriterDll {
         /// <param name="status">Desired SMBus status</param>
         /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns><see langword="true"/> if SMBus status matches <paramref name="status"/> before timeout occurs</returns>
-        private static bool WaitForStatus(SmbStatus status, int timeout) {
+        private bool WaitForStatus(SmbStatus status, int timeout) {
 
             Stopwatch sw = Stopwatch.StartNew();
 
@@ -1309,7 +1306,7 @@ namespace SpdReaderWriterDll {
         /// <param name="statuses">An array of SMBus statuses to wait for</param>
         /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns><see langword="true"/> if SMBus status matches one of <paramref name="statuses"/> before timeout occurs</returns>
-        private static bool WaitForStatus(SmbStatus[] statuses, int timeout) {
+        private bool WaitForStatus(SmbStatus[] statuses, int timeout) {
 
             SmbStatus currentStatus;
             Stopwatch sw = Stopwatch.StartNew();
@@ -1373,8 +1370,7 @@ namespace SpdReaderWriterDll {
         /// Gets supported platform maximum SPD size
         /// </summary>
         /// <returns>SPD size</returns>
-        private UInt16 GetMaxSpdSize(UInt8 address) {
-
+        private ushort GetMaxSpdSize(byte address) {
             // Read dram device type byte
             byte ramTypeByte = ReadByte(this, address, 2);
 
@@ -1382,7 +1378,7 @@ namespace SpdReaderWriterDll {
             byte[] spdHeader = { 0x00, 0x00, ramTypeByte };
 
             // Check if dram device type byte value is in the Ram.Type enum
-            return (UInt16)(Enum.IsDefined(typeof(Spd.RamType), (Spd.RamType)ramTypeByte)
+            return (ushort)(Enum.IsDefined(typeof(Spd.RamType), (Spd.RamType)ramTypeByte)
                 ? Spd.GetSpdSize(Spd.GetRamType(spdHeader))
                 : Spd.DataLength.Minimum); // DDR3 and older
         }

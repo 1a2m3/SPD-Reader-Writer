@@ -15,31 +15,31 @@ using System.ComponentModel;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
-using UInt8 = System.Byte;
+using System.Text;
 
 namespace SpdReaderWriterDll {
 
     /// <summary>
-    /// Data class which works with bytes, bits, streams, and other types of data
+    /// Data class which works with bytes, bits, strings, streams, and other types of data
     /// </summary>
     public class Data {
 
         /// <summary>
-        /// Calculates CRC16/XMODEM checksum
+        /// Calculates CRC16 checksum
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
         /// <param name="poly">Polynomial value</param>
         /// <returns>A calculated checksum</returns>
-        public static UInt16 Crc16(byte[] input, UInt16 poly) {
+        public static ushort Crc16(byte[] input, ushort poly) {
 
-            UInt16 crc = 0;
+            ushort crc = 0;
 
-            for (UInt16 i = 0; i < input.Length; i++) {
+            for (ushort i = 0; i < input.Length; i++) {
 
-                crc ^= (UInt16)(input[i] << 8);
+                crc ^= (ushort)(input[i] << 8);
 
-                for (UInt8 j = 0; j < 8; j++) {
-                    crc = (UInt16)((crc & 0x8000) != 0 ? (crc << 1) ^ poly : crc << 1);
+                for (byte j = 0; j < 8; j++) {
+                    crc = (ushort)((crc & 0x8000) != 0 ? (crc << 1) ^ poly : crc << 1);
                 }
             }
 
@@ -51,9 +51,9 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">A byte array to be checked</param>
         /// <returns>A calculated checksum</returns>
-        public static UInt8 Crc(byte[] input) {
+        public static byte Crc(byte[] input) {
 
-            UInt8 crc = 0;
+            byte crc = 0;
 
             foreach (byte b in input) {
                 crc += b;
@@ -71,7 +71,7 @@ namespace SpdReaderWriterDll {
         public static byte GetParity(object input, Parity parityType) {
 
             int bitCount = Marshal.SizeOf(input) * 8;
-            UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
+            ulong value  = Convert.ToUInt64(input) & (ulong)(Math.Pow(2, bitCount) - 1);
 
             byte result = 0;
 
@@ -96,10 +96,10 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns><see langword="true"/> if bit is set to 1 at <paramref name="position"/></returns>
-        public static bool GetBit(object input, UInt8 position) {
+        public static bool GetBit(object input, byte position) {
 
             int bitCount = Marshal.SizeOf(input) * 8;
-            UInt64 value = Convert.ToUInt64(input) & (UInt64)(Math.Pow(2, bitCount) - 1);
+            ulong value  = Convert.ToUInt64(input) & (ulong)(Math.Pow(2, bitCount) - 1);
 
             return ((value >> position) & 1) == 1;
         }
@@ -111,7 +111,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read</param>
         /// <returns>An array of bit values</returns>
-        public static byte[] GetBits(byte input, UInt8 position, UInt8 count) {
+        public static byte[] GetBits(byte input, byte position, byte count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -136,7 +136,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to set bit in</param>
         /// <param name="position">Bit position to set</param>
         /// <param name="value">Boolean bit value, set <see langref="true"/> for 1, or <see langword="false"/> for 0</param>
-        public static byte SetBit(byte input, UInt8 position, bool value) {
+        public static byte SetBit(byte input, byte position, bool value) {
 
             if (position > 7) {
                 throw new ArgumentOutOfRangeException(nameof(position));
@@ -151,7 +151,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bits from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns>Byte matching bit pattern at <paramref name="input"/> position of all bits</returns>
-        public static byte SubByte(byte input, UInt8 position) {
+        public static byte SubByte(byte input, byte position) {
             return SubByte(input, position, (byte)(position + 1));
         }
 
@@ -162,7 +162,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <param name="count">The number of bits to read to the right of <paramref name="position"/> </param>
         /// <returns>Byte matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
-        public static byte SubByte(byte input, UInt8 position, UInt8 count) {
+        public static byte SubByte(byte input, byte position, byte count) {
 
             if (count < 1) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -179,12 +179,12 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Converts boolean type to UInt8
+        /// Converts boolean type to byte
         /// </summary>
         /// <param name="input">Boolean input</param>
         /// <returns>1 if the input is <see langword="true"/>, or 0, when the input is <see langword="false"/></returns>
-        public static UInt8 BoolToNum(bool input) {
-            return (UInt8)(input ? 1 : 0);
+        public static byte BoolToNum(bool input) {
+            return (byte)(input ? 1 : 0);
         }
 
         /// <summary>
@@ -220,7 +220,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(char input) {
 
-            return ('A' <= Char.ToUpper(input) && Char.ToUpper(input) <= 'F') ||
+            return ('A' <= char.ToUpper(input) && char.ToUpper(input) <= 'F') ||
                    ('0' <= input && input <= '9');
         }
 
@@ -248,7 +248,17 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public enum GzipMethod {
             Compress,
-            Decompress,
+            Decompress
+        }
+
+        /// <summary>
+        /// Allows to extract compressed contents header
+        /// </summary>
+        /// <param name="input">GZip contents byte array</param>
+        /// <param name="outputSize">Number of bytes to read</param>
+        /// <returns>Decompressed header byte array</returns>
+        public static byte[] GzipPeek(byte[] input, int outputSize) {
+            return DecompressGzip(input, outputSize, true);
         }
 
         /// <summary>
@@ -257,23 +267,21 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Contents byte array</param>
         /// <returns>Compressed byte array</returns>
         private static byte[] CompressGzip(byte[] input) {
-            
-            using (MemoryStream inputStream = new MemoryStream(input)) {
-                using (MemoryStream outputStream = new MemoryStream()) {
-                    using (GZipStream zipStream = new GZipStream(outputStream, CompressionMode.Compress)) {
 
-                        byte[] buffer = new byte[16384];
-                        int count;
+            using (MemoryStream inputStream = new MemoryStream(input), outputStream = new MemoryStream()) {
+                using (GZipStream zipStream = new GZipStream(outputStream, CompressionMode.Compress)) {
 
-                        do {
-                            count = inputStream.Read(buffer, 0, buffer.Length);
-                            zipStream.Write(buffer, 0, count);
+                    byte[] buffer = new byte[16384];
+                    int count;
 
-                        } while (count > 0);
-                    }
+                    do {
+                        count = inputStream.Read(buffer, 0, buffer.Length);
+                        zipStream.Write(buffer, 0, count);
 
-                    return outputStream.ToArray();
+                    } while (count > 0);
                 }
+
+                return outputStream.ToArray();
             }
         }
 
@@ -283,17 +291,31 @@ namespace SpdReaderWriterDll {
         /// <param name="input">GZip contents byte array</param>
         /// <returns>Decompressed byte array</returns>
         private static byte[] DecompressGzip(byte[] input) {
+            return DecompressGzip(input, 16384, false);
+        }
 
-            using (MemoryStream outputStream = new MemoryStream()) {
-                using (GZipStream zipStream = new GZipStream(new MemoryStream(input), CompressionMode.Decompress)) {
+        /// <summary>
+        /// Decompresses GZip contents
+        /// </summary>
+        /// <param name="input">GZip contents byte array</param>
+        /// <param name="bufferSize">Buffer size</param>
+        /// <param name="peek">When set to <see langword="true"/> to read header only, or <see langword="false"/> to get full data</param>
+        /// <returns>Decompressed byte array</returns>
+        private static byte[] DecompressGzip(byte[] input, int bufferSize, bool peek) {
 
-                    byte[] buffer = new byte[16384];
+            using (MemoryStream outputStream = new MemoryStream(), inputStream = new MemoryStream(input)) {
+                using (GZipStream zipStream = new GZipStream(inputStream, CompressionMode.Decompress)) {
+
+                    byte[] buffer = new byte[bufferSize];
                     int count;
 
                     do {
                         count = zipStream.Read(buffer, 0, buffer.Length);
                         if (count > 0) {
                             outputStream.Write(buffer, 0, count);
+                            if (peek) {
+                                break;
+                            }
                         }
                     } while (count > 0);
                 }
@@ -308,7 +330,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte array</param>
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString(byte[] input) {
-            return System.Text.Encoding.Default.GetString(input).Trim();
+            return Encoding.Default.GetString(input).Trim();
         }
 
         /// <summary>
@@ -318,14 +340,14 @@ namespace SpdReaderWriterDll {
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString(char[] input) {
 
-            string output = "";
+            StringBuilder sbOutput = new StringBuilder();
 
             // Process ASCII printable characters only
             foreach (char c in input) {
-                output += IsAscii(c) ? c.ToString() : "";
+                sbOutput.Append(IsAscii(c) ? c.ToString() : "");
             }
 
-            return output;
+            return sbOutput.ToString();
         }
 
         /// <summary>
@@ -352,8 +374,8 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte</param>
         /// <returns>Binary Coded Decimal</returns>
         /// <example>0x38 is converted to 38</example>
-        public static UInt8 ByteToBinaryCodedDecimal(byte input) {
-            return (UInt8)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
+        public static byte ByteToBinaryCodedDecimal(byte input) {
+            return (byte)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
         }
 
         /// <summary>
@@ -362,14 +384,14 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Binary Coded Decimal</param>
         /// <returns>Binary Coded Decimal Byte</returns>
         /// <example>14 is converted to 0x14</example>
-        public static byte BinaryCodedDecimalToByte(UInt8 input) {
+        public static byte BinaryCodedDecimalToByte(byte input) {
 
             if (input > 99) {
                 throw new ArgumentOutOfRangeException(nameof(input));
             }
 
-            UInt8 tens = (UInt8)(input / 10);
-            UInt8 ones = (UInt8)(input - tens * 10);
+            byte tens = (byte)(input / 10);
+            byte ones = (byte)(input - tens * 10);
 
             return (byte)((ones & 0xF) | (tens << 4));
         }
@@ -417,11 +439,23 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Returns first index of matching array bytes in the source array
         /// </summary>
-        /// <param name="source">Source array</param>
+        /// <param name="source">Source byte array</param>
         /// <param name="pattern">Matching pattern</param>
         /// <returns>First index of matching array bytes</returns>
         public static int FindArray(byte[] source, byte[] pattern) {
-            
+
+            if (source == null) {
+                throw new NullReferenceException(nameof(source));
+            }
+
+            if (pattern == null) {
+                throw new NullReferenceException(nameof(pattern));
+            }
+
+            if (pattern.Length > source.Length) {
+                throw new ArgumentOutOfRangeException($"{nameof(pattern)} cannot be greater than {nameof(source)}");
+            }
+
             int maxFirstCharSlot = source.Length - pattern.Length + 1;
             
             for (int i = 0; i < maxFirstCharSlot; i++) {
@@ -430,7 +464,7 @@ namespace SpdReaderWriterDll {
                     continue;
                 }
 
-                // Found a match on first byte, now try to match rest of the pattern
+                // First byte match found, now try to match the rest of the pattern in reverse
                 for (int j = pattern.Length - 1; j >= 1; j--) {
                     if (source[i + j] != pattern[j]) {
                         break;
@@ -442,6 +476,40 @@ namespace SpdReaderWriterDll {
             }
 
             return -1;
+        }
+
+        /// <summary>
+        /// Checks if source array contains input pattern at the specified offset
+        /// </summary>
+        /// <param name="source">Source byte array</param>
+        /// <param name="pattern">Matching pattern</param>
+        /// <param name="offset">Source array offset</param>
+        /// <returns><see langword="true"/> if <see cref="pattern"/> is present in <see cref="source"/> at <see cref="offset"/></returns>
+        public static bool MatchArray(byte[] source, byte[] pattern, int offset) {
+
+            if (source == null) {
+                throw new NullReferenceException(nameof(source));
+            }
+
+            if (pattern == null) {
+                throw new NullReferenceException(nameof(pattern));
+            }
+
+            if (pattern.Length > source.Length) {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            if (pattern.Length + offset > source.Length) {
+                throw new IndexOutOfRangeException(nameof(offset));
+            }
+
+            for (int i = 0; i < pattern.Length; i++) {
+                if (source[offset + i] != pattern[i]) {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -482,6 +550,80 @@ namespace SpdReaderWriterDll {
         /// <returns>Closest even number that is greater than or equal to <see cref="input"/></returns>
         public static int EvenUp(int input) {
             return IsEven(input) ? input : input + 1;
+        }
+
+        /// <summary>
+        /// Compares two byte arrays
+        /// </summary>
+        /// <param name="a1">First byte array</param>
+        /// <param name="b1">Second byte array</param>
+        /// <returns><see langword="true"/> if both arrays are equal</returns>
+        public static bool CompareByteArray(byte[] a1, byte[] b1) {
+
+            if (a1 == b1) {
+                return true;
+            }
+
+            if (a1?.Length == b1?.Length) {
+                int i = 0;
+                while (i < a1.Length && a1[i] == b1[i]) {
+                    i++;
+                }
+                if (i == a1.Length) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        
+        /// <summary>
+        /// Trims byte array
+        /// </summary>
+        /// <param name="input">Input byte array</param>
+        /// <param name="newSize">New byte array size</param>
+        /// <param name="trimPosition">Trim position</param>
+        /// <returns>Trimmed byte array</returns>
+        public static byte[] TrimByteArray(byte[] input, int newSize, TrimPosition trimPosition) {
+
+            if (input == null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
+            if (newSize == input.Length) {
+                return input;
+            }
+
+            if (newSize > input.Length) {
+                throw new ArgumentOutOfRangeException($"{nameof(newSize)} cannot be greater than {nameof(input)}");
+            }
+
+            byte[] newArray = new byte[newSize];
+
+            if (trimPosition == TrimPosition.End) {
+                Array.Copy(
+                    sourceArray      : input, 
+                    destinationArray : newArray, 
+                    length           : newSize);
+            }
+            else {
+                Array.Copy(
+                    sourceArray      : input,
+                    sourceIndex      : input.Length - newSize,
+                    destinationArray : newArray,
+                    destinationIndex : 0,
+                    length           : newSize);
+            }
+
+            return newArray;
+        }
+
+        /// <summary>
+        /// Array trim position
+        /// </summary>
+        public enum TrimPosition {
+            Start,
+            End
         }
     }
 }

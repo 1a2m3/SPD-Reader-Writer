@@ -142,16 +142,16 @@ namespace SpdReaderWriter {
             byte crcMsb = (byte)(crc >> 8);     // CRC MSB at 0x7F for 0-125 range or @ 0xFF for 128-253 range
 
             // Compare calculated CRC against SPD data
-            if (Eeprom.ReadByte(myReader, 0x7e, 1)[0] == crcLsb && Eeprom.ReadByte(myReader, 0x7f, 1)[0] == crcMsb) {
+            if (Eeprom.ReadByte(myReader, 0x7E, 1)[0] == crcLsb && Eeprom.ReadByte(myReader, 0x7F, 1)[0] == crcMsb) {
                 // The checksum is correct, do nothing
                 return;
             }
             else {
                 // Write correct values to SPD
-                Eeprom.UpdateByte(myReader, 0x7e, crcLsb);
-                Eeprom.UpdateByte(myReader, 0x7f, crcMsb);
+                Eeprom.UpdateByte(myReader, 0x7E, crcLsb);
+                Eeprom.UpdateByte(myReader, 0x7F, crcMsb);
             }
-            // Note: you'll have to do the same for 128-253 range, checksum bytes are 0xfe and 0xFF
+            // Note: you'll have to do the same for 128-253 range, checksum bytes are 0xFE and 0xFF
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace SpdReaderWriter {
 
             bool[] probes = new bool[128];
 
-            for (byte i = 0; i < 128; i++) {
+            for (byte i = 0; i < probes.Length; i++) {
                 probes[i] = myDevice.ProbeAddress(i);
             }
         }

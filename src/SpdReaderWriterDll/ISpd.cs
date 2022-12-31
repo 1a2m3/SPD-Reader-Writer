@@ -9,7 +9,7 @@
 
 */
 
-using System;
+using static SpdReaderWriterDll.Spd;
 
 namespace SpdReaderWriterDll {
 
@@ -18,12 +18,15 @@ namespace SpdReaderWriterDll {
     /// </summary>
     public interface ISpd {
 
+        DataLength Length { get; }
         int SpdBytesUsed { get; }
-        Spd.RamType DramDeviceType { get; }
-        Spd.DateCodeData ModuleManufacturingDate { get; }
-        //UInt64 DieDensity { get; }
-        UInt64 TotalModuleCapacity { get; }
-        
-        string ToString();
+        RamType DramDeviceType { get; }
+        ManufacturerIdCodeData ManufacturerIdCode { get; }
+        string PartNumber { get; }
+        DateCodeData ModuleManufacturingDate { get; }
+        //ulong DieDensity { get; }
+        ulong TotalModuleCapacity { get; }
+        bool CrcStatus { get; }
+        bool FixCrc();
     }
 }
