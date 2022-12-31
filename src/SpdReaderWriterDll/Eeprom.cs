@@ -138,13 +138,7 @@ namespace SpdReaderWriterDll {
 
             byte[] source = ReadByte(controller, offset, (byte)value.Length);
 
-            for (int i = 0; i < source.Length; i++) {
-                if (source[i] != value[i]) {
-                    return false;
-                }
-            }
-
-            return true;
+            return Data.CompareByteArray(source, value);
         }
 
         /// <summary>
