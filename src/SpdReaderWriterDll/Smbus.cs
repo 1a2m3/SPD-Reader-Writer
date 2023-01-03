@@ -569,10 +569,10 @@ namespace SpdReaderWriterDll {
                         SpdWriteDisabled = Data.GetBit(pciDevice.ReadByte(0x40), 4);
 
                         // Check if SMbus is port mapped
-                        if ((ioPortAddress & 1) == 1) {
+                        if (Data.GetBit(ioPortAddress, 0)) {
 
                             // Initialize new SMBus IO port instance
-                            ioPort = new IoPort((ushort)(ioPortAddress & 0xFFFE));
+                            ioPort = new IoPort(Data.SetBit(ioPortAddress, 0, false));
                         }
                     }
 
@@ -589,7 +589,7 @@ namespace SpdReaderWriterDll {
                         const ushort SB800_PIIX4_SMB_IDX = 0xCD6;
                         const ushort SB800_PIIX4_SMB_DAT = 0xCD7;
 
-                        byte smb_en = 0x00; // AMD && (Hudson2 && revision >= 0x41 || FCH && revision >= 0x49)
+                        const byte smb_en = 0x00; // AMD && (Hudson2 && revision >= 0x41 || FCH && revision >= 0x49)
 
                         IoPort _ioPort = new IoPort();
 
@@ -601,10 +601,9 @@ namespace SpdReaderWriterDll {
 
                         byte smb_en_status = (byte)(smba_en_lo & 0x10);
 
-                        ushort piix4_smba; // Primary bus
-
                         if (smb_en_status > 0) {
-                            piix4_smba = (ushort)(smba_en_hi << 8); // 0x0B00
+                            // Primary bus
+                            ushort piix4_smba = (ushort)(smba_en_hi << 8); // 0x0B00
 
                             if (piix4_smba != 0x00) {
                                 ioPort = new IoPort(piix4_smba);

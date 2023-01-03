@@ -256,7 +256,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ModuleOrganizationData ModuleOrganization {
                 get => new ModuleOrganizationData {
-                    RankMix          = (RankMix)Data.BoolToNum((Data.GetBit(RawData[12], 6))),
+                    RankMix          = (RankMix)Data.BoolToNum<byte>((Data.GetBit(RawData[12], 6))),
                     PackageRankCount = (byte)(Data.SubByte(RawData[12], 5, 3) + 1),
                     DeviceWidth      = (byte)(4 << Data.SubByte(RawData[12], 2, 3))
                 };
@@ -761,7 +761,7 @@ namespace SpdReaderWriterDll {
             public AddressMappingType AddressMapping {
                 get => ModuleType.BaseModuleType == BaseModuleType.RDIMM ||
                        ModuleType.BaseModuleType == BaseModuleType.LRDIMM
-                    ? (AddressMappingType)Data.BoolToNum(Data.GetBit(RawData[136], 0))
+                    ? (AddressMappingType)Data.BoolToNum<byte>(Data.GetBit(RawData[136], 0))
                     : AddressMappingType.None;
             }
 
@@ -1019,7 +1019,7 @@ namespace SpdReaderWriterDll {
                 public byte Value;
 
                 public override string ToString() {
-                    return (Data.BoolToNum(Data.GetBit(Value, 7)) + Data.SubByte(Value, 6, 7) / 100F).ToString(CultureInfo.InvariantCulture);
+                    return (Data.BoolToNum<byte>(Data.GetBit(Value, 7)) + Data.SubByte(Value, 6, 7) / 100F).ToString(CultureInfo.InvariantCulture);
                 }
             }
         }

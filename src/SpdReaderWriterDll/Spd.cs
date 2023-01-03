@@ -534,7 +534,7 @@ namespace SpdReaderWriterDll {
                 return Contents;
             }
 
-            public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
+            public override string ToString() => ((CrcStatus)Data.BoolToNum<byte>(Validate())).ToString();
         }
 
         /// <summary>
@@ -562,7 +562,7 @@ namespace SpdReaderWriterDll {
                 return Contents;
             }
 
-            public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
+            public override string ToString() => ((CrcStatus)Data.BoolToNum<byte>(Validate())).ToString();
         }
 
         /// <summary>

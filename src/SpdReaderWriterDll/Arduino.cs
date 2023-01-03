@@ -257,12 +257,11 @@ namespace SpdReaderWriterDll {
             lock (_portLock) {
                 if (_sp != null && _sp.IsOpen) {
                     _sp.Close();
-                    _sp.Dispose();
                     _sp = null;
                 }
                 DataReceiving = false;
                 IsValid       = false;
-                Addresses     = new byte[0];
+                Addresses     = null;
                 ResponseData.Clear();
             }
         }
@@ -381,7 +380,7 @@ namespace SpdReaderWriterDll {
         public bool SetI2CClock(bool fastMode) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToNum(fastMode) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToNum<byte>(fastMode) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set I2C clock mode on {PortName}");
@@ -457,7 +456,7 @@ namespace SpdReaderWriterDll {
         public bool SetHighVoltage(bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToNum(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set High Voltage state on {PortName}");
@@ -489,7 +488,7 @@ namespace SpdReaderWriterDll {
         public bool SetConfigPin(byte pin, bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToNum(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set config pin state on {PortName}");
@@ -520,7 +519,7 @@ namespace SpdReaderWriterDll {
         public bool SetOfflineMode(bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToNum(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set offline mode on {PortName}");

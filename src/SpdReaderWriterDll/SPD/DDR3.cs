@@ -675,7 +675,7 @@ namespace SpdReaderWriterDll {
                         Revision  = (byte)(rev == 0 ? Data.SubByte(RawData[62], 6, 2) : rev),
                         Name      = cardValue == 0b11111
                             ? ReferenceRawCardName.ZZ
-                            : (ReferenceRawCardName)cardValue + (Data.BoolToNum(Data.GetBit(RawData[62], 7)) << 5)
+                            : (ReferenceRawCardName)cardValue + (Data.BoolToNum<byte>(Data.GetBit(RawData[62], 7)) << 5)
                     };
                 }
             }
@@ -990,15 +990,15 @@ namespace SpdReaderWriterDll {
                 public CmdTurnAroundTimeOptimizationData CmdTurnAroundTimeOptimizations {
                     get => new CmdTurnAroundTimeOptimizationData {
                         ReadToWrite = new CmdTurnAroundTimeOptimization {
-                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum(Data.GetBit(RawData[206 + _offset], 7)),
+                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum<byte>(Data.GetBit(RawData[206 + _offset], 7)),
                             Clocks     = Data.SubByte(RawData[206 + _offset], 6, 3)
                         },
                         WriteToRead = new CmdTurnAroundTimeOptimization {
-                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum(Data.GetBit(RawData[206 + _offset], 3)),
+                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum<byte>(Data.GetBit(RawData[206 + _offset], 3)),
                             Clocks     = Data.SubByte(RawData[206 + _offset], 2, 3)
                         },
                         BackToBack = new CmdTurnAroundTimeOptimization {
-                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum(Data.GetBit(RawData[207 + _offset], 3)),
+                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum<byte>(Data.GetBit(RawData[207 + _offset], 3)),
                             Clocks     = Data.SubByte(RawData[207 + _offset], 2, 3)
                         }
                     };
