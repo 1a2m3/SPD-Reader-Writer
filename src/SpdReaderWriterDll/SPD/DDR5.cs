@@ -236,7 +236,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ModuleOrganizationData ModuleOrganization {
                 get => new ModuleOrganizationData {
-                        RankMix          = (RankMix)Data.BoolToNum(Data.GetBit(RawData[234], 6)),
+                        RankMix          = (RankMix)Data.BoolToNum<byte>(Data.GetBit(RawData[234], 6)),
                         PackageRankCount = Data.SubByte(RawData[234], 5, 3) + 1,
                 };
             }

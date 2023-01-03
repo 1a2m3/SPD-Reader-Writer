@@ -9,6 +9,8 @@
 
 */
 
+using System;
+
 namespace SpdReaderWriterDll {
 
     /// <summary>
@@ -45,11 +47,61 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Reads data from an IO port register
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <returns>Register value</returns>
+        public T Read<T>(ushort offset) {
+
+            object output = null;
+
+            if (typeof(T) == typeof(byte)) {
+                output = ReadByte(offset);
+            }
+            else if (typeof(T) == typeof(ushort)) {
+                output = ReadWord(offset);
+            }
+            else if (typeof(T) == typeof(uint)) {
+                output = ReadDword(offset);
+            }
+
+            if (output != null) {
+                return (T)Convert.ChangeType(output, typeof(T));
+            }
+
+            throw new Exception("Wrong data type");
+        }
+
+        /// <summary>
+        /// Writes data to an IO port register
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <param name="value">Data value</param>
+        public bool Write<T>(ushort offset, T value) {
+
+            if (typeof(T) == typeof(byte)) {
+                return WriteByte(offset, (byte)Convert.ChangeType(value, typeof(T)));
+            }
+
+            if (typeof(T) == typeof(ushort)) {
+                return WriteWord(offset, (ushort)Convert.ChangeType(value, typeof(T)));
+            }
+
+            if (typeof(T) == typeof(uint)) {
+                return WriteDword(offset, (uint)Convert.ChangeType(value, typeof(T)));
+            }
+
+            throw new Exception("Wrong data type");
+        }
+
+        /// <summary>
         /// Reads a byte from an IO port register
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public byte ReadByte(ushort offset) {
+        private byte ReadByte(ushort offset) {
             return Smbus.Driver.ReadIoPortByte((ushort)(BaseAddress + offset));
         }
 
@@ -58,7 +110,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public ushort ReadWord(ushort offset) {
+        private ushort ReadWord(ushort offset) {
             return Smbus.Driver.ReadIoPortWord((ushort)(BaseAddress + offset));
         }
 
@@ -67,7 +119,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public uint ReadDword(ushort offset) {
+        private uint ReadDword(ushort offset) {
             return Smbus.Driver.ReadIoPortDword((ushort)(BaseAddress + offset));
         }
 
@@ -76,8 +128,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Byte value</param>
-        public void WriteByte(ushort offset, byte value) {
-            Smbus.Driver.WriteIoPortByte((ushort)(BaseAddress + offset), value);
+        private bool WriteByte(ushort offset, byte value) {
+            return Smbus.Driver.WriteIoPortByteEx((ushort)(BaseAddress + offset), value);
         }
 
         /// <summary>
@@ -85,8 +137,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Word value</param>
-        public void WriteWord(ushort offset, ushort value) {
-            Smbus.Driver.WriteIoPortWord((ushort)(BaseAddress + offset), value);
+        private bool WriteWord(ushort offset, ushort value) {
+            return Smbus.Driver.WriteIoPortWordEx((ushort)(BaseAddress + offset), value);
         }
 
         /// <summary>
@@ -94,8 +146,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Dword value</param>
-        public void WriteDword(ushort offset, uint value) {
-            Smbus.Driver.WriteIoPortDword((ushort)(BaseAddress + offset), value);
+        private bool WriteDword(ushort offset, uint value) {
+            return Smbus.Driver.WriteIoPortDwordEx((ushort)(BaseAddress + offset), value);
         }
     }
 }

@@ -133,17 +133,24 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Sets specified bit in a byte at specified offset position
         /// </summary>
-        /// <param name="input">Input byte to set bit in</param>
+        /// <typeparam name="T">Input data type</typeparam>
+        /// <param name="input">Input data to set bit in</param>
         /// <param name="position">Bit position to set</param>
         /// <param name="value">Boolean bit value, set <see langref="true"/> for 1, or <see langword="false"/> for 0</param>
-        public static byte SetBit(byte input, byte position, bool value) {
+        /// <returns>Updated data value</returns>
+        public static T SetBit<T>(T input, int position, bool value) {
 
-            if (position > 7) {
+            if (position > Marshal.SizeOf(input) * 8) {
                 throw new ArgumentOutOfRangeException(nameof(position));
             }
 
-            return (byte)(value ? input | (1 << position) : input & ~(1 << position));
+            return (T)Convert.ChangeType(
+                value 
+                    ? Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) | (uint)(1 << position) 
+                    : Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) & (ulong)~(1 << position)
+                , typeof(T));
         }
+
 
         /// <summary>
         /// Gets number of bits from input byte at position and converts them to a new byte
@@ -179,12 +186,12 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Converts boolean type to byte
+        /// Converts boolean type to a number
         /// </summary>
         /// <param name="input">Boolean input</param>
         /// <returns>1 if the input is <see langword="true"/>, or 0, when the input is <see langword="false"/></returns>
-        public static byte BoolToNum(bool input) {
-            return (byte)(input ? 1 : 0);
+        public static T BoolToNum<T>(bool input) {
+            return (T)Convert.ChangeType(input ? 1 : 0, typeof(T));
         }
 
         /// <summary>
@@ -397,41 +404,21 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Returns a consecutive array of bytes based on input criteria
+        /// Returns a consecutive array of numbers based on input criteria
         /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
         /// <param name="start">First number in array</param>
         /// <param name="stop">Last number in array</param>
         /// <param name="step">Number interval</param>
-        /// <returns>A consecutive array of bytes starting from <see cref="start"/> till <see cref="stop"/> with an interval of <see cref="step"/></returns>
-        public static byte[] ConsecutiveArray(byte start, byte stop, byte step) {
+        /// <returns>A consecutive array of numbers between <see cref="start"/> and <see cref="stop"/> with an interval of <see cref="step"/></returns>
+        public static T[] ConsecutiveArray<T>(int start, int stop, int step) {
 
-            Queue<byte> numbers = new Queue<byte>();
+            Queue<T> numbers = new Queue<T>();
 
-            int i = start;
             do {
-                numbers.Enqueue((byte)i);
-                i += step;
-            } while (i <= stop);
-            
-            return numbers.ToArray();
-        }
-
-        /// <summary>
-        /// Returns a consecutive array of words based on input criteria
-        /// </summary>
-        /// <param name="start">First number in array</param>
-        /// <param name="stop">Last number in array</param>
-        /// <param name="step">Number interval</param>
-        /// <returns>A consecutive array of words starting from <see cref="start"/> till <see cref="stop"/> with an interval of <see cref="step"/></returns>
-        public static short[] ConsecutiveArray(short start, short stop, short step) {
-
-            Queue<short> numbers = new Queue<short>();
-
-            int i = start;
-            do {
-                numbers.Enqueue((short)i);
-                i += step;
-            } while (i <= stop);
+                numbers.Enqueue((T)Convert.ChangeType(start, typeof(T)));
+                start += step;
+            } while (start <= stop);
 
             return numbers.ToArray();
         }

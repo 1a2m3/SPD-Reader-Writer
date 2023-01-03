@@ -83,7 +83,7 @@ namespace SpdReaderWriterDll {
                     float[] heights = { 25.4F, 30.0F, 30.5F };
 
                     ModuleAttributesData attributes = new ModuleAttributesData {
-                        Package    = (DRAMPackage)(Data.BoolToNum(Data.GetBit(RawData[5], 4))),
+                        Package    = (DRAMPackage)Data.BoolToNum<byte>(Data.GetBit(RawData[5], 4)),
                         CardOnCard = Data.GetBit(RawData[5], 3),
                         Ranks      = (byte)(Data.SubByte(RawData[5], 2, 3) + 1)
                     };
@@ -1169,7 +1169,7 @@ namespace SpdReaderWriterDll {
                 /// Defines the default setup time for address and command pins
                 /// </summary>
                 public float AddressCommandSetupTime {
-                    get => (Data.BoolToNum(Data.GetBit(RawData[107 + _offset], 5)) + 1) / 2F;
+                    get => (Data.BoolToNum<byte>(Data.GetBit(RawData[107 + _offset], 5)) + 1) / 2F;
                 }
 
                 /// <summary>

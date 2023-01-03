@@ -373,7 +373,7 @@ namespace SpdReaderWriterDll.Driver {
 
             uint inputSize      = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             uint returnedLength = default;
-            object outputBuffer   = outputData;
+            object outputBuffer = outputData;
 
             bool result = NtBaseApi.DeviceIoControl(
                 hDevice         : _deviceHandle,
@@ -402,7 +402,7 @@ namespace SpdReaderWriterDll.Driver {
                 return false;
             }
 
-            uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+            uint inputSize      = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             uint returnedLength = default;
 
             return NtBaseApi.DeviceIoControl(
