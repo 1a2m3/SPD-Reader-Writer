@@ -57,13 +57,13 @@ namespace SpdReaderWriterDll {
             object output = null;
 
             if (typeof(T) == typeof(byte)) {
-                output = ReadByte(offset);
+                output = Smbus.Driver.ReadIoPortByte((ushort)(BaseAddress + offset));
             }
             else if (typeof(T) == typeof(ushort)) {
-                output = ReadWord(offset);
+                output = Smbus.Driver.ReadIoPortWord((ushort)(BaseAddress + offset));
             }
             else if (typeof(T) == typeof(uint)) {
-                output = ReadDword(offset);
+                output = Smbus.Driver.ReadIoPortDword((ushort)(BaseAddress + offset));
             }
 
             if (output != null) {
@@ -79,75 +79,24 @@ namespace SpdReaderWriterDll {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
+        /// <returns><see lang="true"/> if the function succeeds</returns>
         public bool Write<T>(ushort offset, T value) {
 
+            object input = Convert.ChangeType(value, typeof(T));
+
             if (typeof(T) == typeof(byte)) {
-                return WriteByte(offset, (byte)Convert.ChangeType(value, typeof(T)));
+                return Smbus.Driver.WriteIoPortByteEx((ushort)(BaseAddress + offset), (byte)input);
             }
 
             if (typeof(T) == typeof(ushort)) {
-                return WriteWord(offset, (ushort)Convert.ChangeType(value, typeof(T)));
+                return Smbus.Driver.WriteIoPortWordEx((ushort)(BaseAddress + offset), (ushort)input);
             }
 
             if (typeof(T) == typeof(uint)) {
-                return WriteDword(offset, (uint)Convert.ChangeType(value, typeof(T)));
+                return Smbus.Driver.WriteIoPortDwordEx((ushort)(BaseAddress + offset), (uint)input);
             }
 
             throw new Exception("Wrong data type");
-        }
-
-        /// <summary>
-        /// Reads a byte from an IO port register
-        /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <returns>Register value</returns>
-        private byte ReadByte(ushort offset) {
-            return Smbus.Driver.ReadIoPortByte((ushort)(BaseAddress + offset));
-        }
-
-        /// <summary>
-        /// Reads a word from an IO port register
-        /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <returns>Register value</returns>
-        private ushort ReadWord(ushort offset) {
-            return Smbus.Driver.ReadIoPortWord((ushort)(BaseAddress + offset));
-        }
-
-        /// <summary>
-        /// Read a dword from an IO port register
-        /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <returns>Register value</returns>
-        private uint ReadDword(ushort offset) {
-            return Smbus.Driver.ReadIoPortDword((ushort)(BaseAddress + offset));
-        }
-
-        /// <summary>
-        /// Writes a byte to an IO port register
-        /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <param name="value">Byte value</param>
-        private bool WriteByte(ushort offset, byte value) {
-            return Smbus.Driver.WriteIoPortByteEx((ushort)(BaseAddress + offset), value);
-        }
-
-        /// <summary>
-        /// Writes a word to an IO port register
-        /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <param name="value">Word value</param>
-        private bool WriteWord(ushort offset, ushort value) {
-            return Smbus.Driver.WriteIoPortWordEx((ushort)(BaseAddress + offset), value);
-        }
-
-        /// <summary>
-        /// Writes a dword to an IO port register
-        /// </summary>
-        /// <param name="offset">Register offset</param>
-        /// <param name="value">Dword value</param>
-        private bool WriteDword(ushort offset, uint value) {
-            return Smbus.Driver.WriteIoPortDwordEx((ushort)(BaseAddress + offset), value);
         }
     }
 }
