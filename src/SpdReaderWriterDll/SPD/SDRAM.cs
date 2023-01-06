@@ -662,7 +662,7 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : chars.Length);
 
-                    return Data.BytesToString(chars);
+                    return Data.BytesToString(chars).Trim();
                 }
             }
 

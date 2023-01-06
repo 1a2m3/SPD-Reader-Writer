@@ -124,7 +124,7 @@ namespace SpdReaderWriterDll.Driver {
                     : Resources.Driver.WinRing0_sys,
                 Data.GzipMethod.Decompress);
 
-            if (!(File.Exists(_fileName) && Data.CompareByteArray(driverFileContents, File.ReadAllBytes(_fileName)))) {
+            if (!(File.Exists(_fileName) && Data.CompareArray(driverFileContents, File.ReadAllBytes(_fileName)))) {
 
                 // Save driver to local file
                 try {
@@ -135,7 +135,7 @@ namespace SpdReaderWriterDll.Driver {
                 }
             }
 
-            return File.Exists(_fileName) && Data.CompareByteArray(driverFileContents, File.ReadAllBytes(_fileName));
+            return File.Exists(_fileName) && Data.CompareArray(driverFileContents, File.ReadAllBytes(_fileName));
         }
 
         /// <summary>

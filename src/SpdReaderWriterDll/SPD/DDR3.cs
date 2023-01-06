@@ -620,7 +620,7 @@ namespace SpdReaderWriterDll {
             /// <returns><see langword="true"/> if checksum has been fixed</returns>
             public bool FixCrc() {
 
-                ushort validCrc = Data.Crc16(Data.TrimByteArray(RawData, CrcCoverage ? 117 : 126, Data.TrimPosition.End), 0x1021);
+                ushort validCrc = Data.Crc16(Data.TrimArray(RawData, CrcCoverage ? 117 : 126, Data.TrimPosition.End), 0x1021);
 
                 // Replace CRC only
                 RawData[126] = (byte)(validCrc & 0xFF);
@@ -645,7 +645,7 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : chars.Length);
 
-                    return Data.BytesToString(chars);
+                    return Data.BytesToString(chars).Trim();
                 }
             }
 
