@@ -38,7 +38,7 @@ namespace SpdReaderWriterDll.Driver {
             get {
                 try {
                     _sc?.Refresh();
-                    return IsInstalled && _sc?.ServiceName != null && _sc.Status == ServiceControllerStatus.Running;
+                    return IsInstalled && _sc?.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -250,6 +250,8 @@ namespace SpdReaderWriterDll.Driver {
         public bool StopDriver() {
 
             try {
+                _sc = new ServiceController(Name);
+
                 if (_sc.Status != ServiceControllerStatus.Stopped) {
 
                     _sc.Stop();
@@ -274,6 +276,7 @@ namespace SpdReaderWriterDll.Driver {
             }
             catch {
                 try {
+                    _sc = new ServiceController(Name);
                     return _sc.Status == ServiceControllerStatus.Stopped ||
                            _sc.Status == ServiceControllerStatus.StopPending;
                 }
@@ -290,7 +293,7 @@ namespace SpdReaderWriterDll.Driver {
         private static bool CheckDriver() {
 
             try {
-                return _sc.ServiceType == ServiceType.KernelDriver && _sc?.DisplayName == Name;
+                return _sc?.ServiceType == ServiceType.KernelDriver && _sc?.DisplayName == Name;
             }
             catch {
                 return false;
@@ -315,8 +318,7 @@ namespace SpdReaderWriterDll.Driver {
             _deviceHandle = new SafeFileHandle(driverHandle, true);
 
             if (_deviceHandle.IsInvalid) {
-                _deviceHandle.Close();
-                _deviceHandle.Dispose();
+                CloseDriverHandle();
             }
 
             return IsValid;
