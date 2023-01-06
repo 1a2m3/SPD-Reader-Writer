@@ -27,9 +27,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Kernel Driver instance
         /// </summary>
-        public static WinRing0 Driver {
-            get;
-        } = new WinRing0();
+        public static WinRing0 Driver { get; private set; }
 
         /// <summary>
         /// Kernel Driver version
@@ -529,9 +527,17 @@ namespace SpdReaderWriterDll {
         /// Initializes SMBus controller class
         /// </summary>
         private void Initialize() {
+            try {
+                if (Driver == null) {
+                    Driver = new WinRing0();
+                }
 
-            if (!Driver.IsReady) {
-                throw new Exception($"{nameof(Driver)} initialization failure.");
+                if (!Driver.IsReady) {
+                    throw new Exception($"{nameof(Driver)} initialization failure.");
+                }
+            }
+            catch (Exception e) {
+                throw new Exception($"{nameof(WinRing0)} initialization failure: {e.Message}");
             }
 
             Info = GetDeviceInfo();
