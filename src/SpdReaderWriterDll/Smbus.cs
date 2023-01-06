@@ -56,11 +56,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Smbus Device Info
         /// </summary>
-        public DeviceInfo Info {
-            get => _info;
-            set => _info = value;
-        }
-        private DeviceInfo _info;
+        public DeviceInfo Info { get; set; }
 
         /// <summary>
         /// SMBus bus number
@@ -93,20 +89,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PCI device instance
         /// </summary>
-        public PciDevice pciDevice {
-            get => _pciDevice;
-            set => _pciDevice = value;
-        }
-        private PciDevice _pciDevice;
+        public PciDevice pciDevice { get; set; }
 
         /// <summary>
         /// IO port instance
         /// </summary>
-        public IoPort ioPort {
-            get => _ioPort;
-            set => _ioPort = value;
-        }
-        private IoPort _ioPort;
+        public IoPort ioPort { get; set; }
 
         /// <summary>
         /// Initialize SMBus with default settings

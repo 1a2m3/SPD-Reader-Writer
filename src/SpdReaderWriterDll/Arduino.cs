@@ -101,7 +101,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct SerialPortSettings {
             // Connection settings
-            public int BaudRate;
+            public int  BaudRate;
             public bool DtrEnable;
             public bool RtsEnable;
 
@@ -200,7 +200,7 @@ namespace SpdReaderWriterDll {
                         _bytesSent     = 0;
                         _bytesReceived = 0;
 
-                        // Set valid state to true to allow Communication Test to execute
+                        // Temporarily set IsValid state to true to allow Communication Test to execute
                         IsValid = true;
                         try {
                             IsValid = Test();
@@ -687,7 +687,7 @@ namespace SpdReaderWriterDll {
                 throw new ArgumentException("Name can't be blank");
             }
             if (name.Length > Command.NAMELENGTH) {
-                throw new ArgumentException($"Name can't be longer than {Command.NAMELENGTH} characters");
+                throw new ArgumentOutOfRangeException($"Name can't be longer than {Command.NAMELENGTH} characters");
             }
 
             lock (_portLock) {
@@ -781,7 +781,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if DDR4 is found</returns>
         public bool DetectDdr4() {
-            return DetectDdr4(I2CAddress);
+            return DetectDdr4(0);
         }
 
         /// <summary>
@@ -805,7 +805,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if DDR5 is found</returns>
         public bool DetectDdr5() {
-            return DetectDdr5(I2CAddress);
+            return DetectDdr5(0);
         }
 
         /// <summary>

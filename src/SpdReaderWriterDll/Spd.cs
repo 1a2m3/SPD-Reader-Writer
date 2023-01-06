@@ -513,7 +513,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct Crc16Data {
             public byte[] Contents; // Contents incl. checksum
-            public ushort Checksum => Data.Crc16(Data.TrimByteArray(Contents, Contents.Length - 2, Data.TrimPosition.End), 0x1021);
+            public ushort Checksum => Data.Crc16(Data.TrimArray(Contents, Contents.Length - 2, Data.TrimPosition.End), 0x1021);
 
             /// <summary>
             /// Validates data checksum
@@ -542,7 +542,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct Crc8Data {
             public byte[] Contents; // Contents incl. checksum
-            public byte Checksum => Data.Crc(Data.TrimByteArray(Contents, Contents.Length - 1, Data.TrimPosition.End));
+            public byte Checksum => Data.Crc(Data.TrimArray(Contents, Contents.Length - 1, Data.TrimPosition.End));
 
             /// <summary>
             /// Validates data checksum

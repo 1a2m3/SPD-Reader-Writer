@@ -46,7 +46,7 @@ namespace SpdReaderWriterDll {
         public static byte[] ReadByte(Smbus controller, ushort offset, byte count) {
 
             if (count == 0) {
-                throw new Exception($"No bytes to read");
+                throw new ArgumentOutOfRangeException(nameof(count));
             }
 
             byte[] result = new byte[count];
@@ -138,7 +138,7 @@ namespace SpdReaderWriterDll {
 
             byte[] source = ReadByte(controller, offset, (byte)value.Length);
 
-            return Data.CompareByteArray(source, value);
+            return Data.CompareArray(source, value);
         }
 
         /// <summary>
@@ -354,12 +354,13 @@ namespace SpdReaderWriterDll {
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/> </param>
         /// <returns>A byte array containing byte values</returns>
         public static byte[] ReadByte(Arduino device, ushort offset, byte count) {
+
             if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
             if (count == 0) {
-                throw new Exception($"No bytes to read");
+                throw new ArgumentOutOfRangeException(nameof(count));
             }
 
             try {
@@ -505,13 +506,7 @@ namespace SpdReaderWriterDll {
             try {
                 byte[] source = ReadByte(device, offset, (byte)value.Length);
 
-                for (int i = 0; i < source.Length; i++) {
-                    if (source[i] != value[i]) {
-                        return false;
-                    }
-                }
-
-                return true;
+                return Data.CompareArray(source, value);
             }
             catch {
                 throw new Exception($"Unable to verify bytes # 0x{offset:X4}-0x{(offset + value.Length):X4} at {device.PortName}:{device.I2CAddress}");
