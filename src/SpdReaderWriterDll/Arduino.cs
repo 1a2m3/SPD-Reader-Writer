@@ -28,7 +28,23 @@ namespace SpdReaderWriterDll {
     public class Arduino : IDisposable {
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes default Arduino device instance
+        /// </summary>
+        public Arduino() {
+            PortSettings = new SerialPortSettings();
+        }
+
+        /// <summary>
+        /// Initializes Arduino device instance
+        /// </summary>
+        /// <param name="portName">Serial port name</param>
+        public Arduino(string portName) {
+            PortSettings = new SerialPortSettings();
+            PortName     = portName;
+        }
+
+        /// <summary>
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         public Arduino(SerialPortSettings portSettings) {
@@ -36,7 +52,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
@@ -46,7 +62,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
@@ -58,7 +74,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
@@ -72,9 +88,9 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Device instance string
+        /// Arduino device instance string
         /// </summary>
-        /// <returns>Device instance string</returns>
+        /// <returns>Arduino device instance string</returns>
         public override string ToString() {
             
             if (PortName == null) {
@@ -90,7 +106,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Device class destructor
+        /// Arduino device instance destructor
         /// </summary>
         ~Arduino() {
             Dispose();
@@ -259,10 +275,11 @@ namespace SpdReaderWriterDll {
                     _sp.Close();
                     _sp = null;
                 }
-                DataReceiving = false;
-                IsValid       = false;
-                Addresses     = null;
                 ResponseData.Clear();
+                DataReceiving   = false;
+                IsValid         = false;
+                Addresses       = null;
+                _ramTypeSupport = null;
             }
         }
 
@@ -318,7 +335,21 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public byte[] Addresses {
             get => _addresses ?? (_addresses = Scan());
-            set => _addresses = value;
+            private set => _addresses = value;
+        }
+
+        /// <summary>
+        /// Resets addresses detected on i2c bus
+        /// </summary>
+        public void ResetAddresses() {
+            Addresses = null;
+        }
+
+        /// <summary>
+        /// Number of devices on Arduino's I2C bus
+        /// </summary>
+        public byte AddressQuantity {
+            get => GetQuantity();
         }
 
         /// <summary>
@@ -356,7 +387,8 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <param name="bitmask">Enable bitmask response</param>
-        /// <returns>A bitmask representing available addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        /// <returns>A bitmask representing available addresses on the device's I2C bus.</returns>
+        /// <example>Bit 0 is address 80, bit 1 is address 81, and so on.</example>
         public byte Scan(bool bitmask) {
             if (bitmask) {
                 lock (_portLock) {
@@ -370,6 +402,21 @@ namespace SpdReaderWriterDll {
             }
 
             return 0;
+        }
+
+        /// <summary>
+        /// Gets the number of detected addresses on Arduino's I2C bus
+        /// </summary>
+        /// <returns>The number of detected addresses on Arduino's I2C bus</returns>
+        public byte GetQuantity() {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(Command.QUANTITY);
+                }
+                catch {
+                    throw new Exception($"Unable to get the number of I2C devices on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -722,7 +769,7 @@ namespace SpdReaderWriterDll {
         public string GetName() {
             lock (_portLock) {
                 try {
-                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, Command.NAMELENGTH));
+                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, Command.NAMELENGTH)).Trim();
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} name");
@@ -842,7 +889,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// EEPROM size
         /// </summary>
-        public Spd.DataLength DataLength { get; set; }
+        public Spd.DataLength DataLength { get; private set; }
 
         /// <summary>
         /// Number of bytes to be read from the device
@@ -878,11 +925,7 @@ namespace SpdReaderWriterDll {
         public byte RamTypeSupport {
             get {
                 try {
-                    if (_ramTypeSupport == default) {
-                        _ramTypeSupport = GetRswpSupport();
-                    }
-
-                    return _ramTypeSupport;
+                    return (byte)(_ramTypeSupport ?? (_ramTypeSupport = GetRswpSupport()));
                 }
                 catch {
                     throw new Exception("Unable to get supported RAM type");
@@ -953,6 +996,7 @@ namespace SpdReaderWriterDll {
                     byte notificationReceived = (byte)receiver.ReadByte();
 
                     if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
+                        HandleAlert((Alert)notificationReceived);
                         RaiseAlert(new ArduinoEventArgs {
                             Notification = (Alert)notificationReceived
                         });
@@ -966,6 +1010,17 @@ namespace SpdReaderWriterDll {
             }
 
             DataReceiving = false;
+        }
+
+        /// <summary>
+        /// Alert handler
+        /// </summary>
+        /// <param name="alert">Alert type</param>
+        private void HandleAlert(Alert alert) {
+            if (alert == Alert.SLAVEDEC || 
+                alert == Alert.SLAVEINC) {
+                ResetAddresses();
+            }
         }
 
         /// <summary>
@@ -1110,7 +1165,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
         /// </summary>
-        private byte _ramTypeSupport;
+        private byte? _ramTypeSupport;
 
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
@@ -1140,6 +1195,11 @@ namespace SpdReaderWriterDll {
             /// Scan i2c bus
             /// </summary>
             public const byte SCANBUS       = (byte)'s';
+
+            /// <summary>
+            /// Number of addresses on I2C bus
+            /// </summary>
+            public const byte QUANTITY      = (byte)'q';
 
             /// <summary>
             /// Set i2c clock 
