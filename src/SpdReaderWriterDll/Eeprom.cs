@@ -167,7 +167,7 @@ namespace SpdReaderWriterDll {
 
             if (DetectDdr5(controller)) {
                 // DDR5 page
-                controller.WriteByte(controller, controller.I2CAddress, Spd5Register.MEMREG & Spd5Register.MR11, eepromPageNumber);
+                controller.WriteByte(controller, controller.I2CAddress, Spd5Register.MR11, eepromPageNumber);
             }
             else {
                 // DDR4 page
@@ -214,7 +214,7 @@ namespace SpdReaderWriterDll {
         /// <param name="controller">Smbus controller instance</param>
         /// <returns><see langword="true"/> if DDR5 is present on the Smbus</returns>
         public static bool DetectDdr5(Smbus controller) {
-            return false;
+            return controller.ProbeAddress((byte)(LidCode.Pmic0 << 3 | (Spd5Register.LocalHid & controller.I2CAddress)));
         }
 
         /// <summary>
@@ -521,6 +521,17 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
         public static bool SetRswp(Arduino device, byte block) {
             try {
+                if (device.DetectDdr5(device.I2CAddress)) {
+                    if (block <= 7) {
+                        return WriteByte(device, Spd5Register.MR12, Data.SetBit<byte>(0, block, true));
+                    }
+                    if (block <= 15) {
+                        return WriteByte(device, Spd5Register.MR13, Data.SetBit<byte>(0, block - 8, true));
+                    }
+
+                    throw new ArgumentOutOfRangeException($"Wrong block # specified");
+                }
+
                 return device.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
             }
             catch {
@@ -590,6 +601,10 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if the write protection has been disabled</returns>
         public static bool ClearRswp(Arduino device) {
             try {
+                if (device.DetectDdr5(device.I2CAddress)) {
+                    return WriteByte(device, Spd5Register.MR12, new byte[] { 0, 0 });
+                }
+
                 return device.ExecuteCommand(new[] { Arduino.Command.RSWP, Arduino.Command.DNC, Arduino.Command.OFF }) == Arduino.Response.SUCCESS;
             }
             catch {
