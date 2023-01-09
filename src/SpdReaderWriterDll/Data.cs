@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Data;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -504,7 +503,6 @@ namespace SpdReaderWriterDll {
             // Process ASCII printable characters only
             for (int i = 0; i < input.Length; i++) {
                 c = (char)Convert.ChangeType(input[i], typeof(char));
-                //sbOutput.Append(IsAscii(c) ? c.ToString() : "");
                 sbOutput.Append(c.ToString());
             }
 
@@ -532,7 +530,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Input byte</param>
         /// <returns>Binary Coded Decimal</returns>
-        /// <example>0x38 is converted to 38</example>
+        /// <example><value>0x38</value> is converted to <value>38</value></example>
         public static byte ByteToBinaryCodedDecimal(byte input) {
             return (byte)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
         }
@@ -542,7 +540,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="input">Binary Coded Decimal</param>
         /// <returns>Binary Coded Decimal Byte</returns>
-        /// <example>14 is converted to 0x14</example>
+        /// <example><value>14</value> is converted to <value>0x14</value></example>
         public static byte BinaryCodedDecimalToByte(byte input) {
 
             if (input > 99) {
