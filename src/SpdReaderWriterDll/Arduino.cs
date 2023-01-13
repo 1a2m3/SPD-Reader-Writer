@@ -746,13 +746,7 @@ namespace SpdReaderWriterDll {
                     }
 
                     // Prepare a byte array containing cmd byte + name length + name
-                    byte[] nameCommand = new byte[1 + 1 + newName.Length];
-                    // Command byte at position 0
-                    nameCommand[0] = Command.NAME;
-                    // Name length at position 1
-                    nameCommand[1] = (byte)newName.Length;
-                    // Copy new name to byte array
-                    Array.Copy(Encoding.ASCII.GetBytes(newName), 0, nameCommand, 2, newName.Length);
+                    byte[] nameCommand = Data.MergeArray(new[] { Command.NAME, (byte)newName.Length }, Encoding.ASCII.GetBytes(newName));
 
                     return ExecuteCommand(nameCommand) == Response.SUCCESS;
                 }
