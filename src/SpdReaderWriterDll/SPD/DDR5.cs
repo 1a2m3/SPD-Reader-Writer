@@ -448,8 +448,8 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ManufacturerIdCodeData ManufacturerIdCode {
                 get => new ManufacturerIdCodeData {
-                    ContinuationCode = RawData[513],
-                    ManufacturerCode = RawData[512]
+                    ContinuationCode = RawData[512],
+                    ManufacturerCode = RawData[513]
                 };
             }
 
