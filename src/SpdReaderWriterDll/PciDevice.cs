@@ -182,7 +182,7 @@ namespace SpdReaderWriterDll {
                 return (T)Convert.ChangeType(output, typeof(T));
             }
 
-            throw new Exception("Wrong data type");
+            throw new InvalidDataException(nameof(T));
         }
 
         /// <summary>
@@ -209,7 +209,7 @@ namespace SpdReaderWriterDll {
                 return Smbus.Driver.WritePciConfigDwordEx(location, offset, (uint)input);
             }
 
-            throw new Exception("Wrong data type");
+            throw new InvalidDataException(nameof(T));
         }
 
         /// <summary>
