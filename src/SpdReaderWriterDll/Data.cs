@@ -575,22 +575,22 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Returns first index of matching array bytes in the source array
+        /// Returns first index of source array matching input pattern array
         /// </summary>
         /// <param name="source">Source byte array</param>
         /// <param name="pattern">Matching pattern</param>
-        /// <returns>First index of matching array bytes</returns>
+        /// <returns>First index of <paramref name="source"/> array matching pattern array</returns>
         public static int FindArray<T>(T[] source, T[] pattern) {
             return FindArray(source, pattern, 0);
         }
 
         /// <summary>
-        /// Returns first index of matching array bytes in the source array
+        /// Returns first index of source array matching input pattern array starting from specified position
         /// </summary>
         /// <param name="source">Source byte array</param>
         /// <param name="pattern">Matching pattern</param>
         /// <param name="start">Starting position</param>
-        /// <returns>First index of matching array bytes</returns>
+        /// <returns>First index of <paramref name="source"/> array matching <paramref name="pattern"/> array from <paramref name="start"/> position</returns>
         public static int FindArray<T>(T[] source, T[] pattern, int start) {
 
             if (source == null) {
@@ -667,8 +667,6 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Compares two arrays
         /// </summary>
-        /// <typeparam name="T1">First array data type</typeparam>
-        /// <typeparam name="T2">Second array data type</typeparam>
         /// <param name="a1">First array</param>
         /// <param name="a2">Second array</param>
         /// <returns><see langword="true"/> if both arrays are equal</returns>
@@ -748,6 +746,62 @@ namespace SpdReaderWriterDll {
             End
         }
 
+        /// <summary>
+        /// Merges two arrays into one array
+        /// </summary>
+        /// <param name="a1">First array</param>
+        /// <param name="a2">Second array</param>
+        /// <returns>Merged array</returns>
+        public static T[] MergeArray<T>(T[] a1, T[] a2) {
+
+            if (a1 == null) {
+                throw new NullReferenceException(nameof(a1));
+            }
+
+            if (a2 == null) {
+                throw new NullReferenceException(nameof(a2));
+            }
+
+            if (a1.Length == 0) {
+                return a2;
+            }
+
+            if (a2.Length == 0) {
+                return a1;
+            }
+
+            T[] newArray = new T[a1.Length + a2.Length];
+
+            Array.Copy(a1, newArray, a1.Length);
+            Array.Copy(a2, 0, newArray,a1.Length, a2.Length);
+
+            return newArray;
+        }
+
+        /// <summary>
+        /// Reverses array elements
+        /// </summary>
+        /// <param name="array">Input array</param>
+        /// <returns>Reversed array</returns>
+        public static T[] ReverseArray<T>(T[] array) {
+
+            if (array == null) {
+                throw new ArgumentNullException(nameof(array));
+            }
+
+            if (array.Length == 0) {
+                return array;
+            }
+
+            T[] newArray = new T[array.Length];
+
+            for (int i = 0; i < array.Length; i++) {
+                newArray[i] = array[array.Length - 1 - i];
+            }
+
+            return newArray;
+        }
+        
         /// <summary>
         /// Gets description attribute of an Enum member
         /// </summary>
