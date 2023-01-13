@@ -10,6 +10,7 @@
 */
 
 using System;
+using System.IO;
 
 namespace SpdReaderWriterDll {
 
@@ -70,7 +71,7 @@ namespace SpdReaderWriterDll {
                 return (T)Convert.ChangeType(output, typeof(T));
             }
 
-            throw new Exception("Wrong data type");
+            throw new InvalidDataException(nameof(T));
         }
 
         /// <summary>
@@ -96,7 +97,7 @@ namespace SpdReaderWriterDll {
                 return Smbus.Driver.WriteIoPortDwordEx((ushort)(BaseAddress + offset), (uint)input);
             }
 
-            throw new Exception("Wrong data type");
+            throw new InvalidDataException(nameof(T));
         }
     }
 }
