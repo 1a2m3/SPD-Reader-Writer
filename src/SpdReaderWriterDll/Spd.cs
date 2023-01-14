@@ -37,11 +37,13 @@ namespace SpdReaderWriterDll {
                 throw new IOException($"Device not connected ({device.PortName})");
             }
 
-            if (device.DetectDdr5()) {
+            byte address = device.I2CAddress;
+
+            if (device.DetectDdr5(address)) {
                 return RamType.DDR5;
             }
 
-            if (device.DetectDdr4()) {
+            if (device.DetectDdr4(address)) {
                 return RamType.DDR4;
             }
 
@@ -174,7 +176,7 @@ namespace SpdReaderWriterDll {
             }
 
             if (spd != null) {
-                manufacturerId = (ushort)(spd.ManufacturerIdCode.ContinuationCode << 8 | spd.ManufacturerIdCode.ManufacturerCode);
+                manufacturerId = spd.ManufacturerIdCode.ManufacturerId;
             }
 
             return manufacturerId;
@@ -492,7 +494,9 @@ namespace SpdReaderWriterDll {
             public byte ContinuationCode;
             public byte ManufacturerCode;
 
-            public override string ToString() => GetManufacturerName((ushort)(ContinuationCode << 8 | ManufacturerCode));
+            public ushort ManufacturerId => (ushort)(ContinuationCode << 8 | ManufacturerCode);
+
+            public override string ToString() => GetManufacturerName(ManufacturerId);
 
             public static bool operator ==(ManufacturerIdCodeData d1, ManufacturerIdCodeData d2) {
                 return d1.ContinuationCode == d2.ContinuationCode &&
@@ -515,7 +519,7 @@ namespace SpdReaderWriterDll {
             }
 
             public override int GetHashCode() {
-                return (ushort)(ContinuationCode << 8 | ManufacturerCode).GetHashCode();
+                return ManufacturerId;
             }
         }
 

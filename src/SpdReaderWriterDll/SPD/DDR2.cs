@@ -41,7 +41,7 @@ namespace SpdReaderWriterDll {
             public DataLength Length => DataLength.Minimum;
 
             public override string ToString() {
-                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -90,7 +90,6 @@ namespace SpdReaderWriterDll {
 
                     switch (Data.SubByte(RawData[5], 7, 3)) {
                         default:
-                        case 0:
                             // less than 25.4 mm
                             attributes.Height = new ModuleHeightData {
                                 Minimum = 0,
@@ -1031,8 +1030,7 @@ namespace SpdReaderWriterDll {
             /// EPP Identifier String ("NVm")
             /// </summary>
             public bool EppPresence {
-                get => Data.MatchArray(RawData, ProfileId.EPP, 99); 
-                //(RawData[101] << 16 | RawData[100] << 8 | RawData[99]) == ProfileId.EPP;
+                get => Data.MatchArray(RawData, ProfileId.EPP, 99);
             }
 
             /// <summary>
