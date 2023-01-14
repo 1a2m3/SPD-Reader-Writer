@@ -503,6 +503,20 @@ namespace SpdReaderWriterDll {
                 return d1.ContinuationCode != d2.ContinuationCode ||
                        d1.ManufacturerCode != d2.ManufacturerCode;
             }
+
+            public override bool Equals(object o) {
+                if (o != null && o.GetType() != typeof(ManufacturerIdCodeData)) {
+                    return false;
+                }
+
+                return o != null &&
+                       ContinuationCode.Equals(((ManufacturerIdCodeData)o).ContinuationCode) && 
+                       ManufacturerCode.Equals(((ManufacturerIdCodeData)o).ManufacturerCode);
+            }
+
+            public override int GetHashCode() {
+                return (ushort)(ContinuationCode << 8 | ManufacturerCode).GetHashCode();
+            }
         }
 
         /// <summary>
