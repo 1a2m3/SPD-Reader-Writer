@@ -39,7 +39,7 @@ namespace SpdReaderWriterDll {
             public DataLength Length => DataLength.Minimum;
 
             public override string ToString() {
-                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -253,7 +253,7 @@ namespace SpdReaderWriterDll {
                     for (byte i = 0; i < attributes.Length; i++) {
                         attributes[i].Length = (byte)(1 << i);
                         attributes[i].Supported = Data.GetBit(RawData[16], i);
-                    };
+                    }
 
                     return attributes;
                 }

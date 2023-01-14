@@ -39,7 +39,7 @@ namespace SpdReaderWriterDll {
             public DataLength Length => DataLength.Minimum;
 
             public override string ToString() {
-                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -263,7 +263,7 @@ namespace SpdReaderWriterDll {
                     for (byte i = 0; i < attributes.Length; i++) {
                         attributes[i].Length    = (byte)(1 << i);
                         attributes[i].Supported = Data.GetBit(RawData[16], i);
-                    };
+                    }
 
                     return attributes;
                 }
@@ -592,9 +592,6 @@ namespace SpdReaderWriterDll {
                     float[] heights = { 1.125F, 1.25F, 1.7F };
 
                     switch (Data.SubByte(RawData[47], 1, 2)) {
-                        case 0: // No DIMM height available
-                        default:
-                            return new ModuleHeightData { };
                         case 1:
                             return new ModuleHeightData {
                                 Minimum = heights[0],
@@ -607,6 +604,9 @@ namespace SpdReaderWriterDll {
                                 Maximum = heights[2],
                                 Unit    = HeightUnit.IN
                             };
+                        default:
+                            // No DIMM height available
+                            return new ModuleHeightData();
                     }
                 }
             }

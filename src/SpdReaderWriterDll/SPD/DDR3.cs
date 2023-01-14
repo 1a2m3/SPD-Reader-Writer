@@ -40,7 +40,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public DataLength Length => DataLength.Minimum;
 
-            public override string ToString() => $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+            public override string ToString() => $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0: Number of Bytes Used / Number of Bytes in SPD Device / CRC Coverage
@@ -364,8 +364,8 @@ namespace SpdReaderWriterDll {
                 /// Converts timing value to nanoseconds
                 /// </summary>
                 /// <returns>Delay in nanoseconds</returns>
-                public float ToNanoSeconds() => (float)((float)Medium * ((float)MTB.Dividend / (float)MTB.Divisor) +
-                                                        ((float)Fine * ((float)FTB.Dividend / (float)FTB.Divisor)) / 1000F);
+                public float ToNanoSeconds() => Medium * (MTB.Dividend / MTB.Divisor) +
+                                                Fine * (FTB.Dividend / FTB.Divisor) / 1000F;
 
                 public override string ToString() => $"{this.ToNanoSeconds():F3}";
             }

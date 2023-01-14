@@ -40,7 +40,7 @@ namespace SpdReaderWriterDll {
             public DataLength Length => DataLength.DDR5;
 
             public override string ToString() =>
-                $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0 (0x000): Number of Bytes in SPD Device
