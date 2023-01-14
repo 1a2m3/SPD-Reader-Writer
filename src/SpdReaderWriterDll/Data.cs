@@ -799,6 +799,35 @@ namespace SpdReaderWriterDll {
 
             return newArray;
         }
+
+        /// <summary>
+        /// Checks if input array contains specified element
+        /// </summary>
+        /// <param name="array">Input array</param>
+        /// <param name="item">Element to look for</param>
+        /// <returns><see langword="true"/> if <paramref name="array"/> contains <paramref name="item"/></returns>
+        public static bool ArrayContains<T>(T[] array, T item) {
+
+            if (array == null) {
+                throw new NullReferenceException(nameof(array));
+            }
+
+            if (item == null) {
+                throw new NullReferenceException(nameof(item));
+            }
+
+            if (array.Length == 0) {
+                return false;
+            }
+
+            foreach (T member in array) {
+                if (member.Equals(item)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
         
         /// <summary>
         /// Gets description attribute of an Enum member
