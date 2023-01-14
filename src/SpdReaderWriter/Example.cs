@@ -53,9 +53,6 @@ namespace SpdReaderWriter {
             myDevice.ProbeAddress(myDevice.I2CAddress);
             myDevice.ProbeAddress(); // You can omit the address if myDevice already has "I2CAddress" set
 
-            // Set SPD size to DDR4's EEPROM size (512 bytes)
-            myDevice.DataLength = Spd.DataLength.DDR4;
-
             // The device can also be initialized in one line, like so:
             Arduino myOtherDevice = new Arduino(ReaderSettings, PortName, 80, Spd.DataLength.DDR4);
 
