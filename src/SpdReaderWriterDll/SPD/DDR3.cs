@@ -623,7 +623,7 @@ namespace SpdReaderWriterDll {
                 ushort validCrc = Data.Crc16(Data.TrimArray(RawData, CrcCoverage ? 117 : 126, Data.TrimPosition.End), 0x1021);
 
                 // Replace CRC only
-                RawData[126] = (byte)(validCrc & 0xFF);
+                RawData[126] = (byte)validCrc;
                 RawData[127] = (byte)(validCrc >> 8);
 
                 return CrcStatus;
