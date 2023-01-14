@@ -15,7 +15,6 @@ using System.IO;
 using System.Security.Principal;
 using SpdReaderWriterDll;
 using SpdReaderWriterDll.Properties;
-using SerialPortSettings = SpdReaderWriterDll.Arduino.SerialPortSettings;
 
 namespace SpdReaderWriter {
     class Program {
@@ -23,7 +22,7 @@ namespace SpdReaderWriter {
         /// <summary>
         /// Default Arduino serial port settings
         /// </summary>
-        public static SerialPortSettings ReaderSettings = new SerialPortSettings(
+        public static Arduino.SerialPortSettings ReaderSettings = new Arduino.SerialPortSettings(
             // Baud rate
             baudRate: 115200,
             // Enable DTR
@@ -52,13 +51,8 @@ namespace SpdReaderWriter {
 
             Args = args;
 
-            try {
-                if (IsAdmin()) {
-                    Smbus = new Smbus();
-                }
-            }
-            catch {
-                // Do nothing
+            if (IsAdmin()) {
+                Smbus = new Smbus();
             }
 
             Welcome();
@@ -87,13 +81,14 @@ namespace SpdReaderWriter {
 
         static void Welcome() {
             string[] header = {
-                "    SPDRW - EEPROM SPD reader and writer",
-                "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
-                "For overclockers and PC hardware enthusiasts",
+                "   SPD-RW - EEPROM SPD reader and writer",
+                "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
+                "Version {0}",
+                "(C) 2021-2023 A213M",
                 ""
             };
             foreach (string line in header) {
-                Console.WriteLine(line);
+                Console.WriteLine(line, FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).ProductVersion);
             }
         }
         static void ShowHelp() {
@@ -190,15 +185,13 @@ namespace SpdReaderWriter {
                 }
             }
             catch (Exception e) {
-                //Console.ForegroundColor = ConsoleColor.Red;
+                Console.ForegroundColor = ConsoleColor.Red;
 #if DEBUG
                 Console.WriteLine($"{e}\n");
 #else
                 Console.WriteLine($"{e.Message}\n");
 #endif
-
-                //Console.ForegroundColor = ConsoleColor.Gray;
-                return;
+                Console.ResetColor();
             }
             finally {
                 if (Reader.IsConnected) {
@@ -353,6 +346,10 @@ namespace SpdReaderWriter {
                 Reader.Disconnect();
             }
             else {
+                if (!IsAdmin()) {
+                    return;
+                }
+
                 spdDump = new byte[Smbus.MaxSpdSize];
                 Smbus.BusNumber = (byte)int.Parse(Args[1]);
                 Smbus.I2CAddress = i2CAddress;
@@ -455,7 +452,7 @@ namespace SpdReaderWriter {
             }
             else {
 
-                byte[] addresses = new byte[0];
+                byte[] addresses;
 
                 if (Args[1].StartsWith("COM")) {
 
@@ -466,6 +463,11 @@ namespace SpdReaderWriter {
                     Reader.Disconnect();
                 }
                 else {
+
+                    if (!IsAdmin()) {
+                        return;
+                    }
+
                     int i = -1;
                     int.TryParse(Args[1], out i);
                     if (i != -1) {
@@ -493,7 +495,7 @@ namespace SpdReaderWriter {
             // Init
             string portName = Args[1];
 
-            if (!portName.StartsWith("COM")) {
+            if (!portName.StartsWith("COM", StringComparison.CurrentCulture)) {
                 throw new Exception("Port name should start with \"COM\" followed by a number.");
             }
 
@@ -505,7 +507,6 @@ namespace SpdReaderWriter {
             }
 
             // Check FW version
-            string firmwareFile = Data.BytesToString(Data.Gzip(Resources.Firmware.SpdReaderWriter_ino, Data.GzipMethod.Decompress));
             if (Reader.GetFirmwareVersion() < Arduino.IncludedFirmwareVersion) {
                 throw new Exception($"The device on port {portName} requires its firmware to be updated.");
             }
@@ -555,6 +556,11 @@ namespace SpdReaderWriter {
         /// Looks for available SMBuses
         /// </summary>
         private static void FindSmbus() {
+
+            if (!IsAdmin()) {
+                return;
+            }
+
             try {
                 foreach (byte bus in Smbus.FindBus()) {
                     Console.WriteLine($"Found SMBus # {bus} ({Smbus})");
