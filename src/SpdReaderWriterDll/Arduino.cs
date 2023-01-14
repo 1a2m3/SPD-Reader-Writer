@@ -581,7 +581,7 @@ namespace SpdReaderWriterDll {
         public bool GetOfflineMode() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Command.GET }) == Response.SUCCESS;
+                    return Data.GetBit(ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, Eeprom.Spd5Register.MR48 }), 2);
                 }
                 catch {
                     throw new Exception($"Unable to get offline mode status on {PortName}");
@@ -746,9 +746,9 @@ namespace SpdReaderWriterDll {
                     }
 
                     // Prepare a byte array containing cmd byte + name length + name
-                    byte[] nameCommand = Data.MergeArray(new[] { Command.NAME, (byte)newName.Length }, Encoding.ASCII.GetBytes(newName));
+                    byte[] command = { Command.NAME, (byte)newName.Length };
 
-                    return ExecuteCommand(nameCommand) == Response.SUCCESS;
+                    return ExecuteCommand(Data.MergeArray(command, Encoding.ASCII.GetBytes(newName))) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to assign name to {PortName}");
@@ -861,6 +861,26 @@ namespace SpdReaderWriterDll {
                 }
                 catch {
                     throw new Exception($"Error detecting DDR5 on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reads SPD5 hub register data
+        /// </summary>
+        /// <param name="register">Register address</param>
+        /// <returns>Register data</returns>
+        public byte ReadSpd5Hub(byte register) {
+            lock (_portLock) {
+                try {
+                    if (DetectDdr5(I2CAddress)) {
+                        return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.GET });
+                    }
+
+                    throw new Exception($"Error detecting DDR5 on {PortName}");
+                }
+                catch {
+                    throw new Exception($"Unable to read SPD5 hub on {PortName}");
                 }
             }
         }
@@ -1261,6 +1281,11 @@ namespace SpdReaderWriterDll {
             public const byte DDR5DETECT    = (byte)'5';
 
             /// <summary>
+            /// Access SPD5 Hub register space
+            /// </summary>
+            public const byte SPD5HUBREG    = (byte)'h';
+
+            /// <summary>
             /// Restore device settings to default
             /// </summary>
             public const byte FACTORYRESET  = (byte)'-';
@@ -1298,6 +1323,11 @@ namespace SpdReaderWriterDll {
                 /// DDR5 offline mode control pin
                 /// </summary>
                 public const byte OFFLINE_MODE_SWITCH = 0;
+
+                /// <summary>
+                /// DDR5 power control pin
+                /// </summary>
+                public const byte DDR5_POWER_SWITCH   = 5;
 
                 /// <summary>
                 /// Slave address 1 (SA1) control pin

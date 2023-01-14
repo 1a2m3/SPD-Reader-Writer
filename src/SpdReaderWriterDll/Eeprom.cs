@@ -23,27 +23,27 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Reads a single byte from the EEPROM
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
-        public static byte ReadByte(Smbus controller, ushort offset) {
-            AdjustPageAddress(controller, offset);
+        public static byte ReadByte(Smbus smbus, ushort offset) {
+            AdjustPageAddress(smbus, offset);
 
-            if (DetectDdr5(controller)) {
+            if (DetectDdr5(smbus)) {
                 offset = (byte)((offset % 128) | Spd5Register.NVMREG);
             }
 
-            return controller.ReadByte(controller, controller.I2CAddress, offset);
+            return smbus.ReadByte(smbus, smbus.I2CAddress, offset);
         }
 
         /// <summary>
         /// Reads bytes from the EEPROM
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/></param>
         /// <returns>A byte array containing byte values</returns>
-        public static byte[] ReadByte(Smbus controller, ushort offset, byte count) {
+        public static byte[] ReadByte(Smbus smbus, ushort offset, int count) {
 
             if (count == 0) {
                 throw new ArgumentOutOfRangeException(nameof(count));
@@ -52,41 +52,41 @@ namespace SpdReaderWriterDll {
             byte[] result = new byte[count];
 
             for (ushort i = 0; i < count; i++) {
-                result[i] = ReadByte(controller, (ushort)(i + offset));
+                result[i] = ReadByte(smbus, (ushort)(i + offset));
             }
 
             return result;
         }
 
         /// <summary>
-        /// Write a byte to the EEPROM
+        /// Writes a byte to the EEPROM
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
-        public static bool WriteByte(Smbus controller, ushort offset, byte value) {
+        public static bool WriteByte(Smbus smbus, ushort offset, byte value) {
 
-            AdjustPageAddress(controller, offset);
+            AdjustPageAddress(smbus, offset);
 
-            if (DetectDdr5(controller)) {
+            if (DetectDdr5(smbus)) {
                 offset = (byte)((offset % 128) | Spd5Register.NVMREG);
             }
 
-            return controller.WriteByte(controller, controller.I2CAddress, offset, value);
+            return smbus.WriteByte(smbus, smbus.I2CAddress, offset, value);
         }
 
         /// <summary>
-        /// Write a byte array to the EEPROM
+        /// Writes a byte array to the EEPROM
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/></returns>
-        public static bool WriteByte(Smbus controller, ushort offset, byte[] value) {
+        public static bool WriteByte(Smbus smbus, ushort offset, byte[] value) {
 
             for (ushort i = 0; i < value.Length; i++) {
-                if (!WriteByte(controller, (ushort)(i + offset), value[i])) {
+                if (!WriteByte(smbus, (ushort)(i + offset), value[i])) {
                     return false;
                 }
             }
@@ -95,48 +95,48 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Write a byte to the EEPROM. The byte is written only if its value differs from the one already saved at the same address.
+        /// Writes a byte to the EEPROM. The byte is written only if its value differs from the one already saved at the same address.
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool UpdateByte(Smbus controller, ushort offset, byte value) {
-            return VerifyByte(controller, offset, value) || WriteByte(controller, offset, value);
+        public static bool UpdateByte(Smbus smbus, ushort offset, byte value) {
+            return VerifyByte(smbus, offset, value) || WriteByte(smbus, offset, value);
         }
 
         /// <summary>
-        /// Write a byte array to the EEPROM. The page is written only if its value differs from the one already saved at the same address.
+        /// Writes a byte array to the EEPROM. The page is written only if its value differs from the one already saved at the same address.
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array contents</param>
         /// <returns><see langword="true"/> if bytes read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
-        public static bool UpdateByte(Smbus controller, ushort offset, byte[] value) {
-            return VerifyByte(controller, offset, value) || WriteByte(controller, offset, value);
+        public static bool UpdateByte(Smbus smbus, ushort offset, byte[] value) {
+            return VerifyByte(smbus, offset, value) || WriteByte(smbus, offset, value);
         }
 
         /// <summary>
         /// Verifies if the offset content matches the input specified
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Smbus controller, ushort offset, byte value) {
-            return ReadByte(controller, offset) == value;
+        public static bool VerifyByte(Smbus smbus, ushort offset, byte value) {
+            return ReadByte(smbus, offset) == value;
         }
 
         /// <summary>
         /// Verifies if the offset content matches the input specified
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte offset</param>
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Smbus controller, ushort offset, byte[] value) {
+        public static bool VerifyByte(Smbus smbus, ushort offset, byte[] value) {
 
-            byte[] source = ReadByte(controller, offset, (byte)value.Length);
+            byte[] source = ReadByte(smbus, offset, value.Length);
 
             return Data.CompareArray(source, value);
         }
@@ -144,34 +144,34 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Reset EEPROM page address
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
-        public static void ResetPageAddress(Smbus controller) {
-            SetPageAddress(controller, 0);
+        /// <param name="smbus">SMBus controller instance</param>
+        public static void ResetPageAddress(Smbus smbus) {
+            SetPageAddress(smbus, 0);
         }
 
         /// <summary>
         /// Adjust EEPROM page address to access lower or upper 256 bytes of the entire 512 byte EEPROM array
         /// </summary>
-        /// <param name="controller">System device instance</param>
+        /// <param name="smbus">System device instance</param>
         /// <param name="eepromPageNumber">Page number</param>
-        private static void SetPageAddress(Smbus controller, byte eepromPageNumber) {
+        private static void SetPageAddress(Smbus smbus, byte eepromPageNumber) {
 
-            if (controller.MaxSpdSize != 0 && controller.MaxSpdSize < (ushort)Spd.DataLength.DDR4) {
+            if (smbus.MaxSpdSize != 0 && smbus.MaxSpdSize < (ushort)Spd.DataLength.DDR4) {
                 return;
             }
 
-            if (controller.MaxSpdSize == (ushort)Spd.DataLength.DDR4 && eepromPageNumber > 1 ||
-                controller.MaxSpdSize == (ushort)Spd.DataLength.DDR5 && eepromPageNumber > 15) {
+            if (smbus.MaxSpdSize == (ushort)Spd.DataLength.DDR4 && eepromPageNumber > 1 ||
+                smbus.MaxSpdSize == (ushort)Spd.DataLength.DDR5 && eepromPageNumber > 15) {
                 throw new ArgumentOutOfRangeException(nameof(eepromPageNumber));
             }
 
-            if (DetectDdr5(controller)) {
+            if (DetectDdr5(smbus)) {
                 // DDR5 page
-                controller.WriteByte(controller, controller.I2CAddress, Spd5Register.MR11, eepromPageNumber);
+                smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR11, eepromPageNumber);
             }
             else {
                 // DDR4 page
-                controller.WriteByte(controller, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
+                smbus.WriteByte(smbus, (byte)((EepromCommand.SPA0 >> 1) + eepromPageNumber));
             }
 
             PageNumber = eepromPageNumber;
@@ -180,23 +180,23 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Adjust EEPROM page number according to specified offset
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="offset">Byte position</param>
-        private static void AdjustPageAddress(Smbus controller, ushort offset) {
+        private static void AdjustPageAddress(Smbus smbus, ushort offset) {
 
-            if (controller.MaxSpdSize >= (ushort)Spd.DataLength.Minimum) {
-                if (offset > controller.MaxSpdSize) {
+            if (smbus.MaxSpdSize >= (ushort)Spd.DataLength.Minimum) {
+                if (offset > smbus.MaxSpdSize) {
                     throw new IndexOutOfRangeException($"Invalid offset");
                 }
 
-                if (controller.MaxSpdSize < (ushort)Spd.GetSpdSize(Spd.RamType.DDR4)) {
+                if (smbus.MaxSpdSize < (ushort)Spd.GetSpdSize(Spd.RamType.DDR4)) {
                     return;
                 }
             }
 
             byte targetPage;
 
-            if (DetectDdr5(controller)) {
+            if (DetectDdr5(smbus)) {
                 targetPage = (byte)(offset >> 7);
             }
             else {
@@ -204,42 +204,26 @@ namespace SpdReaderWriterDll {
             }
 
             if (targetPage != PageNumber) {
-                SetPageAddress(controller, targetPage);
+                SetPageAddress(smbus, targetPage);
             }
         }
 
         /// <summary>
         /// Detects if DDR5 is present on the controller
         /// </summary>
-        /// <param name="controller">Smbus controller instance</param>
+        /// <param name="smbus">Smbus controller instance</param>
         /// <returns><see langword="true"/> if DDR5 is present on the Smbus</returns>
-        public static bool DetectDdr5(Smbus controller) {
-            return controller.ProbeAddress((byte)(LidCode.Pmic0 << 3 | (Spd5Register.LocalHid & controller.I2CAddress)));
+        public static bool DetectDdr5(Smbus smbus) {
+            return smbus.ProbeAddress((byte)(LidCode.Pmic0 << 3 | (Spd5Register.LocalHid & smbus.I2CAddress)));
         }
 
         /// <summary>
         /// Read software write protection status
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
-        /// <returns><see langword="true"/> if some blocks are write protected or <see langword="false"/> when all blocks are writable</returns>
-        public static bool GetRswp(Smbus controller) {
-
-            for (byte i = 0; i <= 3; i++) {
-                if (GetRswp(controller, i)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        /// <summary>
-        /// Read software write protection status
-        /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true"/> if the block is write protected or <see langword="false"/> when the block is writable</returns>
-        public static bool GetRswp(Smbus controller, byte block) {
+        public static bool GetRswp(Smbus smbus, byte block) {
 
             byte[] rswpCmd = {
                 EepromCommand.RPS0,
@@ -251,7 +235,7 @@ namespace SpdReaderWriterDll {
             block = block > 3 ? (byte)0 : block;
 
             try {
-                return !controller.ReadByte(controller, (byte)(rswpCmd[block] >> 1));
+                return !smbus.ReadByte(smbus, (byte)(rswpCmd[block] >> 1));
             }
             catch {
                 return true;
@@ -259,35 +243,42 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Enables software write protection on all EEPROM blocks
-        /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
-        /// <returns><see langword="true"/> when the write protection has been enabled on all blocks</returns>
-        public static bool SetRswp(Smbus controller) {
-
-            for (byte i = 0; i <= 3; i++) {
-                if (SetRswp(controller, i)) {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        /// <summary>
         /// Enables software write protection on the specified EEPROM block 
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <param name="block">Block number to be write protected</param>
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
-        public static bool SetRswp(Smbus controller, byte block) {
+        public static bool SetRswp(Smbus smbus, byte block) {
 
-            if (controller.MaxSpdSize == (ushort)Spd.DataLength.Minimum && block >= 1) {
+            if (smbus.MaxSpdSize == (ushort)Spd.DataLength.Minimum && block >= 1) {
                 throw new ArgumentOutOfRangeException(nameof(block));
             }
 
-            if (controller.MaxSpdSize == (ushort)Spd.DataLength.DDR4 && block >= 4) {
+            if (smbus.MaxSpdSize == (ushort)Spd.DataLength.DDR4 && block >= 4) {
                 throw new ArgumentOutOfRangeException(nameof(block));
+            }
+
+            if (DetectDdr5(smbus)) {
+
+                byte memReg;
+                byte currentValue; // Existing RSWP value
+                byte updatedValue; // Updated RSWP value
+
+                if (block <= 7) {
+                    memReg       = Spd5Register.MR12;
+                    currentValue = smbus.ReadByte(smbus, smbus.I2CAddress, memReg);
+                    updatedValue = Data.SetBit(currentValue, block, true);
+                }
+                else if (block <= 15) {
+                    memReg       = Spd5Register.MR13;
+                    currentValue = smbus.ReadByte(smbus, smbus.I2CAddress, memReg);
+                    updatedValue = Data.SetBit(currentValue, block - 8, true);
+                }
+                else {
+                    throw new ArgumentOutOfRangeException($"Wrong block # specified");
+                }
+
+                return smbus.WriteByte(smbus, smbus.I2CAddress, memReg, (byte)(currentValue | updatedValue));
             }
 
             byte[] commands = {
@@ -297,25 +288,31 @@ namespace SpdReaderWriterDll {
                 EepromCommand.SWP3,
             };
 
-            return controller.WriteByte(controller, (byte)(commands[block] >> 1));
+            return smbus.WriteByte(smbus, (byte)(commands[block] >> 1));
         }
 
         /// <summary>
         /// Clears EEPROM write protection 
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <returns><see langword="true"/> if RSWP has been disabled</returns>
-        public static bool ClearRswp(Smbus controller) {
-            return controller.WriteByte(controller, EepromCommand.CWP >> 1);
+        public static bool ClearRswp(Smbus smbus) {
+
+            if (DetectDdr5(smbus)) {
+                return smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR12, 0x00) &&
+                       smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR13, 0x00);
+            }
+
+            return smbus.WriteByte(smbus, EepromCommand.CWP >> 1);
         }
 
         /// <summary>
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
-        /// <param name="controller">SMBus controller instance</param>
+        /// <param name="smbus">SMBus controller instance</param>
         /// <returns><see langword="true"/> if PSWP is enabled or <see langword="false"/> if PSWP has NOT been set and EEPROM is writable</returns>
-        public static bool GetPswp(Smbus controller) {
-            return !controller.ReadByte(controller, (byte)((EepromCommand.PWPB << 3) | (controller.I2CAddress & 0b111)));
+        public static bool GetPswp(Smbus smbus) {
+            return !smbus.ReadByte(smbus, (byte)((EepromCommand.PWPB << 3) | (smbus.I2CAddress & 0b111)));
         }
 
         #endregion
@@ -325,37 +322,37 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Reads a single byte from the EEPROM
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte offset</param>
         /// <returns>Byte value at <paramref name="offset"/></returns>
-        public static byte ReadByte(Arduino device, ushort offset) {
-            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
+        public static byte ReadByte(Arduino arduino, ushort offset) {
+            if (offset > (int)Spd.DataLength.DDR5 && arduino.DetectDdr5(arduino.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
             try {
-                return device.ExecuteCommand(new[] {
+                return arduino.ExecuteCommand(new[] {
                     Arduino.Command.READBYTE,
-                    device.I2CAddress,
-                    (byte)(offset >> 8),   // MSB
-                    (byte)(offset & 0xFF), // LSB
+                    arduino.I2CAddress,
+                    (byte)(offset >> 8), // MSB
+                    (byte)offset,        // LSB
                     (byte)1 });
             }
             catch {
-                throw new Exception($"Unable to read byte 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to read byte 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Reads bytes from the EEPROM
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position to start reading from</param>
         /// <param name="count">Total number of bytes to read from <paramref name="offset"/> </param>
         /// <returns>A byte array containing byte values</returns>
-        public static byte[] ReadByte(Arduino device, ushort offset, byte count) {
+        public static byte[] ReadByte(Arduino arduino, ushort offset, byte count) {
 
-            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
+            if (offset > (int)Spd.DataLength.DDR5 && arduino.DetectDdr5(arduino.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
@@ -364,279 +361,225 @@ namespace SpdReaderWriterDll {
             }
 
             try {
-                return device.ExecuteCommand(new[] {
+                return arduino.ExecuteCommand(new[] {
                     Arduino.Command.READBYTE,
-                    device.I2CAddress,
-                    (byte)(offset >> 8),   // MSB
-                    (byte)(offset & 0xFF), // LSB
+                    arduino.I2CAddress,
+                    (byte)(offset >> 8), // MSB
+                    (byte)offset,        // LSB
                     count
                 }, count);
             }
             catch {
-                throw new Exception($"Unable to read byte # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to read byte # 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Write a byte to the EEPROM
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
-        public static bool WriteByte(Arduino device, ushort offset, byte value) {
-            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
+        public static bool WriteByte(Arduino arduino, ushort offset, byte value) {
+            if (offset > (int)Spd.DataLength.DDR5 && arduino.DetectDdr5(arduino.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
             try {
-                return device.ExecuteCommand(new[] {
+                return arduino.ExecuteCommand(new[] {
                     Arduino.Command.WRITEBYTE,
-                    device.I2CAddress,
-                    (byte)(offset >> 8),   // MSB
-                    (byte)(offset & 0xFF), // LSB
+                    arduino.I2CAddress,
+                    (byte)(offset >> 8), // MSB
+                    (byte)offset,        // LSB
                     value
                 }) == Arduino.Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to write \"0x{value:X2}\" to # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to write \"0x{value:X2}\" to # 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Write a page to the EEPROM
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if <paramref name="value"/> is written to <paramref name="offset"/> </returns>
-        public static bool WriteByte(Arduino device, ushort offset, byte[] value) {
-            if (offset > (int)Spd.DataLength.DDR5 && device.DetectDdr5(device.I2CAddress)) {
+        public static bool WriteByte(Arduino arduino, ushort offset, byte[] value) {
+
+            if (offset > (int)Spd.DataLength.DDR5 && arduino.DetectDdr5(arduino.I2CAddress)) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
             if (value.Length > 16 || value.Length == 0) {
-                throw new Exception($"Invalid page size ({value.Length})");
+                throw new ArgumentOutOfRangeException($"Invalid page size ({value.Length})");
             }
 
-            // Prepare command + data
-            byte[] command = new byte[5 + value.Length];
-            command[0] = Arduino.Command.WRITEPAGE;
-            command[1] = device.I2CAddress;
-            command[2] = (byte)(offset >> 8);   // MSB
-            command[3] = (byte)(offset & 0xFF); // LSB
-            command[4] = (byte)value.Length;
-
-            Array.Copy(value, 0, command, 5, value.Length);
+            // Prepare command
+            byte[] command = {
+                Arduino.Command.WRITEPAGE,
+                arduino.I2CAddress,
+                (byte)(offset >> 8), // MSB
+                (byte)offset,        // LSB
+                (byte)value.Length
+            };
 
             try {
-                return device.ExecuteCommand(command) == Arduino.Response.SUCCESS;
+                return arduino.ExecuteCommand(Data.MergeArray(command, value)) == Arduino.Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to write page of {value.Length} byte(s) to # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to write page of {value.Length} byte(s) to # 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Write a byte to the EEPROM. The byte is written only if its value differs from the one already saved at the same address.
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if byte read at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool UpdateByte(Arduino device, ushort offset, byte value) {
+        public static bool UpdateByte(Arduino arduino, ushort offset, byte value) {
             try {
-                return VerifyByte(device, offset, value) ||
-                       WriteByte(device, offset, value);
+                return VerifyByte(arduino, offset, value) ||
+                       WriteByte(arduino, offset, value);
             }
             catch {
-                throw new Exception($"Unable to update byte # 0x{offset:X4} with \"0x{value:X2}\" at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to update byte # 0x{offset:X4} with \"0x{value:X2}\" at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Write a page to the EEPROM. The page is written only if its value differs from the one already saved at the same address.
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Page contents</param>
         /// <returns><see langword="true"/> if page read at <paramref name="offset"/> matches <paramref name="value"/> values</returns>
-        public static bool UpdateByte(Arduino device, ushort offset, byte[] value) {
-            if (device.DetectDdr5(device.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
+        public static bool UpdateByte(Arduino arduino, ushort offset, byte[] value) {
+
+            if (arduino.DetectDdr5(arduino.I2CAddress) && offset > (int)Spd.DataLength.DDR5) {
                 throw new IndexOutOfRangeException($"Invalid DDR5 offset");
             }
 
             if (value.Length > 16 || value.Length == 0) {
-                throw new Exception($"Invalid page size ({value.Length})");
+                throw new ArgumentOutOfRangeException($"Invalid page size ({value.Length})");
             }
 
             try {
-                return VerifyByte(device, offset, value) ||
-                       WriteByte(device, offset, value);
+                return VerifyByte(arduino, offset, value) ||
+                       WriteByte(arduino, offset, value);
             }
             catch {
-                throw new Exception($"Unable to update page at # 0x{offset:X4} with \"0x{value:X2}\" at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to update page at # 0x{offset:X4} with \"0x{value:X2}\" at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Verifies if the offset content matches the input specified
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte value</param>
         /// <returns><see langword="true"/> if byte at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Arduino device, ushort offset, byte value) {
+        public static bool VerifyByte(Arduino arduino, ushort offset, byte value) {
             try {
-                return ReadByte(device, offset) == value;
+                return ReadByte(arduino, offset) == value;
             }
             catch {
-                throw new Exception($"Unable to verify byte # 0x{offset:X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to verify byte # 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Verifies if the offset content matches the input specified
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="offset">Byte position</param>
         /// <param name="value">Byte array</param>
         /// <returns><see langword="true"/> if bytes at <paramref name="offset"/> matches <paramref name="value"/> value</returns>
-        public static bool VerifyByte(Arduino device, ushort offset, byte[] value) {
+        public static bool VerifyByte(Arduino arduino, ushort offset, byte[] value) {
             try {
-                byte[] source = ReadByte(device, offset, (byte)value.Length);
+                byte[] source = ReadByte(arduino, offset, (byte)value.Length);
 
                 return Data.CompareArray(source, value);
             }
             catch {
-                throw new Exception($"Unable to verify bytes # 0x{offset:X4}-0x{(offset + value.Length):X4} at {device.PortName}:{device.I2CAddress}");
+                throw new Exception($"Unable to verify bytes # 0x{offset:X4}-0x{offset + value.Length:X4} at {arduino.PortName}:{arduino.I2CAddress}");
             }
         }
 
         /// <summary>
         /// Enables software write protection on the specified EEPROM block 
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be write protected</param>
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
-        public static bool SetRswp(Arduino device, byte block) {
+        public static bool SetRswp(Arduino arduino, byte block) {
             try {
-                if (device.DetectDdr5(device.I2CAddress)) {
-                    if (block <= 7) {
-                        return WriteByte(device, Spd5Register.MR12, Data.SetBit<byte>(0, block, true));
-                    }
-                    if (block <= 15) {
-                        return WriteByte(device, Spd5Register.MR13, Data.SetBit<byte>(0, block - 8, true));
-                    }
-
-                    throw new ArgumentOutOfRangeException($"Wrong block # specified");
-                }
-
-                return device.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to set RSWP on {device.PortName}");
-            }
-        }
-
-        /// <summary>
-        /// Enables software write protection on all 4 EEPROM blocks
-        /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
-        /// <returns><see langword="true"/> when the write protection has been enabled on all available blocks</returns>
-        public static bool SetRswp(Arduino device) {
-            try {
-                for (byte i = 0; i <= 3; i++) {
-                    if (!SetRswp(device, i)) {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-            catch {
-                throw new Exception($"Unable to set RSWP on {device.PortName}");
+                throw new Exception($"Unable to set RSWP on {arduino.PortName}");
             }
         }
 
         /// <summary>
         /// Read software write protection status
         /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
-        /// <returns><see langword="true"/> if the at least one block is write protected (or RSWP is not supported), or <see langword="false"/> when the EEPROM is writable</returns>
-        public static bool GetRswp(Arduino device) {
-            try {
-                for (byte i = 0; i <= 3; i++) {
-                    if (device.ExecuteCommand(new[] { Arduino.Command.RSWP, i, Arduino.Command.GET }) == Arduino.Response.ENABLED) {
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-            catch {
-                throw new Exception($"Unable to get RSWP status on {device.PortName}");
-            }
-        }
-
-        /// <summary>
-        /// Read software write protection status
-        /// </summary>
-        /// <param name="device">SPD reader/writer device instance</param>
+        /// <param name="arduino">SPD reader/writer device instance</param>
         /// <param name="block">Block number to be checked</param>
         /// <returns><see langword="true"/> if the block is write protected (or RSWP is not supported) or <see langword="false"/> when the block is writable</returns>
-        public static bool GetRswp(Arduino device, byte block) {
+        public static bool GetRswp(Arduino arduino, byte block) {
             try {
-                return device.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.GET }) == Arduino.Response.ENABLED;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.GET }) == Arduino.Response.ENABLED;
             }
             catch {
-                throw new Exception($"Unable to get block {block} RSWP status on {device.PortName}");
+                throw new Exception($"Unable to get block {block} RSWP status on {arduino.PortName}");
             }
         }
 
         /// <summary>
         /// Clears EEPROM write protection 
         /// </summary>
-        /// <param name="device">Device instance</param>
+        /// <param name="arduino">Device instance</param>
         /// <returns><see langword="true"/> if the write protection has been disabled</returns>
-        public static bool ClearRswp(Arduino device) {
+        public static bool ClearRswp(Arduino arduino) {
             try {
-                if (device.DetectDdr5(device.I2CAddress)) {
-                    return WriteByte(device, Spd5Register.MR12, new byte[] { 0, 0 });
-                }
-
-                return device.ExecuteCommand(new[] { Arduino.Command.RSWP, Arduino.Command.DNC, Arduino.Command.OFF }) == Arduino.Response.SUCCESS;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, Data.BoolToNum<byte>(false), Arduino.Command.OFF }) == Arduino.Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to clear RSWP on {device.PortName}");
+                throw new Exception($"Unable to clear RSWP on {arduino.PortName}");
             }
         }
 
         /// <summary>
         /// Sets permanent write protection on supported EEPROMs
         /// </summary>
-        /// <param name="device">Device instance</param>
+        /// <param name="arduino">Device instance</param>
         /// <returns><see langword="true"/> when the permanent write protection is enabled</returns>
-        public static bool SetPswp(Arduino device) {
+        public static bool SetPswp(Arduino arduino) {
             try {
-                return device.ExecuteCommand(new[] { Arduino.Command.PSWP, device.I2CAddress, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.PSWP, arduino.I2CAddress, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
             }
             catch {
-                throw new Exception($"Unable to set PSWP on {device.PortName}");
+                throw new Exception($"Unable to set PSWP on {arduino.PortName}");
             }
         }
 
         /// <summary>
         /// Tests if EEPROM is writable or permanently protected
         /// </summary>
-        /// <param name="device">Device instance</param>
+        /// <param name="arduino">Device instance</param>
         /// <returns><see langword="true"/> when PSWP is enabled or <see langword="false"/> if when PSWP has NOT been set and EEPROM is writable</returns>
-        public static bool GetPswp(Arduino device) {
+        public static bool GetPswp(Arduino arduino) {
             try {
-                return device.ExecuteCommand(new[] { Arduino.Command.PSWP, device.I2CAddress, Arduino.Command.GET }) == Arduino.Response.ENABLED;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.PSWP, arduino.I2CAddress, Arduino.Command.GET }) == Arduino.Response.ENABLED;
             }
             catch {
-                throw new Exception($"Unable to get PSWP status on {device.PortName}");
+                throw new Exception($"Unable to get PSWP status on {arduino.PortName}");
             }
         }
 
@@ -676,10 +619,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// DDR5 SPD5 hub registers
         /// </summary>
-        internal struct Spd5Register {
-            // SPD5 internal register bitmask
-            internal const byte MEMREG = 0b11111;
-
+        public struct Spd5Register {
             // SPD5 NVM location bitmask
             internal const byte NVMREG = 0b10000000;
 
@@ -688,10 +628,15 @@ namespace SpdReaderWriterDll {
 
             // I2C Legacy Mode Device Configuration
             internal const byte MR11 = 11;
+
             // Write Protection For NVM Blocks [7:0]
-            internal const byte MR12 = 12;
+            public const byte MR12   = 12;
+
             // Write Protection For NVM Blocks [15:8]
-            internal const byte MR13 = 13;
+            public const byte MR13   = 13;
+
+            // Device Status
+            public const byte MR48   = 48;
         }
 
         /// <summary>
