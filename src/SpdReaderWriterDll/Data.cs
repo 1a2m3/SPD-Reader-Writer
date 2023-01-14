@@ -34,12 +34,10 @@ namespace SpdReaderWriterDll {
 
             ushort crc = 0;
 
-            for (ushort i = 0; i < input.Length; i++) {
-
-                crc ^= (ushort)(input[i] << 8);
-
-                for (byte j = 0; j < 8; j++) {
-                    crc = (ushort)((crc & 0x8000) != 0 ? (crc << 1) ^ poly : crc << 1);
+            foreach (byte b in input) {
+                crc ^= (ushort)(b << 8);
+                for (byte i = 0; i < 8; i++) {
+                    crc = (ushort)((crc << 1) ^ (GetBit(crc, 15) ? poly : 0));
                 }
             }
 

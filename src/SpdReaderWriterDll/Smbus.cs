@@ -593,9 +593,7 @@ namespace SpdReaderWriterDll {
                         _ioPort.Write(SB800_PIIX4_SMB_IDX, (byte)(smb_en + 1));
                         byte smba_en_hi = _ioPort.Read<byte>(SB800_PIIX4_SMB_DAT);
 
-                        byte smb_en_status = (byte)(smba_en_lo & 0x10);
-
-                        if (smb_en_status > 0) {
+                        if (Data.GetBit(smba_en_lo, 4)) {
                             // Primary bus
                             ushort piix4_smba = (ushort)(smba_en_hi << 8); // 0x0B00
 
