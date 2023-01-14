@@ -148,7 +148,7 @@ namespace SpdReaderWriterDll {
 
                     return Whole +
                            Quarter * 0.25F +
-                           (10 <= Tenth && Tenth <= 13 ? tenthExtenstion[Tenth - 10] : (Tenth * 0.1F)) +
+                           (10 <= Tenth && Tenth <= 13 ? tenthExtenstion[Tenth - 10] : Tenth * 0.1F) +
                            Hundredth * 0.01F +
                            fractions[Fraction];
                 }
@@ -198,40 +198,6 @@ namespace SpdReaderWriterDll {
             public struct DIMMConfigurationData {
                 public bool DataECC;
                 public bool DataParity;
-            }
-
-            /// <summary>
-            /// Describes the module’s refresh rate in microseconds
-            /// </summary>
-            public struct RefreshRateData {
-                public byte RefreshPeriod;
-                public bool SelfRefresh;
-
-                public float ToMicroseconds() {
-
-                    float normal = 15.625F;
-
-                    // Normal
-                    if ((RefreshPeriod & 0x7F) == 0x00) {
-                        return normal;
-                    }
-
-                    // Reduced
-                    if (0x01 <= (RefreshPeriod & 0x7F) && (RefreshPeriod & 0x7F) <= 0x02) {
-                        return normal * 0.25F * (RefreshPeriod & 0x7F);
-                    }
-
-                    // Extended
-                    if (0x03 <= (RefreshPeriod & 0x7F) && (RefreshPeriod & 0x7F) <= 0x05) {
-                        return (float)(normal * Math.Pow(2, (RefreshPeriod & 0x7F) - 1));
-                    }
-
-                    throw new ArgumentOutOfRangeException(nameof(RefreshPeriod));
-                }
-
-                public override string ToString() {
-                    return ToMicroseconds().ToString("F3");
-                }
             }
 
             /// <summary>
