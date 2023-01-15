@@ -125,7 +125,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
-            if (input == null) {
+            if (input == null || input.Length < (int)DataLength.Minimum) {
                 return false;
             }
 
@@ -149,8 +149,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">SPD contents</param>
         /// <returns>Manufacturer's name</returns>
         public static ushort GetManufacturerId(byte[] input) {
-            ushort manufacturerId = 0;
-
+            
             ISpd spd = null;
 
             switch (GetRamType(input)) {
@@ -175,11 +174,7 @@ namespace SpdReaderWriterDll {
                     break;
             }
 
-            if (spd != null) {
-                manufacturerId = spd.ManufacturerIdCode.ManufacturerId;
-            }
-
-            return manufacturerId;
+            return spd != null ? spd.ManufacturerIdCode.ManufacturerId : (ushort)0;
         }
 
         /// <summary>
@@ -514,7 +509,7 @@ namespace SpdReaderWriterDll {
                 }
 
                 return o != null &&
-                       ContinuationCode.Equals(((ManufacturerIdCodeData)o).ContinuationCode) && 
+                       ContinuationCode.Equals(((ManufacturerIdCodeData)o).ContinuationCode) &&
                        ManufacturerCode.Equals(((ManufacturerIdCodeData)o).ManufacturerCode);
             }
 
@@ -660,7 +655,7 @@ namespace SpdReaderWriterDll {
 
                 string value = "";
 
-                if (Minimum == Maximum) {
+                if (Minimum.Equals(Maximum)) {
                     value = $"{Maximum}";
                 }
                 else if (Minimum < Maximum) {
