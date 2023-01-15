@@ -35,12 +35,12 @@ namespace SpdReaderWriter {
         /// <summary>
         /// SMBus instance
         /// </summary>
-        public static Smbus smbus;
+        public static Smbus Smbus;
 
         /// <summary>
         /// Arduino instance
         /// </summary>
-        public static Arduino arduino = new Arduino(ReaderSettings);
+        public static Arduino Arduino = new Arduino(ReaderSettings);
 
         /// <summary>
         /// Command line arguments
@@ -61,7 +61,7 @@ namespace SpdReaderWriter {
             }
 
             if (IsAdmin()) {
-                smbus = new Smbus();
+                Smbus = new Smbus();
             }
 
             Welcome();
@@ -121,6 +121,7 @@ namespace SpdReaderWriter {
                 "{0} /enablepermanentwriteprotection <PORTNAME> <ADDRESS#>",
                 "",
                 "Parameters in CAPS are mandatory!",
+                "All numbers must be specified in decimal format",
                 "Parameter <filepath> is optional when /read switch is used, output will be printed to console only.",
                 "Switch /silent is optional, progress won't be shown with this switch.",
                 "Switch /nocolor is optional, use to show SPD contents in monochrome",
@@ -204,7 +205,7 @@ namespace SpdReaderWriter {
                 Console.ResetColor();
             }
             finally {
-                arduino.Disconnect();
+                Arduino.Disconnect();
             }
         }
 
@@ -240,11 +241,11 @@ namespace SpdReaderWriter {
 
             Connect();
 
-            if (Eeprom.SetPswp(arduino)) {
-                Console.WriteLine($"Permanent write protection enabled on {arduino.PortName}:{arduino.I2CAddress}");
+            if (Eeprom.SetPswp(Arduino)) {
+                Console.WriteLine($"Permanent write protection enabled on {Arduino.PortName}:{Arduino.I2CAddress}");
             }
             else {
-                throw new Exception($"Unable to set permanent write protection on {arduino.PortName}:{arduino.I2CAddress}");
+                throw new Exception($"Unable to set permanent write protection on {Arduino.PortName}:{Arduino.I2CAddress}");
             }
         }
 
@@ -276,17 +277,17 @@ namespace SpdReaderWriter {
 
             Connect();
 
-            arduino.I2CAddress = i2CAddress;
+            Arduino.I2CAddress = i2CAddress;
 
             Console.WriteLine(
                 "Writing \"{0}\" ({1} {2}) to EEPROM at address {3}\n",
                 filePath,
                 inputFile.Length,
                 inputFile.Length > 1 ? "bytes" : "byte",
-                arduino.I2CAddress);
+                Arduino.I2CAddress);
 
-            if (inputFile.Length > (int)Spd.GetSpdSize(arduino)) {
-                throw new Exception($"File \"{filePath}\" is larger than {arduino.DataLength} bytes.");
+            if (inputFile.Length > (int)Spd.GetSpdSize(Arduino)) {
+                throw new Exception($"File \"{filePath}\" is larger than {Arduino.DataLength} bytes.");
             }
 
             int bytesWritten = 0;
@@ -295,11 +296,11 @@ namespace SpdReaderWriter {
             for (int i = 0; i != inputFile.Length; i++) {
                 byte b = inputFile[i];
                 bool writeResult = mode == "/writeforce"
-                    ? Eeprom.WriteByte(arduino, (ushort)i, b)
-                    : Eeprom.UpdateByte(arduino, (ushort)i, b);
+                    ? Eeprom.WriteByte(Arduino, (ushort)i, b)
+                    : Eeprom.UpdateByte(Arduino, (ushort)i, b);
 
                 if (!writeResult) {
-                    throw new Exception($"Could not write byte {i} to EEPROM at address {arduino.I2CAddress} on port {arduino.PortName}.");
+                    throw new Exception($"Could not write byte {i} to EEPROM at address {Arduino.I2CAddress} on port {Arduino.PortName}.");
                 }
 
                 bytesWritten++;
@@ -309,14 +310,14 @@ namespace SpdReaderWriter {
                 }
             }
 
-            arduino.Disconnect();
+            Arduino.Disconnect();
 
             Console.WriteLine(
                 "\n\nWritten {0} {1} to EEPROM at address {2} on port {3} in {4} ms",
                 bytesWritten,
                 bytesWritten > 1 ? "bytes" : "byte",
-                arduino.I2CAddress,
-                arduino.PortName,
+                Arduino.I2CAddress,
+                Arduino.PortName,
                 Environment.TickCount - startTick);
         }
 
@@ -332,7 +333,7 @@ namespace SpdReaderWriter {
 
             Console.Write($"Reading EEPROM at address {i2CAddress}");
 
-            if (filePath != "") {
+            if (filePath.Length > 0) {
                 Console.WriteLine($" to {filePath}");
             }
             Console.WriteLine("\n");
@@ -343,26 +344,26 @@ namespace SpdReaderWriter {
 
                 Connect();
 
-                name = arduino.ToString();
-                arduino.I2CAddress = i2CAddress;
+                name = Arduino.ToString();
+                Arduino.I2CAddress = i2CAddress;
 
-                for (ushort i = 0; i < (int)Spd.GetSpdSize(arduino); i += 32) {
-                    spdDump = Data.MergeArray(spdDump, Eeprom.ReadByte(arduino, i, 32));
+                for (ushort i = 0; i < (int)Spd.GetSpdSize(Arduino); i += 32) {
+                    spdDump = Data.MergeArray(spdDump, Eeprom.ReadByte(Arduino, i, 32));
                 }
 
-                arduino.Disconnect();
+                Arduino.Disconnect();
             }
             else {
                 if (!IsAdmin()) {
-                    return;
+                    throw new AccessViolationException("Administrative privileges required");
                 }
 
-                smbus.BusNumber = (byte)int.Parse(Args[1]);
-                smbus.I2CAddress = i2CAddress;
-                name = $"{smbus} ({smbus.BusNumber})";
+                Smbus.BusNumber = (byte)int.Parse(Args[1]);
+                Smbus.I2CAddress = i2CAddress;
+                name = $"{Smbus} ({Smbus.BusNumber})";
 
-                for (ushort i = 0; i < smbus.MaxSpdSize; i += 32) {
-                    spdDump = Data.MergeArray(spdDump, Eeprom.ReadByte(smbus, i, 32));
+                for (ushort i = 0; i < Smbus.MaxSpdSize; i += 32) {
+                    spdDump = Data.MergeArray(spdDump, Eeprom.ReadByte(Smbus, i, 32));
                 }
             }
 
@@ -381,7 +382,7 @@ namespace SpdReaderWriter {
                 name,
                 endTick - startTick);
 
-            if (filePath != "" && !filePath.Contains("/")) {
+            if (filePath.Length > 0 && !filePath.Contains("/")) {
                 try {
                     File.WriteAllBytes(filePath, spdDump);
                 }
@@ -399,16 +400,16 @@ namespace SpdReaderWriter {
 
             Connect();
 
-            arduino.PIN_SA1 = Arduino.Pin.State.ON;
+            Arduino.PIN_SA1 = Arduino.Pin.State.ON;
 
-            if (Eeprom.ClearRswp(arduino)) {
+            if (Eeprom.ClearRswp(Arduino)) {
                 Console.WriteLine("Write protection successfully disabled.");
             }
             else {
                 throw new Exception("Unable to clear write protection");
             }
 
-            arduino.ResetConfigPins();
+            Arduino.ResetConfigPins();
         }
 
         /// <summary>
@@ -429,26 +430,32 @@ namespace SpdReaderWriter {
 
             }
             else { // No block number specified, protect all available
-                if (Spd.GetRamType(arduino) == Spd.RamType.DDR4) {
-                    block = new[] { 0, 1, 2, 3 };
+
+                Spd.RamType ramType = Spd.GetRamType(Arduino);
+                int totalBlocks;
+
+                if (ramType == Spd.RamType.DDR5) {
+                    totalBlocks = 16;
+                }
+                else if (ramType == Spd.RamType.DDR4) {
+                    totalBlocks = 4;
                 }
                 else { // DDR3 + DDR2
-                    block = new[] { 0 };
+                    totalBlocks = 1;
                 }
+
+                block = Data.ConsecutiveArray<int>(0, totalBlocks - 1, 1);
             }
 
-            arduino.ResetConfigPins();
+            Arduino.ResetConfigPins();
 
             for (byte i = 0; i < block.Length; i++) {
-                if (Eeprom.SetRswp(arduino, i)) {
-                    Console.WriteLine($"Block {i} is now read-only");
-                }
-                else {
-                    Console.WriteLine($"Unable to set write protection for block {i}. Either SA0 is not connected to HV, or the block is already read-only.");
-                }
+                Console.WriteLine(Eeprom.SetRswp(Arduino, i)
+                    ? $"Block {i} is now read-only"
+                    : $"Unable to set write protection for block {i}. Either SA0 is not connected to HV, or the block is already read-only.");
             }
 
-            arduino.Disconnect();
+            Arduino.Disconnect();
         }
 
         /// <summary>
@@ -458,24 +465,27 @@ namespace SpdReaderWriter {
             if (Args.Length == 2) {
 
                 byte[] addresses;
+                string name;
 
                 if (Args[1].StartsWith("COM")) {
 
                     Connect();
 
-                    addresses = arduino.Scan();
+                    addresses = Arduino.Scan();
+                    name = $"port {Arduino.PortName}";
 
-                    arduino.Disconnect();
+                    Arduino.Disconnect();
                 }
                 else {
                     if (!IsAdmin()) {
-                        return;
+                        throw new AccessViolationException("Administrative privileges required");
                     }
 
                     int i = -1;
-                    int.TryParse(Args[1], out i);
-                    if (i != -1) {
-                        addresses = smbus.Scan();
+                    if (int.TryParse(Args[1], out i) && i != -1) {
+                        Smbus.BusNumber = (byte)i;
+                        addresses = Smbus.Scan();
+                        name = $"SMBus {Smbus.BusNumber}";
                     }
                     else {
                         throw new Exception("SMBus number should be specified in decimal notation.");
@@ -487,7 +497,7 @@ namespace SpdReaderWriter {
                 }
 
                 foreach (int location in addresses) {
-                    Console.WriteLine($"Found EEPROM at address: {location}");
+                    Console.WriteLine($"Found EEPROM on {name} at address: {location}");
                 }
             }
             else {
@@ -506,19 +516,19 @@ namespace SpdReaderWriter {
                 throw new ArgumentException("Port name should start with \"COM\" followed by a number.");
             }
 
-            arduino = new Arduino(ReaderSettings, portName);
+            Arduino = new Arduino(ReaderSettings, portName);
 
             // Establish connection
-            if (!arduino.Connect()) {
+            if (!Arduino.Connect()) {
                 throw new Exception($"Could not connect to the device on port {portName}.");
             }
 
             // Check FW version
-            if (arduino.GetFirmwareVersion() < Arduino.IncludedFirmwareVersion) {
+            if (Arduino.GetFirmwareVersion() < Arduino.IncludedFirmwareVersion) {
                 throw new Exception($"The device on port {portName} requires its firmware to be updated.");
             }
 
-            if (!arduino.Test()) {
+            if (!Arduino.Test()) {
                 throw new Exception($"The device on port {portName} does not respond.");
             }
         }
@@ -530,7 +540,9 @@ namespace SpdReaderWriter {
 
             if (Args.Length == 1 || Args.Length == 2 && Args[1] == "all") {
                 FindArduino();
-                FindSmbus();
+                if (IsAdmin()) {
+                    FindSmbus();
+                }
             }
             else if (Args.Length == 2) {
                 switch (Args[1]) {
@@ -565,12 +577,12 @@ namespace SpdReaderWriter {
         private static void FindSmbus() {
 
             if (!IsAdmin()) {
-                return;
+                throw new AccessViolationException("Administrative privileges required");
             }
 
             try {
-                foreach (byte bus in smbus.FindBus()) {
-                    Console.WriteLine($"Found SMBus # {bus} ({smbus})");
+                foreach (byte bus in Smbus.FindBus()) {
+                    Console.WriteLine($"Found SMBus # {bus} ({Smbus})");
                 }
             }
             catch {
