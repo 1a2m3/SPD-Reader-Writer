@@ -420,6 +420,8 @@ namespace SpdReaderWriter {
 
             Connect();
 
+            Spd.RamType ramType = Spd.GetRamType(Arduino);
+
             if (Args.Length == 3) { // Block # was specified
                 try {
                     block = new[] { int.Parse(Args[2]) };
@@ -428,10 +430,15 @@ namespace SpdReaderWriter {
                     throw new ArgumentException("Block number should be specified in decimal notation.");
                 }
 
+                if ((block[0] > 15 || block[0] < 0) ||
+                    (block[0] > 3 && ramType == Spd.RamType.DDR4) ||
+                    (block[0] > 0 && ramType != Spd.RamType.DDR4 && ramType != Spd.RamType.DDR5)) {
+                    throw new ArgumentOutOfRangeException("Incorrect block number specified");
+                }
+
             }
             else { // No block number specified, protect all available
 
-                Spd.RamType ramType = Spd.GetRamType(Arduino);
                 int totalBlocks;
 
                 if (ramType == Spd.RamType.DDR5) {
