@@ -1298,14 +1298,11 @@ namespace SpdReaderWriterDll {
         /// <param name="timeout">Timeout in milliseconds</param>
         /// <returns><see langword="true"/> if SMBus status matches one of <paramref name="statuses"/> before timeout occurs</returns>
         private bool WaitForStatus(SmbStatus[] statuses, int timeout) {
-
-            SmbStatus currentStatus;
             Stopwatch sw = Stopwatch.StartNew();
 
             while (sw.ElapsedMilliseconds < timeout) {
-                currentStatus = GetBusStatus();
                 foreach (SmbStatus status in statuses) {
-                    if (currentStatus == status) {
+                    if (GetBusStatus() == status) {
                         return true;
                     }
                 }

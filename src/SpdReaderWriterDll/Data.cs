@@ -124,8 +124,8 @@ namespace SpdReaderWriterDll {
             }
 
             return (T)Convert.ChangeType(
-                value 
-                    ? Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) | (uint)(1 << position) 
+                value
+                    ? Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) | (uint)(1 << position)
                     : Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) & (ulong)~(1 << position)
                 , typeof(T));
         }
@@ -185,7 +185,7 @@ namespace SpdReaderWriterDll {
 
             // Calculate shift position for the input
             int shift = (int)(position - count + 1);
-            
+
             // Bitwise AND shifted input and mask
             object result = null;
 
@@ -213,7 +213,7 @@ namespace SpdReaderWriterDll {
             else if (typeof(T) == typeof(ulong)) {
                 result = ((ulong)inputData >> shift) & (ulong)mask;
             }
-            
+
             if (result != null) {
                 return (T)Convert.ChangeType(result, typeof(T));
             }
@@ -496,11 +496,10 @@ namespace SpdReaderWriterDll {
         public static string BytesToString<T>(T[] input) {
 
             StringBuilder sbOutput = new StringBuilder();
-            char c;
 
             // Process ASCII printable characters only
             for (int i = 0; i < input.Length; i++) {
-                c = (char)Convert.ChangeType(input[i], typeof(char));
+                char c = (char)Convert.ChangeType(input[i], typeof(char));
                 sbOutput.Append(c.ToString());
             }
 
@@ -653,10 +652,10 @@ namespace SpdReaderWriterDll {
             T[] sourcePart = new T[pattern.Length];
 
             Array.Copy(
-                sourceArray      : source, 
-                sourceIndex      : offset, 
-                destinationArray : sourcePart, 
-                destinationIndex : 0, 
+                sourceArray      : source,
+                sourceIndex      : offset,
+                destinationArray : sourcePart,
+                destinationIndex : 0,
                 length           : pattern.Length);
 
             return CompareArray(sourcePart, pattern);
@@ -771,7 +770,7 @@ namespace SpdReaderWriterDll {
             T[] newArray = new T[a1.Length + a2.Length];
 
             Array.Copy(a1, newArray, a1.Length);
-            Array.Copy(a2, 0, newArray,a1.Length, a2.Length);
+            Array.Copy(a2, 0, newArray, a1.Length, a2.Length);
 
             return newArray;
         }
@@ -828,7 +827,7 @@ namespace SpdReaderWriterDll {
 
             return false;
         }
-        
+
         /// <summary>
         /// Gets description attribute of an Enum member
         /// </summary>

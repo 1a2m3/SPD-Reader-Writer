@@ -230,7 +230,7 @@ namespace SpdReaderWriterDll.Driver {
                 }
 
                 _sc.Start();
-                _sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(_timeout));
+                _sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(TIMEOUT));
                 return _sc.Status == ServiceControllerStatus.Running;
             }
             catch {
@@ -260,7 +260,7 @@ namespace SpdReaderWriterDll.Driver {
                     Stopwatch sw = new Stopwatch();
                     sw.Start();
 
-                    while (sw.ElapsedMilliseconds < _timeout) {
+                    while (sw.ElapsedMilliseconds < TIMEOUT) {
 
                         _sc.Refresh();
 
@@ -1107,12 +1107,12 @@ namespace SpdReaderWriterDll.Driver {
         /// <summary>
         /// Driver and service name
         /// </summary>
-        private static readonly string Name = "WinRing0_1_2_0"; // WinRing0_1_2_0
+        private const string Name = "WinRing0_1_2_0"; // WinRing0_1_2_0
 
         /// <summary>
         /// Service operation timeout
         /// </summary>
-        private static readonly int _timeout = 1000;
+        private const int TIMEOUT = 1000;
 
         /// <summary>
         /// IO device handle

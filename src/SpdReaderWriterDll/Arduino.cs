@@ -91,19 +91,8 @@ namespace SpdReaderWriterDll {
         /// Arduino device instance string
         /// </summary>
         /// <returns>Arduino device instance string</returns>
-        public override string ToString() {
-            
-            if (PortName == null) {
-                return "N/A";
-            }
-
-            string description = $"{PortName}:{PortSettings.BaudRate}";
-            if (I2CAddress != 0) {
-                description += $"/{I2CAddress}";
-            }
-
-            return description.Trim();
-        }
+        public override string ToString() => 
+            PortName == null ? "N/A" : $"{PortName}:{PortSettings.BaudRate}{(I2CAddress != 0 ? $"/{I2CAddress}" : "")}".Trim();
 
         /// <summary>
         /// Arduino device instance destructor
@@ -348,9 +337,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Number of devices on Arduino's I2C bus
         /// </summary>
-        public byte AddressQuantity {
-            get => GetQuantity();
-        }
+        public byte AddressQuantity => GetQuantity();
 
         /// <summary>
         /// Scans the device for I2C bus devices
@@ -708,7 +695,7 @@ namespace SpdReaderWriterDll {
                 throw new Exception();
             }
             catch {
-                throw new Exception($"Unable to get included firmware version number");
+                throw new Exception("Unable to get included firmware version number");
             }
         }
 
@@ -730,7 +717,7 @@ namespace SpdReaderWriterDll {
             if (name == null) {
                 throw new ArgumentNullException(nameof(name));
             }
-            if (name == "") {
+            if (name.Length == 0) {
                 throw new ArgumentException("Name can't be blank");
             }
             if (name.Length > Command.NAMELENGTH) {
