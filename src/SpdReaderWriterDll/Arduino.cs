@@ -74,20 +74,6 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes Arduino device instance
-        /// </summary>
-        /// <param name="portSettings">Serial port settings</param>
-        /// <param name="portName">Serial port name</param>
-        /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        /// <param name="dataLength">Total EEPROM size</param>
-        public Arduino(SerialPortSettings portSettings, string portName, byte i2cAddress, Spd.DataLength dataLength) {
-            PortSettings = portSettings;
-            PortName     = portName;
-            I2CAddress   = i2cAddress;
-            DataLength   = dataLength;
-        }
-
-        /// <summary>
         /// Arduino device instance string
         /// </summary>
         /// <returns>Arduino device instance string</returns>
@@ -759,25 +745,23 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Finds devices connected to computer by sending a test command to every serial port device detected
+        /// Finds Arduinos connected to computer
         /// </summary>
-        /// <returns>An array of serial port names which have valid devices connected to</returns>
-        public static string[] Find(SerialPortSettings settings) {
-            Stack<string> result = new Stack<string>();
+        /// <returns>An array of Arduinos</returns>
+        public static Arduino[] Find(SerialPortSettings settings) {
+            Stack<Arduino> result = new Stack<Arduino>();
 
             string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
 
-            lock (_portLock) {
-                foreach (string portName in ports) {
-                    using (Arduino device = new Arduino(settings, portName)) {
-                        try {
-                            if (device.Connect()) {
-                                result.Push(device.PortName);
-                            }
+            foreach (string portName in ports) {
+                using (Arduino device = new Arduino(settings, portName)) {
+                    try {
+                        if (device.Connect()) {
+                            result.Push(device);
                         }
-                        catch {
-                            continue;
-                        }
+                    }
+                    catch {
+                        continue;
                     }
                 }
             }
@@ -860,11 +844,24 @@ namespace SpdReaderWriterDll {
         public byte ReadSpd5Hub(byte register) {
             lock (_portLock) {
                 try {
-                    if (DetectDdr5(I2CAddress)) {
-                        return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.GET });
-                    }
+                    return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.GET });
+                }
+                catch {
+                    throw new Exception($"Unable to read SPD5 hub on {PortName}");
+                }
+            }
+        }
 
-                    throw new Exception($"Error detecting DDR5 on {PortName}");
+        /// <summary>
+        /// Writes data to SPD5 hub register
+        /// </summary>
+        /// <param name="register">Register address</param>
+        /// <param name="value">Register value</param>
+        /// <returns><see langword="true"/> if command is successfully executed</returns>
+        public bool WriteSpd5Hub(byte register, byte value) {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.SET, value }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to read SPD5 hub on {PortName}");
@@ -890,7 +887,23 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// EEPROM size
         /// </summary>
-        public Spd.DataLength DataLength { get; private set; }
+        public int DataLength {
+            get {
+                if (!Eeprom.ValidateEepromAddress(I2CAddress) && !ProbeAddress(I2CAddress)) {
+                    return Spd.DataLength.Unknown;
+                }
+
+                if (DetectDdr5(I2CAddress)) {
+                    return Spd.DataLength.DDR5;
+                }
+
+                if (DetectDdr4(I2CAddress)) {
+                    return Spd.DataLength.DDR4;
+                }
+
+                return Spd.DataLength.Minimum;
+            }
+        }
 
         /// <summary>
         /// Number of bytes to be read from the device
@@ -1171,7 +1184,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private static readonly object _portLock = new object();
+        private readonly object _portLock = new object();
 
         /// <summary>
         /// Device commands
@@ -1276,6 +1289,11 @@ namespace SpdReaderWriterDll {
             /// Restore device settings to default
             /// </summary>
             public const byte FACTORYRESET  = (byte)'-';
+
+            /// <summary>
+            /// Command modifier used to modify variable value
+            /// </summary>
+            public const byte SET           = 1;
 
             /// <summary>
             /// Suffix added to get current state
@@ -1478,6 +1496,11 @@ namespace SpdReaderWriterDll {
             /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
             /// </summary>
             SLAVEDEC  = '-',
+
+            /// <summary>
+            /// Notification of the current number of slave addresses
+            /// </summary>
+            NUMBER = ':',
 
             /// <summary>
             /// Notification of I2C clock frequency increase

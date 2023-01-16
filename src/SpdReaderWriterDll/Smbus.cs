@@ -54,7 +54,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Smbus Device Info
         /// </summary>
-        public DeviceInfo Info { get; set; }
+        public DeviceInfo Info { get; private set; }
 
         /// <summary>
         /// SMBus bus number
@@ -63,21 +63,47 @@ namespace SpdReaderWriterDll {
             get => _busNumber;
             set {
                 _busNumber = value;
+
                 // Reset Eeprom page when bus is set
                 Eeprom.ResetPageAddress(this);
+                
+                // Rescan addresses
+                Addresses = Scan();
+
+                // Force SPD size and DDR5 flag update
+                I2CAddress = _i2CAddress;
             }
         }
         private byte _busNumber;
 
         /// <summary>
-        /// Last set slave address
+        /// Current I2C address
         /// </summary>
-        public byte I2CAddress;
+        public byte I2CAddress {
+            get => _i2CAddress;
+            set {
+                _i2CAddress = value;
+                IsDdr5Present = Eeprom.ValidateEepromAddress(_i2CAddress) &&
+                                ProbeAddress((byte)(Eeprom.LidCode.Pmic0 << 3 | (Eeprom.Spd5Register.LocalHid & value)));
+                
+                // Reset Eeprom page
+                Eeprom.ResetPageAddress(this);
+
+                // Get or update SPD size
+                MaxSpdSize = Eeprom.ValidateEepromAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;
+            }
+        }
+        private byte _i2CAddress;
+
+        /// <summary>
+        /// DDR5 presence flag
+        /// </summary>
+        public bool IsDdr5Present { get; private set; }
 
         /// <summary>
         /// Maximum SPD size on this device
         /// </summary>
-        public ushort MaxSpdSize;
+        public ushort MaxSpdSize { get; private set; }
 
         /// <summary>
         /// SPD BIOS write disable state (ICH/PCH only)
@@ -87,12 +113,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PCI device instance
         /// </summary>
-        public PciDevice pciDevice { get; set; }
+        public PciDevice pciDevice { get; private set; }
 
         /// <summary>
         /// IO port instance
         /// </summary>
-        public IoPort ioPort { get; set; }
+        public IoPort ioPort { get; private set; }
 
         /// <summary>
         /// Initialize SMBus with default settings
@@ -114,11 +140,10 @@ namespace SpdReaderWriterDll {
         public void Dispose() {
             ioPort    = null;
             pciDevice = null;
-            
-            if (!IsRunning) {
-                I2CAddress       = 0;
+
+            if (!IsConnected) {
+                Addresses        = null;
                 SMBuses          = null;
-                MaxSpdSize       = 0;
                 IsConnected      = false;
                 SpdWriteDisabled = false;
             }
@@ -133,24 +158,19 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Describes SMBus state
-        /// </summary>
-        public bool IsRunning => (ioPort != null || pciDevice != null) && SMBuses.Length > 0 && Addresses.Length > 0;
-
-        /// <summary>
         /// Describes SMBus connection state
         /// </summary>
-        public bool IsConnected;
+        public bool IsConnected { get; private set; }
 
         /// <summary>
         /// Available SMBuses
         /// </summary>
-        public byte[] SMBuses;
+        public byte[] SMBuses { get; private set; }
 
         /// <summary>
         /// Available slave addresses on selected bus
         /// </summary>
-        public byte[] Addresses;
+        public byte[] Addresses { get; private set; }
 
         /// <summary>
         /// Platform Vendor ID
@@ -606,12 +626,17 @@ namespace SpdReaderWriterDll {
                     break;
             }
 
+            if (PlatformType == Platform.Unknown) {
+                return;
+            }
+
             // Common properties
-            BusNumber         = 0;
-            byte[] scanResult = Scan();
-            Addresses         = scanResult;
-            MaxSpdSize        = scanResult.Length > 0 ? GetMaxSpdSize(scanResult[0]) : (ushort)Spd.DataLength.Unknown;
-            SMBuses           = FindBus();
+            SMBuses     = FindBus();
+            IsConnected = SMBuses.Length > 0;
+
+            if (IsConnected) {
+                BusNumber = SMBuses[0];
+            }
         }
 
         /// <summary>
