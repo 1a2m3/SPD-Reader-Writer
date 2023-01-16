@@ -37,19 +37,18 @@ namespace SpdReaderWriterDll {
                 throw new IOException($"Device not connected ({device.PortName})");
             }
 
-            byte address = device.I2CAddress;
-
-            if (device.DetectDdr5(address)) {
+            if (device.DetectDdr5(device.I2CAddress)) {
                 return RamType.DDR5;
             }
 
-            if (device.DetectDdr4(address)) {
+            if (device.DetectDdr4(device.I2CAddress)) {
                 return RamType.DDR4;
             }
 
-            // Byte at offset 0x02 in SPD indicates RAM type
+            // Byte at offset 2 in SPD indicates RAM type
             try {
-                return GetRamType(Eeprom.ReadByte(device, 0, 3));
+                byte controlByte = Eeprom.Read(device, 2);
+                return Enum.IsDefined(typeof(RamType), controlByte) ? (RamType)controlByte : RamType.UNKNOWN;
             }
             catch {
                 throw new Exception($"Unable to detect RAM type at {device.I2CAddress} on {device.PortName}");
@@ -63,8 +62,8 @@ namespace SpdReaderWriterDll {
         /// <returns>RAM Type</returns>
         public static RamType GetRamType(byte[] input) {
 
-            // Byte at offset 0x02 in SPD indicates RAM type
-            return input.Length >= 3 && Enum.IsDefined(typeof(RamType), (RamType)input[0x02]) ? (RamType)input[0x02] : RamType.UNKNOWN;
+            // Byte at offset 2 in SPD indicates RAM type
+            return input.Length >= 3 && Enum.IsDefined(typeof(RamType), (RamType)input[2]) ? (RamType)input[2] : RamType.UNKNOWN;
         }
 
         /// <summary>
@@ -72,7 +71,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
-        public static DataLength GetSpdSize(Arduino device) {
+        public static int GetSpdSize(Arduino device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -98,7 +97,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="ramType">Ram Type</param>
         /// <returns>SPD size</returns>
-        public static DataLength GetSpdSize(RamType ramType) {
+        public static int GetSpdSize(RamType ramType) {
 
             switch (ramType) {
                 case RamType.SDRAM:
@@ -125,15 +124,15 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
-            if (input == null || input.Length < (int)DataLength.Minimum) {
+            if (input == null || input.Length < DataLength.Minimum) {
                 return false;
             }
 
             switch (input.Length) {
-                case (int)DataLength.DDR5 when GetRamType(input) == RamType.DDR5:
-                case (int)DataLength.DDR4 when GetRamType(input) == RamType.DDR4:
+                case DataLength.DDR5 when GetRamType(input) == RamType.DDR5:
+                case DataLength.DDR4 when GetRamType(input) == RamType.DDR4:
                     return true;
-                case (int)DataLength.Minimum:
+                case DataLength.Minimum:
                     return GetRamType(input) == RamType.DDR3 ||
                            GetRamType(input) == RamType.DDR2 ||
                            GetRamType(input) == RamType.DDR  ||
@@ -310,11 +309,11 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Defines SPD sizes
         /// </summary>
-        public enum DataLength : ushort {
-            Unknown = 0,
-            Minimum = 256, // DDR3, DDR2, DDR, and SDRAM
-            DDR4    = 512, // incl. LPDDR3
-            DDR5    = 1024,
+        public readonly struct DataLength {
+            public const ushort Unknown = 0;
+            public const ushort Minimum = 256; // DDR3, DDR2, DDR, and SDRAM
+            public const ushort DDR4    = 512; // incl. LPDDR3
+            public const ushort DDR5    = 1024;
         }
 
         /// <summary>

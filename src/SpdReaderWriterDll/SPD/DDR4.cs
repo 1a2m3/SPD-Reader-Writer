@@ -28,7 +28,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR4(byte[] input) {
-                if (input.Length == (int)Length) {
+                if (input.Length == Length) {
                     RawData = input;
                 }
                 else {
@@ -39,7 +39,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total SPD size
             /// </summary>
-            public DataLength Length => DataLength.DDR4;
+            public int Length => DataLength.DDR4;
 
             public override string ToString() =>
                 $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
