@@ -286,18 +286,22 @@ namespace SpdReaderWriter {
                 inputFile.Length > 1 ? "bytes" : "byte",
                 Arduino.I2CAddress);
 
-            if (inputFile.Length > (int)Spd.GetSpdSize(Arduino)) {
+            if (inputFile.Length > Spd.GetSpdSize(Arduino)) {
                 throw new Exception($"File \"{filePath}\" is larger than {Arduino.DataLength} bytes.");
             }
 
             int bytesWritten = 0;
             int startTick = Environment.TickCount;
 
-            for (int i = 0; i != inputFile.Length; i++) {
+            if (!Spd.ValidateSpd(inputFile)) {
+                throw new Exception($"Incorrect SPD file");
+            }
+
+            for (ushort i = 0; i < inputFile.Length; i++) {
                 byte b = inputFile[i];
                 bool writeResult = mode == "/writeforce"
-                    ? Eeprom.WriteByte(Arduino, (ushort)i, b)
-                    : Eeprom.UpdateByte(Arduino, (ushort)i, b);
+                    ? Eeprom.Write(Arduino, i, b)
+                    : Eeprom.Update(Arduino, i, b);
 
                 if (!writeResult) {
                     throw new Exception($"Could not write byte {i} to EEPROM at address {Arduino.I2CAddress} on port {Arduino.PortName}.");
@@ -347,8 +351,8 @@ namespace SpdReaderWriter {
                 name = Arduino.ToString();
                 Arduino.I2CAddress = i2CAddress;
 
-                for (ushort i = 0; i < (int)Spd.GetSpdSize(Arduino); i += 32) {
-                    spdDump = Data.MergeArray(spdDump, Eeprom.ReadByte(Arduino, i, 32));
+                for (ushort i = 0; i < Spd.GetSpdSize(Arduino); i += 32) {
+                    spdDump = Data.MergeArray(spdDump, Eeprom.Read(Arduino, i, 32));
                 }
 
                 Arduino.Disconnect();
@@ -363,7 +367,7 @@ namespace SpdReaderWriter {
                 name = $"{Smbus} ({Smbus.BusNumber})";
 
                 for (ushort i = 0; i < Smbus.MaxSpdSize; i += 32) {
-                    spdDump = Data.MergeArray(spdDump, Eeprom.ReadByte(Smbus, i, 32));
+                    spdDump = Data.MergeArray(spdDump, Eeprom.Read(Smbus, i, 32));
                 }
             }
 
@@ -567,10 +571,10 @@ namespace SpdReaderWriter {
         /// Looks for Arduino devices
         /// </summary>
         private static void FindArduino() {
-            string[] devices = Arduino.Find(ReaderSettings);
+            Arduino[] devices = Arduino.Find(ReaderSettings);
             if (devices.Length > 0) {
-                foreach (string portName in devices) {
-                    Console.WriteLine($"Found Arduino on Serial Port: {portName}\n");
+                foreach (Arduino arduinoPortName in devices) {
+                    Console.WriteLine($"Found Arduino on Serial Port: {arduinoPortName}\n");
                 }
             }
             else {
