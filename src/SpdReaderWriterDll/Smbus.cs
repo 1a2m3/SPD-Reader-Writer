@@ -108,7 +108,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// SPD BIOS write disable state (ICH/PCH only)
         /// </summary>
-        public bool SpdWriteDisabled;
+        public bool SpdWriteDisabled { get; private set; }
 
         /// <summary>
         /// PCI device instance
@@ -154,7 +154,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>Human readable SMBus name in a form of platform vendor name and chipset model name</returns>
         public override string ToString() {
-            return $"{Info.VendorId} {Info.DeviceId}";
+            return $"{Info.VendorId} {Info.DeviceId}{(SMBuses.Length > 1 ? $" ({BusNumber})" : "")}";
         }
 
         /// <summary>
