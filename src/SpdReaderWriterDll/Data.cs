@@ -800,6 +800,35 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Extracts part of a larger array
+        /// </summary>
+        /// <param name="input">Input array</param>
+        /// <param name="start">New array start position</param>
+        /// <param name="length">New array length</param>
+        /// <returns></returns>
+        public static T[] SubArray<T>(T[] input, uint start, uint length) {
+            if (input == null) {
+                throw new ArgumentNullException(nameof(input));
+            }
+
+            if (start + length > input.Length) {
+                throw new ArgumentOutOfRangeException(nameof(length));
+            }
+
+            if (start == 0 && length == input.Length) {
+                return input;
+            }
+
+            T[] output = new T[length];
+
+            for (int i = 0; i < length; i++) {
+                output[i] = input[i + start];
+            }
+
+            return output;
+        }
+
+        /// <summary>
         /// Merges two arrays into one array
         /// </summary>
         /// <param name="a1">First array</param>
