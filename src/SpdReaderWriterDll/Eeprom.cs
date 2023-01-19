@@ -661,7 +661,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="address">Input address</param>
         /// <returns><see langword="true"/> if <paramref name="address"/> is a valid EEPROM address between 0x50 and 0x57</returns>
-        public static bool ValidateEepromAddress(int address) {
+        public static bool ValidateAddress(int address) {
             return address >> 3 == LidCode.Eeprom;
         }
 
