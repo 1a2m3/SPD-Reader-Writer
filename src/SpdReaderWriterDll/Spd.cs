@@ -284,7 +284,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Defines basic memory type byte value
         /// </summary>
-        public enum RamType {
+        public enum RamType : byte {
             UNKNOWN       = 0x00,
             SDRAM         = 0x04,
             DDR           = 0x07,

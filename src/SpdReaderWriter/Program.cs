@@ -188,7 +188,6 @@ namespace SpdReaderWriter {
                     case "/savefirmware":
                         SaveFirmware();
                         break;
-
                     default:
                         Console.WriteLine("Unknown command line parameters.\n");
                         ShowHelp();
@@ -494,6 +493,9 @@ namespace SpdReaderWriter {
 
                     int i = -1;
                     if (int.TryParse(Args[1], out i) && i != -1) {
+                        if (i > Smbus.FindBus().Length - 1) {
+                            throw new ArgumentOutOfRangeException("SMBus number not available");
+                        }
                         Smbus.BusNumber = (byte)i;
                         addresses = Smbus.Scan();
                         name = $"SMBus {Smbus.BusNumber}";
@@ -535,7 +537,7 @@ namespace SpdReaderWriter {
             }
 
             // Check FW version
-            if (Arduino.GetFirmwareVersion() < Arduino.IncludedFirmwareVersion) {
+            if (Arduino.FirmwareVersion < Arduino.IncludedFirmwareVersion) {
                 throw new Exception($"The device on port {portName} requires its firmware to be updated.");
             }
 
