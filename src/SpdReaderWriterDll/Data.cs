@@ -69,7 +69,7 @@ namespace SpdReaderWriterDll {
         public static byte GetParity(object input, Parity parityType) {
 
             uint bitCount = CountBits(input);
-            ulong value   = Convert.ToUInt64(input) & GenerateBitmask(bitCount);
+            ulong value   = Convert.ToUInt64(input) & GenerateBitmask<ulong>(bitCount);
 
             byte result = 0;
 
@@ -100,7 +100,7 @@ namespace SpdReaderWriterDll {
                 throw new InvalidDataException(nameof(input));
             }
 
-            ulong value = Convert.ToUInt64(input) & GenerateBitmask(CountBits(input));
+            ulong value = Convert.ToUInt64(input) & GenerateBitmask<ulong>(CountBits(input));
 
             return ((value >> position) & 1) == 1;
         }
@@ -181,7 +181,7 @@ namespace SpdReaderWriterDll {
             object inputData = Convert.ChangeType(input, typeof(T));
 
             // Generate bit mask
-            object mask = Convert.ChangeType(GenerateBitmask(count), typeof(T));
+            object mask = Convert.ChangeType(GenerateBitmask<T>(count), typeof(T));
 
             // Calculate shift position for the input
             int shift = (int)(position - count + 1);
@@ -218,7 +218,7 @@ namespace SpdReaderWriterDll {
                 return (T)Convert.ChangeType(result, typeof(T));
             }
 
-            throw new InvalidDataException();
+            throw new InvalidDataException(nameof(T));
         }
 
         /// <summary>
@@ -246,8 +246,8 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="count">Number of bits</param>
         /// <returns>Bitmask with a number of bits specified in <paramref name="count"/> parameter</returns>
-        public static uint GenerateBitmask(uint count) {
-            return (uint)(Math.Pow(2, count) - 1);
+        public static T GenerateBitmask<T>(uint count) {
+            return (T)Convert.ChangeType((Math.Pow(2, count) - 1), typeof(T));
         }
 
         /// <summary>
@@ -383,7 +383,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(char input) {
 
-            return ('A' <= char.ToUpper(input) && char.ToUpper(input) <= 'F') ||
+            return ('A' <= (input & ~0x20) && (input & ~0x20) <= 'F') ||
                    ('0' <= input && input <= '9');
         }
 
@@ -547,7 +547,7 @@ namespace SpdReaderWriterDll {
             byte tens = (byte)(input / 10);
             byte ones = (byte)(input - tens * 10);
 
-            return (byte)((ones & 0xF) | (tens << 4));
+            return (byte)((ones & 0x0F) | (tens << 4));
         }
 
         /// <summary>
@@ -563,12 +563,68 @@ namespace SpdReaderWriterDll {
             Queue<T> numbers = new Queue<T>();
 
             int i = start;
-            do {
-                numbers.Enqueue((T)Convert.ChangeType(i, typeof(T)));
-                i += step;
-            } while (i <= stop);
+
+            if (start < stop) {
+                do {
+                    numbers.Enqueue((T)Convert.ChangeType(i, typeof(T)));
+                    i += step;
+                } while (i <= stop);
+            }
+            else {
+                do {
+                    numbers.Enqueue((T)Convert.ChangeType(i, typeof(T)));
+                    i -= step;
+                } while (i >= stop);
+            }
+            
 
             return numbers.ToArray();
+        }
+
+        /// <summary>
+        /// Returns an array populated with the same value
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="element">Element value</param>
+        /// <param name="count">Number of elements</param>
+        /// <returns>An array of the same <paramref name="element"/> <paramref name="count"/> number of times</returns>
+        public static T[] RepetitiveArray<T>(T element, int count) {
+            T[] array = new T[count];
+
+            for (int i = 0; i < array.Length; ++i) {
+                array[i] = element;
+            }
+
+            return array;
+        }
+
+        /// <summary>
+        /// Returns an array of random bytes
+        /// </summary>
+        /// <param name="count">Number of bytes in the array</param>
+        /// <returns>An array of random bytes</returns>
+        public static byte[] RandomArray(int count) {
+            return RandomArray(count, byte.MinValue, byte.MaxValue);
+        }
+
+        /// <summary>
+        /// Returns an array of random bytes within specified range
+        /// </summary>
+        /// <param name="count">Number of bytes in the array</param>
+        /// <param name="min">Minimum byte value</param>
+        /// <param name="max">Maximum byte value</param>
+        /// <returns>An array of random bytes whose values are within <paramref name="min"/> and <paramref name="max"/> values</returns>
+        public static byte[] RandomArray(int count, int min, int max) {
+
+            byte[] array = new byte[count];
+
+            Random r = new Random();
+
+            for (int i = 0; i < count; i++) {
+                array[i] = (byte)r.Next(min, max);
+            }
+
+            return array;
         }
 
         /// <summary>
