@@ -663,6 +663,11 @@ namespace SpdReaderWriterDll {
         public static int IncludedFirmwareVersion => GetIncludedFirmwareVersion();
 
         /// <summary>
+        /// Required firmware version number
+        /// </summary>
+        public static int RequiredFirmwareVersion => IncludedFirmwareVersion;
+
+        /// <summary>
         /// Gets included firmware version number
         /// </summary>
         /// <returns>Included firmware version number</returns>
@@ -887,7 +892,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public int DataLength {
             get {
-                if (!Eeprom.ValidateEepromAddress(I2CAddress) && !ProbeAddress(I2CAddress)) {
+                if (!Eeprom.ValidateAddress(I2CAddress) && !ProbeAddress(I2CAddress)) {
                     return Spd.DataLength.Unknown;
                 }
 

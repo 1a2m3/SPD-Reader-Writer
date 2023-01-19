@@ -537,7 +537,7 @@ namespace SpdReaderWriter {
             }
 
             // Check FW version
-            if (Arduino.FirmwareVersion < Arduino.IncludedFirmwareVersion) {
+            if (Arduino.FirmwareVersion < Arduino.RequiredFirmwareVersion) {
                 throw new Exception($"The device on port {portName} requires its firmware to be updated.");
             }
 
