@@ -191,8 +191,6 @@ namespace SpdReaderWriterDll {
                         _bytesSent     = 0;
                         _bytesReceived = 0;
 
-                        // Temporarily set IsValid state to true to allow Communication Test to execute
-                        IsValid = true;
                         try {
                             IsValid = Test();
                         }
@@ -648,7 +646,7 @@ namespace SpdReaderWriterDll {
         /// Get device's firmware version 
         /// </summary>
         /// <returns>Firmware version number</returns>
-        public int GetFirmwareVersion() {
+        private int GetFirmwareVersion() {
             lock (_portLock) {
                 try {
                     return int.Parse(Data.BytesToString(ExecuteCommand(Command.GETVERSION, Command.VERSIONLENGTH)));
@@ -775,7 +773,7 @@ namespace SpdReaderWriterDll {
         public bool IsConnected {
             get {
                 try {
-                    return _sp != null && _sp.IsOpen && IsValid;
+                    return _sp != null && _sp.IsOpen;
                 }
                 catch {
                     return false;
@@ -872,7 +870,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Serial Port connection and data settings
         /// </summary>
-        public SerialPortSettings PortSettings;
+        public SerialPortSettings PortSettings { get; set; }
 
         /// <summary>
         /// Serial port name the device is connected to
@@ -1532,6 +1530,11 @@ namespace SpdReaderWriterDll {
             /// Notification event argument
             /// </summary>
             public Alert Notification { get; set; }
+
+            /// <summary>
+            /// Notification timestamp
+            /// </summary>
+            public DateTime TimeStamp => DateTime.Now;
 
             /// <summary>
             /// Provides a value to use with events that do not have event data
