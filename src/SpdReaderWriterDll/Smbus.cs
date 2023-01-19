@@ -83,14 +83,14 @@ namespace SpdReaderWriterDll {
             get => _i2CAddress;
             set {
                 _i2CAddress = value;
-                IsDdr5Present = Eeprom.ValidateEepromAddress(_i2CAddress) &&
+                IsDdr5Present = Eeprom.ValidateAddress(_i2CAddress) &&
                                 ProbeAddress((byte)(Eeprom.LidCode.Pmic0 << 3 | (Eeprom.Spd5Register.LocalHid & value)));
                 
                 // Reset Eeprom page
                 Eeprom.ResetPageAddress(this);
 
                 // Get or update SPD size
-                MaxSpdSize = Eeprom.ValidateEepromAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;
+                MaxSpdSize = Eeprom.ValidateAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;
             }
         }
         private byte _i2CAddress;
@@ -154,7 +154,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns>Human readable SMBus name in a form of platform vendor name and chipset model name</returns>
         public override string ToString() {
-            return $"{Info.VendorId} {Info.DeviceId}{(SMBuses.Length > 1 ? $" ({BusNumber})" : "")}";
+            return $"{Info.VendorId} {Info.DeviceId}";
         }
 
         /// <summary>
@@ -923,7 +923,7 @@ namespace SpdReaderWriterDll {
 
                 // Wait after writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
+                    Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
                         ? ExecutionDelay.WriteDelay
                         : ExecutionDelay.WaitDelay);
                 }
@@ -1002,7 +1002,7 @@ namespace SpdReaderWriterDll {
 
                 // Wait after writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
+                    Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
                         ? ExecutionDelay.WriteDelay * 2
                         : ExecutionDelay.WaitDelay);
                 }
@@ -1098,7 +1098,7 @@ namespace SpdReaderWriterDll {
 
                 // Wait after writing
                 if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
+                    Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
                         ? ExecutionDelay.WriteDelay
                         : ExecutionDelay.WaitDelay);
                 }
