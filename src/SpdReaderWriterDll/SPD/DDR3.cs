@@ -27,7 +27,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR3(byte[] input) {
-                if (input.Length == (int)Length) {
+                if (input.Length == Length) {
                     RawData = input;
                 }
                 else {
@@ -38,9 +38,9 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total SPD size
             /// </summary>
-            public DataLength Length => DataLength.Minimum;
+            public int Length => DataLength.Minimum;
 
-            public override string ToString() => $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+            public override string ToString() => $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0: Number of Bytes Used / Number of Bytes in SPD Device / CRC Coverage
@@ -364,8 +364,8 @@ namespace SpdReaderWriterDll {
                 /// Converts timing value to nanoseconds
                 /// </summary>
                 /// <returns>Delay in nanoseconds</returns>
-                public float ToNanoSeconds() => (float)((float)Medium * ((float)MTB.Dividend / (float)MTB.Divisor) +
-                                                        ((float)Fine * ((float)FTB.Dividend / (float)FTB.Divisor)) / 1000F);
+                public float ToNanoSeconds() => Medium * (MTB.Dividend / MTB.Divisor) +
+                                                Fine * (FTB.Dividend / FTB.Divisor) / 1000F;
 
                 public override string ToString() => $"{this.ToNanoSeconds():F3}";
             }
@@ -620,10 +620,10 @@ namespace SpdReaderWriterDll {
             /// <returns><see langword="true"/> if checksum has been fixed</returns>
             public bool FixCrc() {
 
-                ushort validCrc = Data.Crc16(Data.TrimByteArray(RawData, CrcCoverage ? 117 : 126, Data.TrimPosition.End), 0x1021);
+                ushort validCrc = Data.Crc16(Data.TrimArray(RawData, CrcCoverage ? 117 : 126, Data.TrimPosition.End), 0x1021);
 
                 // Replace CRC only
-                RawData[126] = (byte)(validCrc & 0xFF);
+                RawData[126] = (byte)validCrc;
                 RawData[127] = (byte)(validCrc >> 8);
 
                 return CrcStatus;
@@ -645,7 +645,7 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : chars.Length);
 
-                    return Data.BytesToString(chars);
+                    return Data.BytesToString(chars).Trim();
                 }
             }
 
@@ -675,7 +675,7 @@ namespace SpdReaderWriterDll {
                         Revision  = (byte)(rev == 0 ? Data.SubByte(RawData[62], 6, 2) : rev),
                         Name      = cardValue == 0b11111
                             ? ReferenceRawCardName.ZZ
-                            : (ReferenceRawCardName)cardValue + (Data.BoolToNum(Data.GetBit(RawData[62], 7)) << 5)
+                            : (ReferenceRawCardName)cardValue + (Data.BoolToNum<byte>(Data.GetBit(RawData[62], 7)) << 5)
                     };
                 }
             }
@@ -990,15 +990,15 @@ namespace SpdReaderWriterDll {
                 public CmdTurnAroundTimeOptimizationData CmdTurnAroundTimeOptimizations {
                     get => new CmdTurnAroundTimeOptimizationData {
                         ReadToWrite = new CmdTurnAroundTimeOptimization {
-                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum(Data.GetBit(RawData[206 + _offset], 7)),
+                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum<byte>(Data.GetBit(RawData[206 + _offset], 7)),
                             Clocks     = Data.SubByte(RawData[206 + _offset], 6, 3)
                         },
                         WriteToRead = new CmdTurnAroundTimeOptimization {
-                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum(Data.GetBit(RawData[206 + _offset], 3)),
+                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum<byte>(Data.GetBit(RawData[206 + _offset], 3)),
                             Clocks     = Data.SubByte(RawData[206 + _offset], 2, 3)
                         },
                         BackToBack = new CmdTurnAroundTimeOptimization {
-                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum(Data.GetBit(RawData[207 + _offset], 3)),
+                            Adjustment = (TurnAroundAdjustment)Data.BoolToNum<byte>(Data.GetBit(RawData[207 + _offset], 3)),
                             Clocks     = Data.SubByte(RawData[207 + _offset], 2, 3)
                         }
                     };

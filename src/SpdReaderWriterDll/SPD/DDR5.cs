@@ -26,7 +26,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR5(byte[] input) {
-                if (input.Length == (int)Length) {
+                if (input.Length == Length) {
                     RawData = input;
                 }
                 else {
@@ -37,10 +37,10 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total SPD size
             /// </summary>
-            public DataLength Length => DataLength.DDR5;
+            public int Length => DataLength.DDR5;
 
             public override string ToString() =>
-                $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
 
             /// <summary>
             /// Byte 0 (0x000): Number of Bytes in SPD Device
@@ -236,7 +236,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ModuleOrganizationData ModuleOrganization {
                 get => new ModuleOrganizationData {
-                        RankMix          = (RankMix)Data.BoolToNum(Data.GetBit(RawData[234], 6)),
+                        RankMix          = (RankMix)Data.BoolToNum<byte>(Data.GetBit(RawData[234], 6)),
                         PackageRankCount = Data.SubByte(RawData[234], 5, 3) + 1,
                 };
             }
@@ -448,8 +448,8 @@ namespace SpdReaderWriterDll {
             /// </summary>
             public ManufacturerIdCodeData ManufacturerIdCode {
                 get => new ManufacturerIdCodeData {
-                    ContinuationCode = RawData[513],
-                    ManufacturerCode = RawData[512]
+                    ContinuationCode = RawData[512],
+                    ManufacturerCode = RawData[513]
                 };
             }
 
@@ -500,7 +500,7 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : chars.Length);
 
-                    return Data.BytesToString(chars);
+                    return Data.BytesToString(chars).Trim();
                 }
             }
 

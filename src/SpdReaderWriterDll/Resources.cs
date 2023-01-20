@@ -1568,7 +1568,7 @@ namespace SpdReaderWriterDll.Properties {
             /// <summary>
             /// A list of line break separated (0x0A) Manufacturers' names from Jedec JEP106BE document
             /// </summary>
-            public static byte[][] jedecManufacturersIds = {
+            public static byte[][] Jep106Ids = {
 
             // Continuation code 0x00
             new byte[] {

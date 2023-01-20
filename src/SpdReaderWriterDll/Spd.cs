@@ -12,7 +12,6 @@
 using System;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Text;
 using SpdReaderWriterDll.Properties;
 
@@ -38,17 +37,18 @@ namespace SpdReaderWriterDll {
                 throw new IOException($"Device not connected ({device.PortName})");
             }
 
-            if (device.DetectDdr5()) {
+            if (device.DetectDdr5(device.I2CAddress)) {
                 return RamType.DDR5;
             }
 
-            if (device.DetectDdr4()) {
+            if (device.DetectDdr4(device.I2CAddress)) {
                 return RamType.DDR4;
             }
 
-            // Byte at offset 0x02 in SPD indicates RAM type
+            // Byte at offset 2 in SPD indicates RAM type
             try {
-                return GetRamType(Eeprom.ReadByte(device, 0, 3));
+                byte controlByte = Eeprom.Read(device, 2);
+                return Enum.IsDefined(typeof(RamType), controlByte) ? (RamType)controlByte : RamType.UNKNOWN;
             }
             catch {
                 throw new Exception($"Unable to detect RAM type at {device.I2CAddress} on {device.PortName}");
@@ -62,8 +62,8 @@ namespace SpdReaderWriterDll {
         /// <returns>RAM Type</returns>
         public static RamType GetRamType(byte[] input) {
 
-            // Byte at offset 0x02 in SPD indicates RAM type
-            return input.Length >= 3 && Enum.IsDefined(typeof(RamType), (RamType)input[0x02]) ? (RamType)input[0x02] : RamType.UNKNOWN;
+            // Byte at offset 2 in SPD indicates RAM type
+            return input.Length >= 3 && Enum.IsDefined(typeof(RamType), (RamType)input[2]) ? (RamType)input[2] : RamType.UNKNOWN;
         }
 
         /// <summary>
@@ -71,7 +71,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="device">Device instance</param>
         /// <returns>SPD size</returns>
-        public static DataLength GetSpdSize(Arduino device) {
+        public static int GetSpdSize(Arduino device) {
 
             if (device == null) {
                 throw new NullReferenceException($"Invalid device");
@@ -97,7 +97,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="ramType">Ram Type</param>
         /// <returns>SPD size</returns>
-        public static DataLength GetSpdSize(RamType ramType) {
+        public static int GetSpdSize(RamType ramType) {
 
             switch (ramType) {
                 case RamType.SDRAM:
@@ -124,11 +124,15 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if <paramref name="input"/> data is a valid SPD dump</returns>
         public static bool ValidateSpd(byte[] input) {
 
+            if (input == null || input.Length < DataLength.Minimum) {
+                return false;
+            }
+
             switch (input.Length) {
-                case (int)DataLength.DDR5 when GetRamType(input) == RamType.DDR5:
-                case (int)DataLength.DDR4 when GetRamType(input) == RamType.DDR4:
+                case DataLength.DDR5 when GetRamType(input) == RamType.DDR5:
+                case DataLength.DDR4 when GetRamType(input) == RamType.DDR4:
                     return true;
-                case (int)DataLength.Minimum:
+                case DataLength.Minimum:
                     return GetRamType(input) == RamType.DDR3 ||
                            GetRamType(input) == RamType.DDR2 ||
                            GetRamType(input) == RamType.DDR  ||
@@ -144,8 +148,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">SPD contents</param>
         /// <returns>Manufacturer's name</returns>
         public static ushort GetManufacturerId(byte[] input) {
-            ushort manufacturerId = 0;
-
+            
             ISpd spd = null;
 
             switch (GetRamType(input)) {
@@ -170,11 +173,35 @@ namespace SpdReaderWriterDll {
                     break;
             }
 
-            if (spd != null) {
-                manufacturerId = (ushort)(spd.ManufacturerIdCode.ContinuationCode << 8 | spd.ManufacturerIdCode.ManufacturerCode);
+            return spd != null ? spd.ManufacturerIdCode.ManufacturerId : (ushort)0;
+        }
+
+        /// <summary>
+        /// Finds manufacturer's ID code by name
+        /// </summary>
+        /// <param name="name">Manufacturer's name</param>
+        /// <returns>Manufacturer's <see cref="ManufacturerIdCodeData.ContinuationCode"/> and <see cref="ManufacturerIdCodeData.ManufacturerCode"/></returns>
+        public static ManufacturerIdCodeData FindManufacturerId(string name) {
+
+            // Iterate through continuation codes
+            for (byte i = 0; i < Resources.Database.Jep106Ids.Length; i++) {
+
+                // Decompress database
+                const byte separatorByte = 0x0A;
+                string[] names = Data.BytesToString(Data.Gzip(Resources.Database.Jep106Ids[i], Data.GzipMethod.Decompress)).Split((char)separatorByte);
+
+                // Iterate through manufacturer codes
+                for (byte j = 0; j < names.Length; j++) {
+                    if (Data.StringContains(names[j], name)) {
+                        return new ManufacturerIdCodeData {
+                            ContinuationCode = i,
+                            ManufacturerCode = Data.SetBit(j, 7, Data.GetParity(j, Data.Parity.Odd) == 1)
+                        };
+                    }
+                }
             }
 
-            return manufacturerId;
+            return new ManufacturerIdCodeData();
         }
 
         /// <summary>
@@ -194,16 +221,16 @@ namespace SpdReaderWriterDll {
             //}
 
             // Lookup name by continuation code and manufacturer's ID
-            byte spdContinuationCode = (byte)((input >> 8) & 0x7F);
-            byte spdManufacturerCode = (byte)(input & 0x7F); // Ignore parity bit
+            byte spdContinuationCode = Data.SetBit((byte)(input >> 8), 7, false);
+            byte spdManufacturerCode = Data.SetBit((byte)input, 7, false); // Ignore parity bit
 
-            if (spdContinuationCode > Resources.Database.jedecManufacturersIds.Length - 1) {
+            if (spdContinuationCode > Resources.Database.Jep106Ids.Length - 1) {
                 return "";
             }
 
             // Decompress database
             const byte separatorByte = 0x0A;
-            byte[] idTableCharArray = Data.Gzip(Resources.Database.jedecManufacturersIds[spdContinuationCode], Data.GzipMethod.Decompress);
+            byte[] idTableCharArray = Data.Gzip(Resources.Database.Jep106Ids[spdContinuationCode], Data.GzipMethod.Decompress);
             string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
 
             return spdManufacturerCode <= names.Length ? names[spdManufacturerCode - 1] : "";
@@ -243,16 +270,10 @@ namespace SpdReaderWriterDll {
             }
 
             // Part number for Kingston DDR2 and DDR SPDs
-            if ((rt == RamType.DDR2 || rt == RamType.DDR) && GetManufacturerId(input) == 0x0198) {
+            if ((rt == RamType.DDR2 || rt == RamType.DDR) &&
+                (GetManufacturerId(input) == 0x0198 || FindManufacturerId("Kingston") == spd?.ManufacturerIdCode)) {
 
-                char[] chars = new char[16];
-
-                Array.Copy(
-                    sourceArray      : input,
-                    sourceIndex      : input.Length - chars.Length,
-                    destinationArray : chars,
-                    destinationIndex : 0,
-                    length           : chars.Length);
+                byte[] chars = Data.TrimArray(input, 16, Data.TrimPosition.Start);
 
                 return Data.BytesToString(chars);
             }
@@ -263,7 +284,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Defines basic memory type byte value
         /// </summary>
-        public enum RamType {
+        public enum RamType : byte {
             UNKNOWN       = 0x00,
             SDRAM         = 0x04,
             DDR           = 0x07,
@@ -288,21 +309,17 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Defines SPD sizes
         /// </summary>
-        public enum DataLength {
-            Unknown = 0,
-            Minimum = 256, // DDR3, DDR2, DDR, and SDRAM
-            DDR4    = 512, // incl. LPDDR3
-            DDR5    = 1024,
+        public struct DataLength {
+            public const ushort Unknown = 0;
+            public const ushort Minimum = 256; // DDR3, DDR2, DDR, and SDRAM
+            public const ushort DDR4    = 512; // incl. LPDDR3
+            public const ushort DDR5    = 1024;
         }
 
         /// <summary>
         /// Raw SPD data contents
         /// </summary>
-        public static byte[] RawData {
-            get => _rawData;
-            set => _rawData = value;
-        }
-        private static byte[] _rawData;
+        public static byte[] RawData { get; set; }
 
         /// <summary>
         /// SPD Revision level data
@@ -471,7 +488,33 @@ namespace SpdReaderWriterDll {
             public byte ContinuationCode;
             public byte ManufacturerCode;
 
-            public override string ToString() => GetManufacturerName((ushort)(ContinuationCode << 8 | ManufacturerCode));
+            public ushort ManufacturerId => (ushort)(ContinuationCode << 8 | ManufacturerCode);
+
+            public override string ToString() => GetManufacturerName(ManufacturerId);
+
+            public static bool operator ==(ManufacturerIdCodeData d1, ManufacturerIdCodeData d2) {
+                return d1.ContinuationCode == d2.ContinuationCode &&
+                       d1.ManufacturerCode == d2.ManufacturerCode;
+            }
+
+            public static bool operator !=(ManufacturerIdCodeData d1, ManufacturerIdCodeData d2) {
+                return d1.ContinuationCode != d2.ContinuationCode ||
+                       d1.ManufacturerCode != d2.ManufacturerCode;
+            }
+
+            public override bool Equals(object o) {
+                if (o != null && o.GetType() != typeof(ManufacturerIdCodeData)) {
+                    return false;
+                }
+
+                return o != null &&
+                       ContinuationCode.Equals(((ManufacturerIdCodeData)o).ContinuationCode) &&
+                       ManufacturerCode.Equals(((ManufacturerIdCodeData)o).ManufacturerCode);
+            }
+
+            public override int GetHashCode() {
+                return ManufacturerId;
+            }
         }
 
         /// <summary>
@@ -513,7 +556,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct Crc16Data {
             public byte[] Contents; // Contents incl. checksum
-            public ushort Checksum => Data.Crc16(Data.TrimByteArray(Contents, Contents.Length - 2, Data.TrimPosition.End), 0x1021);
+            public ushort Checksum => Data.Crc16(Data.TrimArray(Contents, Contents.Length - 2, Data.TrimPosition.End), 0x1021);
 
             /// <summary>
             /// Validates data checksum
@@ -528,13 +571,13 @@ namespace SpdReaderWriterDll {
             public byte[] Fix() {
                 if (!Validate()) {
                     Contents[Contents.Length - 1] = (byte)(Checksum >> 8);
-                    Contents[Contents.Length - 2] = (byte)(Checksum & 0xFF);
+                    Contents[Contents.Length - 2] = (byte)Checksum;
                 }
 
                 return Contents;
             }
 
-            public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
+            public override string ToString() => ((CrcStatus)Data.BoolToNum<byte>(Validate())).ToString();
         }
 
         /// <summary>
@@ -542,7 +585,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct Crc8Data {
             public byte[] Contents; // Contents incl. checksum
-            public byte Checksum => Data.Crc(Data.TrimByteArray(Contents, Contents.Length - 1, Data.TrimPosition.End));
+            public byte Checksum => Data.Crc(Data.TrimArray(Contents, Contents.Length - 1, Data.TrimPosition.End));
 
             /// <summary>
             /// Validates data checksum
@@ -562,7 +605,7 @@ namespace SpdReaderWriterDll {
                 return Contents;
             }
 
-            public override string ToString() => ((CrcStatus)Data.BoolToNum(Validate())).ToString();
+            public override string ToString() => ((CrcStatus)Data.BoolToNum<byte>(Validate())).ToString();
         }
 
         /// <summary>
@@ -611,7 +654,7 @@ namespace SpdReaderWriterDll {
 
                 string value = "";
 
-                if (Minimum == Maximum) {
+                if (Minimum.Equals(Maximum)) {
                     value = $"{Maximum}";
                 }
                 else if (Minimum < Maximum) {
@@ -643,6 +686,41 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Describes the module’s refresh rate in microseconds
+        /// </summary>
+        public struct RefreshRateData {
+            public byte RefreshPeriod;
+            public bool SelfRefresh;
+
+            public float ToMicroseconds() {
+
+                byte refPerValue = Data.SetBit(RefreshPeriod, 7, false);
+                float normal = 15.625F;
+
+                // Normal
+                if (refPerValue == 0x00) {
+                    return normal;
+                }
+
+                // Reduced
+                if (0x01 <= refPerValue && refPerValue <= 0x02) {
+                    return normal * 0.25F * refPerValue;
+                }
+
+                // Extended
+                if (0x03 <= refPerValue && refPerValue <= 0x05) {
+                    return (float)(normal * Math.Pow(2, refPerValue - 1));
+                }
+
+                throw new ArgumentOutOfRangeException(nameof(RefreshPeriod));
+            }
+
+            public override string ToString() {
+                return ToMicroseconds().ToString("F3");
+            }
+        }
+
+        /// <summary>
         /// SPD performance profiles IDs as they appear in SPD
         /// </summary>
         public struct ProfileId {
@@ -654,7 +732,7 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// EPP Identifier String ("NVm")
             /// </summary>
-            public static byte[] EPP => Encoding.ASCII.GetBytes("NVm").Reverse().ToArray();
+            public static byte[] EPP => Data.ReverseArray(Encoding.ASCII.GetBytes("NVm"));
 
             /// <summary>
             /// AMD EXPO Identifier String ("EXPO")

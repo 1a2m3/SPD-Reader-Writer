@@ -27,7 +27,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR2(byte[] input) {
-                if (input.Length == (int)Length) {
+                if (input.Length == Length) {
                     RawData = input;
                 }
                 else {
@@ -38,10 +38,10 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total SPD size
             /// </summary>
-            public DataLength Length => DataLength.Minimum;
+            public int Length => DataLength.Minimum;
 
             public override string ToString() {
-                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -83,14 +83,13 @@ namespace SpdReaderWriterDll {
                     float[] heights = { 25.4F, 30.0F, 30.5F };
 
                     ModuleAttributesData attributes = new ModuleAttributesData {
-                        Package    = (DRAMPackage)(Data.BoolToNum(Data.GetBit(RawData[5], 4))),
+                        Package    = (DRAMPackage)Data.BoolToNum<byte>(Data.GetBit(RawData[5], 4)),
                         CardOnCard = Data.GetBit(RawData[5], 3),
                         Ranks      = (byte)(Data.SubByte(RawData[5], 2, 3) + 1)
                     };
 
                     switch (Data.SubByte(RawData[5], 7, 3)) {
                         default:
-                        case 0:
                             // less than 25.4 mm
                             attributes.Height = new ModuleHeightData {
                                 Minimum = 0,
@@ -979,7 +978,7 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : chars.Length);
 
-                    return Data.BytesToString(chars);
+                    return Data.BytesToString(chars).Trim();
                 }
             }
 
@@ -1031,8 +1030,7 @@ namespace SpdReaderWriterDll {
             /// EPP Identifier String ("NVm")
             /// </summary>
             public bool EppPresence {
-                get => Data.MatchArray(RawData, ProfileId.EPP, 99); 
-                //(RawData[101] << 16 | RawData[100] << 8 | RawData[99]) == ProfileId.EPP;
+                get => Data.MatchArray(RawData, ProfileId.EPP, 99);
             }
 
             /// <summary>
@@ -1169,7 +1167,7 @@ namespace SpdReaderWriterDll {
                 /// Defines the default setup time for address and command pins
                 /// </summary>
                 public float AddressCommandSetupTime {
-                    get => (Data.BoolToNum(Data.GetBit(RawData[107 + _offset], 5)) + 1) / 2F;
+                    get => (Data.BoolToNum<byte>(Data.GetBit(RawData[107 + _offset], 5)) + 1) / 2F;
                 }
 
                 /// <summary>

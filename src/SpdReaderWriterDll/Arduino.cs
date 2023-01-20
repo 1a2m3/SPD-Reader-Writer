@@ -28,7 +28,23 @@ namespace SpdReaderWriterDll {
     public class Arduino : IDisposable {
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes default Arduino device instance
+        /// </summary>
+        public Arduino() {
+            PortSettings = new SerialPortSettings();
+        }
+
+        /// <summary>
+        /// Initializes Arduino device instance
+        /// </summary>
+        /// <param name="portName">Serial port name</param>
+        public Arduino(string portName) {
+            PortSettings = new SerialPortSettings();
+            PortName     = portName;
+        }
+
+        /// <summary>
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         public Arduino(SerialPortSettings portSettings) {
@@ -36,7 +52,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
@@ -46,7 +62,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Initializes Arduino device instance
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
@@ -58,39 +74,14 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Initializes the SPD reader/writer device
+        /// Arduino device instance string
         /// </summary>
-        /// <param name="portSettings">Serial port settings</param>
-        /// <param name="portName">Serial port name</param>
-        /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        /// <param name="dataLength">Total EEPROM size</param>
-        public Arduino(SerialPortSettings portSettings, string portName, byte i2cAddress, Spd.DataLength dataLength) {
-            PortSettings = portSettings;
-            PortName     = portName;
-            I2CAddress   = i2cAddress;
-            DataLength   = dataLength;
-        }
+        /// <returns>Arduino device instance string</returns>
+        public override string ToString() => 
+            PortName == null ? "N/A" : $"{PortName}:{PortSettings.BaudRate}{(I2CAddress != 0 ? $"/{I2CAddress}" : "")}".Trim();
 
         /// <summary>
-        /// Device instance string
-        /// </summary>
-        /// <returns>Device instance string</returns>
-        public override string ToString() {
-            
-            if (PortName == null) {
-                return "N/A";
-            }
-
-            string description = $"{PortName}:{PortSettings.BaudRate}";
-            if (I2CAddress != 0) {
-                description += $"/{I2CAddress}";
-            }
-
-            return description.Trim();
-        }
-
-        /// <summary>
-        /// Device class destructor
+        /// Arduino device instance destructor
         /// </summary>
         ~Arduino() {
             Dispose();
@@ -101,7 +92,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct SerialPortSettings {
             // Connection settings
-            public int BaudRate;
+            public int  BaudRate;
             public bool DtrEnable;
             public bool RtsEnable;
 
@@ -200,8 +191,6 @@ namespace SpdReaderWriterDll {
                         _bytesSent     = 0;
                         _bytesReceived = 0;
 
-                        // Set valid state to true to allow Communication Test to execute
-                        IsValid = true;
                         try {
                             IsValid = Test();
                         }
@@ -257,13 +246,13 @@ namespace SpdReaderWriterDll {
             lock (_portLock) {
                 if (_sp != null && _sp.IsOpen) {
                     _sp.Close();
-                    _sp.Dispose();
                     _sp = null;
                 }
-                DataReceiving = false;
-                IsValid       = false;
-                Addresses     = new byte[0];
                 ResponseData.Clear();
+                DataReceiving   = false;
+                IsValid         = false;
+                Addresses       = null;
+                _ramTypeSupport = null;
             }
         }
 
@@ -319,8 +308,20 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public byte[] Addresses {
             get => _addresses ?? (_addresses = Scan());
-            set => _addresses = value;
+            private set => _addresses = value;
         }
+
+        /// <summary>
+        /// Resets addresses detected on i2c bus
+        /// </summary>
+        public void ResetAddresses() {
+            Addresses = null;
+        }
+
+        /// <summary>
+        /// Number of devices on Arduino's I2C bus
+        /// </summary>
+        public byte AddressQuantity => GetQuantity();
 
         /// <summary>
         /// Scans the device for I2C bus devices
@@ -357,7 +358,8 @@ namespace SpdReaderWriterDll {
         /// Scans for EEPROM addresses on the device's I2C bus
         /// </summary>
         /// <param name="bitmask">Enable bitmask response</param>
-        /// <returns>A bitmask representing available addresses on the device's I2C bus. Bit 0 is address 80, bit 1 is address 81, and so on.</returns>
+        /// <returns>A bitmask representing available addresses on the device's I2C bus.</returns>
+        /// <example>Bit 0 is address 80, bit 1 is address 81, and so on.</example>
         public byte Scan(bool bitmask) {
             if (bitmask) {
                 lock (_portLock) {
@@ -374,6 +376,21 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Gets the number of detected addresses on Arduino's I2C bus
+        /// </summary>
+        /// <returns>The number of detected addresses on Arduino's I2C bus</returns>
+        public byte GetQuantity() {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(Command.QUANTITY);
+                }
+                catch {
+                    throw new Exception($"Unable to get the number of I2C devices on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Sets clock frequency for I2C communication
         /// </summary>
         /// <param name="fastMode">Fast mode or standard mode</param>
@@ -381,7 +398,7 @@ namespace SpdReaderWriterDll {
         public bool SetI2CClock(bool fastMode) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToNum(fastMode) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToNum<byte>(fastMode) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set I2C clock mode on {PortName}");
@@ -457,7 +474,7 @@ namespace SpdReaderWriterDll {
         public bool SetHighVoltage(bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToNum(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HIGH_VOLTAGE_SWITCH, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set High Voltage state on {PortName}");
@@ -489,7 +506,7 @@ namespace SpdReaderWriterDll {
         public bool SetConfigPin(byte pin, bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToNum(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set config pin state on {PortName}");
@@ -520,7 +537,7 @@ namespace SpdReaderWriterDll {
         public bool SetOfflineMode(bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToNum(state) }) == Response.SUCCESS;
+                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to set offline mode on {PortName}");
@@ -535,7 +552,7 @@ namespace SpdReaderWriterDll {
         public bool GetOfflineMode() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.OFFLINE_MODE_SWITCH, Command.GET }) == Response.SUCCESS;
+                    return Data.GetBit(ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, Eeprom.Spd5Register.MR48 }), 2);
                 }
                 catch {
                     throw new Exception($"Unable to get offline mode status on {PortName}");
@@ -629,7 +646,7 @@ namespace SpdReaderWriterDll {
         /// Get device's firmware version 
         /// </summary>
         /// <returns>Firmware version number</returns>
-        public int GetFirmwareVersion() {
+        private int GetFirmwareVersion() {
             lock (_portLock) {
                 try {
                     return int.Parse(Data.BytesToString(ExecuteCommand(Command.GETVERSION, Command.VERSIONLENGTH)));
@@ -644,6 +661,11 @@ namespace SpdReaderWriterDll {
         /// Included firmware version number
         /// </summary>
         public static int IncludedFirmwareVersion => GetIncludedFirmwareVersion();
+
+        /// <summary>
+        /// Required firmware version number
+        /// </summary>
+        public static int RequiredFirmwareVersion => IncludedFirmwareVersion;
 
         /// <summary>
         /// Gets included firmware version number
@@ -662,7 +684,7 @@ namespace SpdReaderWriterDll {
                 throw new Exception();
             }
             catch {
-                throw new Exception($"Unable to get included firmware version number");
+                throw new Exception("Unable to get included firmware version number");
             }
         }
 
@@ -684,11 +706,11 @@ namespace SpdReaderWriterDll {
             if (name == null) {
                 throw new ArgumentNullException(nameof(name));
             }
-            if (name == "") {
+            if (name.Length == 0) {
                 throw new ArgumentException("Name can't be blank");
             }
             if (name.Length > Command.NAMELENGTH) {
-                throw new ArgumentException($"Name can't be longer than {Command.NAMELENGTH} characters");
+                throw new ArgumentOutOfRangeException($"Name can't be longer than {Command.NAMELENGTH} characters");
             }
 
             lock (_portLock) {
@@ -700,15 +722,9 @@ namespace SpdReaderWriterDll {
                     }
 
                     // Prepare a byte array containing cmd byte + name length + name
-                    byte[] nameCommand = new byte[1 + 1 + newName.Length];
-                    // Command byte at position 0
-                    nameCommand[0] = Command.NAME;
-                    // Name length at position 1
-                    nameCommand[1] = (byte)newName.Length;
-                    // Copy new name to byte array
-                    Array.Copy(Encoding.ASCII.GetBytes(newName), 0, nameCommand, 2, newName.Length);
+                    byte[] command = { Command.NAME, (byte)newName.Length };
 
-                    return ExecuteCommand(nameCommand) == Response.SUCCESS;
+                    return ExecuteCommand(Data.MergeArray(command, Encoding.ASCII.GetBytes(newName))) == Response.SUCCESS;
                 }
                 catch {
                     throw new Exception($"Unable to assign name to {PortName}");
@@ -723,7 +739,7 @@ namespace SpdReaderWriterDll {
         public string GetName() {
             lock (_portLock) {
                 try {
-                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, Command.NAMELENGTH));
+                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, Command.NAMELENGTH)).Trim();
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} name");
@@ -732,25 +748,23 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Finds devices connected to computer by sending a test command to every serial port device detected
+        /// Finds Arduinos connected to computer
         /// </summary>
-        /// <returns>An array of serial port names which have valid devices connected to</returns>
-        public static string[] Find(SerialPortSettings settings) {
-            Stack<string> result = new Stack<string>();
+        /// <returns>An array of Arduinos</returns>
+        public static Arduino[] Find(SerialPortSettings settings) {
+            Stack<Arduino> result = new Stack<Arduino>();
 
             string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
 
-            lock (_portLock) {
-                foreach (string portName in ports) {
-                    using (Arduino device = new Arduino(settings, portName)) {
-                        try {
-                            if (device.Connect()) {
-                                result.Push(device.PortName);
-                            }
+            foreach (string portName in ports) {
+                using (Arduino device = new Arduino(settings, portName)) {
+                    try {
+                        if (device.Connect()) {
+                            result.Push(device);
                         }
-                        catch {
-                            continue;
-                        }
+                    }
+                    catch {
+                        continue;
                     }
                 }
             }
@@ -764,7 +778,7 @@ namespace SpdReaderWriterDll {
         public bool IsConnected {
             get {
                 try {
-                    return _sp != null && _sp.IsOpen && IsValid;
+                    return _sp != null && _sp.IsOpen;
                 }
                 catch {
                     return false;
@@ -782,7 +796,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if DDR4 is found</returns>
         public bool DetectDdr4() {
-            return DetectDdr4(I2CAddress);
+            return DetectDdr4(0);
         }
 
         /// <summary>
@@ -806,7 +820,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> if DDR5 is found</returns>
         public bool DetectDdr5() {
-            return DetectDdr5(I2CAddress);
+            return DetectDdr5(0);
         }
 
         /// <summary>
@@ -826,9 +840,42 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Reads SPD5 hub register data
+        /// </summary>
+        /// <param name="register">Register address</param>
+        /// <returns>Register data</returns>
+        public byte ReadSpd5Hub(byte register) {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.GET });
+                }
+                catch {
+                    throw new Exception($"Unable to read SPD5 hub on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Writes data to SPD5 hub register
+        /// </summary>
+        /// <param name="register">Register address</param>
+        /// <param name="value">Register value</param>
+        /// <returns><see langword="true"/> if command is successfully executed</returns>
+        public bool WriteSpd5Hub(byte register, byte value) {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.SET, value }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to read SPD5 hub on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
         /// Serial Port connection and data settings
         /// </summary>
-        public SerialPortSettings PortSettings;
+        public SerialPortSettings PortSettings { get; set; }
 
         /// <summary>
         /// Serial port name the device is connected to
@@ -843,7 +890,23 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// EEPROM size
         /// </summary>
-        public Spd.DataLength DataLength { get; set; }
+        public int DataLength {
+            get {
+                if (!Eeprom.ValidateAddress(I2CAddress) && !ProbeAddress(I2CAddress)) {
+                    return Spd.DataLength.Unknown;
+                }
+
+                if (DetectDdr5(I2CAddress)) {
+                    return Spd.DataLength.DDR5;
+                }
+
+                if (DetectDdr4(I2CAddress)) {
+                    return Spd.DataLength.DDR4;
+                }
+
+                return Spd.DataLength.Minimum;
+            }
+        }
 
         /// <summary>
         /// Number of bytes to be read from the device
@@ -879,11 +942,7 @@ namespace SpdReaderWriterDll {
         public byte RamTypeSupport {
             get {
                 try {
-                    if (_ramTypeSupport == default) {
-                        _ramTypeSupport = GetRswpSupport();
-                    }
-
-                    return _ramTypeSupport;
+                    return (byte)(_ramTypeSupport ?? (_ramTypeSupport = GetRswpSupport()));
                 }
                 catch {
                     throw new Exception("Unable to get supported RAM type");
@@ -954,6 +1013,7 @@ namespace SpdReaderWriterDll {
                     byte notificationReceived = (byte)receiver.ReadByte();
 
                     if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
+                        HandleAlert((Alert)notificationReceived);
                         RaiseAlert(new ArduinoEventArgs {
                             Notification = (Alert)notificationReceived
                         });
@@ -967,6 +1027,17 @@ namespace SpdReaderWriterDll {
             }
 
             DataReceiving = false;
+        }
+
+        /// <summary>
+        /// Alert handler
+        /// </summary>
+        /// <param name="alert">Alert type</param>
+        private void HandleAlert(Alert alert) {
+            if (alert == Alert.SLAVEDEC || 
+                alert == Alert.SLAVEINC) {
+                ResetAddresses();
+            }
         }
 
         /// <summary>
@@ -1111,12 +1182,12 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
         /// </summary>
-        private byte _ramTypeSupport;
+        private byte? _ramTypeSupport;
 
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
         /// </summary>
-        private static readonly object _portLock = new object();
+        private readonly object _portLock = new object();
 
         /// <summary>
         /// Device commands
@@ -1141,6 +1212,11 @@ namespace SpdReaderWriterDll {
             /// Scan i2c bus
             /// </summary>
             public const byte SCANBUS       = (byte)'s';
+
+            /// <summary>
+            /// Number of addresses on I2C bus
+            /// </summary>
+            public const byte QUANTITY      = (byte)'q';
 
             /// <summary>
             /// Set i2c clock 
@@ -1208,9 +1284,19 @@ namespace SpdReaderWriterDll {
             public const byte DDR5DETECT    = (byte)'5';
 
             /// <summary>
+            /// Access SPD5 Hub register space
+            /// </summary>
+            public const byte SPD5HUBREG    = (byte)'h';
+
+            /// <summary>
             /// Restore device settings to default
             /// </summary>
             public const byte FACTORYRESET  = (byte)'-';
+
+            /// <summary>
+            /// Command modifier used to modify variable value
+            /// </summary>
+            public const byte SET           = 1;
 
             /// <summary>
             /// Suffix added to get current state
@@ -1245,6 +1331,11 @@ namespace SpdReaderWriterDll {
                 /// DDR5 offline mode control pin
                 /// </summary>
                 public const byte OFFLINE_MODE_SWITCH = 0;
+
+                /// <summary>
+                /// DDR5 power control pin
+                /// </summary>
+                public const byte DDR5_POWER_SWITCH   = 5;
 
                 /// <summary>
                 /// Slave address 1 (SA1) control pin
@@ -1410,6 +1501,11 @@ namespace SpdReaderWriterDll {
             SLAVEDEC  = '-',
 
             /// <summary>
+            /// Notification of the current number of slave addresses
+            /// </summary>
+            NUMBER = ':',
+
+            /// <summary>
             /// Notification of I2C clock frequency increase
             /// </summary>
             CLOCKINC  = '/',
@@ -1439,6 +1535,11 @@ namespace SpdReaderWriterDll {
             /// Notification event argument
             /// </summary>
             public Alert Notification { get; set; }
+
+            /// <summary>
+            /// Notification timestamp
+            /// </summary>
+            public DateTime TimeStamp => DateTime.Now;
 
             /// <summary>
             /// Provides a value to use with events that do not have event data

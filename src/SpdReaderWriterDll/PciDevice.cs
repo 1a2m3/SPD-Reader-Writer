@@ -9,6 +9,7 @@
 
 */
 
+using System;
 using System.IO;
 using SpdReaderWriterDll.Driver;
 
@@ -144,70 +145,71 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// PCI device's vendor ID
         /// </summary>
-        public ushort VendorId => ReadWord(RegisterOffset.VendorId);
+        public ushort VendorId => Read<ushort>(RegisterOffset.VendorId);
 
         /// <summary>
         /// PCI device's ID
         /// </summary>
-        public ushort DeviceId => ReadWord(RegisterOffset.DeviceId);
+        public ushort DeviceId => Read<ushort>(RegisterOffset.DeviceId);
 
         /// <summary>
         /// PCI device's Revision ID
         /// </summary>
-        public ushort RevisionId => ReadByte(RegisterOffset.RevisionId);
+        public ushort RevisionId => Read<byte>(RegisterOffset.RevisionId);
 
         /// <summary>
-        /// Read byte from PCI device memory space
+        /// Reads data from PCI device memory space
         /// </summary>
-        /// <param name="offset">Byte location</param>
-        /// <returns>Byte value at <paramref name="offset"/> location</returns>
-        public byte ReadByte(uint offset) {
-            return Smbus.Driver.ReadPciConfigByte(PciInfo.DeviceMemoryLocation, offset);
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <returns>Data value at <paramref name="offset"/> location</returns>
+        public T Read<T>(uint offset) {
+
+            object output = null;
+            uint location = PciInfo.DeviceMemoryLocation;
+
+            if (typeof(T) == typeof(byte)) {
+                output = Smbus.Driver.ReadPciConfigByte(location, offset);
+            }
+            else if (typeof(T) == typeof(ushort)) {
+                output = Smbus.Driver.ReadPciConfigWord(location, offset);
+            }
+            else if (typeof(T) == typeof(uint)) {
+                output = Smbus.Driver.ReadPciConfigDword(location, offset);
+            }
+
+            if (output != null) {
+                return (T)Convert.ChangeType(output, typeof(T));
+            }
+
+            throw new InvalidDataException(nameof(T));
         }
 
         /// <summary>
-        /// Read word from PCI device memory space
+        /// Write data to PCI device memory space
         /// </summary>
-        /// <param name="offset">Word location</param>
-        /// <returns>Word value at <paramref name="offset"/> location</returns>
-        public ushort ReadWord(uint offset) {
-            return Smbus.Driver.ReadPciConfigWord(PciInfo.DeviceMemoryLocation, offset);
-        }
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <param name="value">Data value</param>
+        /// <returns><see lang="true"/> if the function succeeds</returns>
+        public bool Write<T>(uint offset, T value) {
 
-        /// <summary>
-        /// Read Dword from PCI device memory space
-        /// </summary>
-        /// <param name="offset">Dword location</param>
-        /// <returns>Dword value at <paramref name="offset"/> location</returns>
-        public uint ReadDword(uint offset) {
-            return Smbus.Driver.ReadPciConfigDword(PciInfo.DeviceMemoryLocation, offset);
-        }
+            object input  = Convert.ChangeType(value, typeof(T));
+            uint location = PciInfo.DeviceMemoryLocation;
 
-        /// <summary>
-        /// Write byte to PCI device memory space
-        /// </summary>
-        /// <param name="offset">Byte location</param>
-        /// <param name="value">Byte value</param>
-        public void WriteByte(uint offset, byte value) {
-            Smbus.Driver.WritePciConfigByte(PciInfo.DeviceMemoryLocation, offset, value);
-        }
+            if (typeof(T) == typeof(byte)) {
+                return Smbus.Driver.WritePciConfigByteEx(location, offset, (byte)input);
+            }
 
-        /// <summary>
-        /// Write word to PCI device memory space
-        /// </summary>
-        /// <param name="offset">Word location</param>
-        /// <param name="value">Word value</param>
-        public void WriteWord(uint offset, ushort value) {
-            Smbus.Driver.WritePciConfigWord(PciInfo.DeviceMemoryLocation, offset, value);
-        }
+            if (typeof(T) == typeof(ushort)) {
+                return Smbus.Driver.WritePciConfigWordEx(location, offset, (ushort)input);
+            }
 
-        /// <summary>
-        /// Write Dword to PCI device memory space
-        /// </summary>
-        /// <param name="offset">Dword location</param>
-        /// <param name="value">Dword value</param>
-        public void WriteDword(uint offset, uint value) {
-            Smbus.Driver.WritePciConfigDword(PciInfo.DeviceMemoryLocation, offset, value);
+            if (typeof(T) == typeof(uint)) {
+                return Smbus.Driver.WritePciConfigDwordEx(location, offset, (uint)input);
+            }
+
+            throw new InvalidDataException(nameof(T));
         }
 
         /// <summary>

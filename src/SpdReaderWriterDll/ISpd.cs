@@ -18,7 +18,7 @@ namespace SpdReaderWriterDll {
     /// </summary>
     public interface ISpd {
 
-        DataLength Length { get; }
+        int Length { get; }
         int SpdBytesUsed { get; }
         RamType DramDeviceType { get; }
         ManufacturerIdCodeData ManufacturerIdCode { get; }

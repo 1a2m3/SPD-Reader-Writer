@@ -25,7 +25,7 @@ namespace SpdReaderWriterDll {
             /// </summary>
             /// <param name="input">Raw SPD data</param>
             public DDR(byte[] input) {
-                if (input.Length == (int)Length) {
+                if (input.Length == Length) {
                     RawData = input;
                 }
                 else {
@@ -36,10 +36,10 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Total SPD size
             /// </summary>
-            public DataLength Length => DataLength.Minimum;
+            public int Length => DataLength.Minimum;
 
             public override string ToString() {
-                return $"{GetManufacturerName((ushort)(ManufacturerIdCode.ContinuationCode << 8 | ManufacturerIdCode.ManufacturerCode))} {PartNumber}".Trim();
+                return $"{GetManufacturerName(ManufacturerIdCode.ManufacturerId)} {PartNumber}".Trim();
             }
 
             /// <summary>
@@ -148,7 +148,7 @@ namespace SpdReaderWriterDll {
 
                     return Whole +
                            Quarter * 0.25F +
-                           (10 <= Tenth && Tenth <= 13 ? tenthExtenstion[Tenth - 10] : (Tenth * 0.1F)) +
+                           (10 <= Tenth && Tenth <= 13 ? tenthExtenstion[Tenth - 10] : Tenth * 0.1F) +
                            Hundredth * 0.01F +
                            fractions[Fraction];
                 }
@@ -198,40 +198,6 @@ namespace SpdReaderWriterDll {
             public struct DIMMConfigurationData {
                 public bool DataECC;
                 public bool DataParity;
-            }
-
-            /// <summary>
-            /// Describes the module’s refresh rate in microseconds
-            /// </summary>
-            public struct RefreshRateData {
-                public byte RefreshPeriod;
-                public bool SelfRefresh;
-
-                public float ToMicroseconds() {
-
-                    float normal = 15.625F;
-
-                    // Normal
-                    if ((RefreshPeriod & 0x7F) == 0x00) {
-                        return normal;
-                    }
-
-                    // Reduced
-                    if (0x01 <= (RefreshPeriod & 0x7F) && (RefreshPeriod & 0x7F) <= 0x02) {
-                        return normal * 0.25F * (RefreshPeriod & 0x7F);
-                    }
-
-                    // Extended
-                    if (0x03 <= (RefreshPeriod & 0x7F) && (RefreshPeriod & 0x7F) <= 0x05) {
-                        return (float)(normal * Math.Pow(2, (RefreshPeriod & 0x7F) - 1));
-                    }
-
-                    throw new ArgumentOutOfRangeException(nameof(RefreshPeriod));
-                }
-
-                public override string ToString() {
-                    return ToMicroseconds().ToString("F3");
-                }
             }
 
             /// <summary>
@@ -297,7 +263,7 @@ namespace SpdReaderWriterDll {
                     for (byte i = 0; i < attributes.Length; i++) {
                         attributes[i].Length    = (byte)(1 << i);
                         attributes[i].Supported = Data.GetBit(RawData[16], i);
-                    };
+                    }
 
                     return attributes;
                 }
@@ -626,9 +592,6 @@ namespace SpdReaderWriterDll {
                     float[] heights = { 1.125F, 1.25F, 1.7F };
 
                     switch (Data.SubByte(RawData[47], 1, 2)) {
-                        case 0: // No DIMM height available
-                        default:
-                            return new ModuleHeightData { };
                         case 1:
                             return new ModuleHeightData {
                                 Minimum = heights[0],
@@ -641,6 +604,9 @@ namespace SpdReaderWriterDll {
                                 Maximum = heights[2],
                                 Unit    = HeightUnit.IN
                             };
+                        default:
+                            // No DIMM height available
+                            return new ModuleHeightData();
                     }
                 }
             }
@@ -740,7 +706,7 @@ namespace SpdReaderWriterDll {
                         destinationIndex : 0,
                         length           : chars.Length);
 
-                    return Data.BytesToString(chars);
+                    return Data.BytesToString(chars).Trim();
                 }
             }
 

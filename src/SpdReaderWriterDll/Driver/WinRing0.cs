@@ -38,7 +38,7 @@ namespace SpdReaderWriterDll.Driver {
             get {
                 try {
                     _sc?.Refresh();
-                    return IsInstalled && _sc?.ServiceName != null && _sc.Status == ServiceControllerStatus.Running;
+                    return IsInstalled && _sc?.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -124,7 +124,7 @@ namespace SpdReaderWriterDll.Driver {
                     : Resources.Driver.WinRing0_sys,
                 Data.GzipMethod.Decompress);
 
-            if (!(File.Exists(_fileName) && Data.CompareByteArray(driverFileContents, File.ReadAllBytes(_fileName)))) {
+            if (!(File.Exists(_fileName) && Data.CompareArray(driverFileContents, File.ReadAllBytes(_fileName)))) {
 
                 // Save driver to local file
                 try {
@@ -135,7 +135,7 @@ namespace SpdReaderWriterDll.Driver {
                 }
             }
 
-            return File.Exists(_fileName) && Data.CompareByteArray(driverFileContents, File.ReadAllBytes(_fileName));
+            return File.Exists(_fileName) && Data.CompareArray(driverFileContents, File.ReadAllBytes(_fileName));
         }
 
         /// <summary>
@@ -230,7 +230,7 @@ namespace SpdReaderWriterDll.Driver {
                 }
 
                 _sc.Start();
-                _sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(_timeout));
+                _sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(TIMEOUT));
                 return _sc.Status == ServiceControllerStatus.Running;
             }
             catch {
@@ -250,6 +250,8 @@ namespace SpdReaderWriterDll.Driver {
         public bool StopDriver() {
 
             try {
+                _sc = new ServiceController(Name);
+
                 if (_sc.Status != ServiceControllerStatus.Stopped) {
 
                     _sc.Stop();
@@ -258,7 +260,7 @@ namespace SpdReaderWriterDll.Driver {
                     Stopwatch sw = new Stopwatch();
                     sw.Start();
 
-                    while (sw.ElapsedMilliseconds < _timeout) {
+                    while (sw.ElapsedMilliseconds < TIMEOUT) {
 
                         _sc.Refresh();
 
@@ -274,6 +276,7 @@ namespace SpdReaderWriterDll.Driver {
             }
             catch {
                 try {
+                    _sc = new ServiceController(Name);
                     return _sc.Status == ServiceControllerStatus.Stopped ||
                            _sc.Status == ServiceControllerStatus.StopPending;
                 }
@@ -290,7 +293,7 @@ namespace SpdReaderWriterDll.Driver {
         private static bool CheckDriver() {
 
             try {
-                return _sc.ServiceType == ServiceType.KernelDriver && _sc?.DisplayName == Name;
+                return _sc?.ServiceType == ServiceType.KernelDriver && _sc?.DisplayName == Name;
             }
             catch {
                 return false;
@@ -315,8 +318,7 @@ namespace SpdReaderWriterDll.Driver {
             _deviceHandle = new SafeFileHandle(driverHandle, true);
 
             if (_deviceHandle.IsInvalid) {
-                _deviceHandle.Close();
-                _deviceHandle.Dispose();
+                CloseDriverHandle();
             }
 
             return IsValid;
@@ -373,7 +375,7 @@ namespace SpdReaderWriterDll.Driver {
 
             uint inputSize      = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             uint returnedLength = default;
-            object outputBuffer   = outputData;
+            object outputBuffer = outputData;
 
             bool result = NtBaseApi.DeviceIoControl(
                 hDevice         : _deviceHandle,
@@ -402,7 +404,7 @@ namespace SpdReaderWriterDll.Driver {
                 return false;
             }
 
-            uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+            uint inputSize      = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             uint returnedLength = default;
 
             return NtBaseApi.DeviceIoControl(
@@ -1105,12 +1107,12 @@ namespace SpdReaderWriterDll.Driver {
         /// <summary>
         /// Driver and service name
         /// </summary>
-        private static readonly string Name = "WinRing0_1_2_0"; // WinRing0_1_2_0
+        private const string Name = "WinRing0_1_2_0"; // WinRing0_1_2_0
 
         /// <summary>
         /// Service operation timeout
         /// </summary>
-        private static readonly int _timeout = 1000;
+        private const int TIMEOUT = 1000;
 
         /// <summary>
         /// IO device handle
