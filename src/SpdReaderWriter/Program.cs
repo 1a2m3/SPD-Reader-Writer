@@ -68,7 +68,7 @@ namespace SpdReaderWriter {
 
             Silent = Data.ArrayContains(Args, "/silent");
             ShowColor = !Data.ArrayContains(Args, "/nocolor");
-            FilePath = Args.Length >= 4 && Args[3].Contains("/") ? "" : Args[3];
+            FilePath = Args.Length >= 4 && !Args[3].Contains("/") ? Args[3] : "";
 
             if (IsAdmin()) {
                 Smbus = new Smbus();

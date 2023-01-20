@@ -309,7 +309,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Defines SPD sizes
         /// </summary>
-        public readonly struct DataLength {
+        public struct DataLength {
             public const ushort Unknown = 0;
             public const ushort Minimum = 256; // DDR3, DDR2, DDR, and SDRAM
             public const ushort DDR4    = 512; // incl. LPDDR3
