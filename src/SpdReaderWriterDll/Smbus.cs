@@ -66,9 +66,6 @@ namespace SpdReaderWriterDll {
 
                 // Reset Eeprom page when bus is set
                 Eeprom.ResetPageAddress(this);
-                
-                // Rescan addresses
-                Addresses = Scan();
 
                 // Force SPD size and DDR5 flag update
                 I2CAddress = _i2CAddress;
@@ -142,7 +139,6 @@ namespace SpdReaderWriterDll {
             pciDevice = null;
 
             if (!IsConnected) {
-                Addresses        = null;
                 SMBuses          = null;
                 IsConnected      = false;
                 SpdWriteDisabled = false;
@@ -170,7 +166,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Available slave addresses on selected bus
         /// </summary>
-        public byte[] Addresses { get; private set; }
+        public byte[] Addresses => Scan();
 
         /// <summary>
         /// Platform Vendor ID
