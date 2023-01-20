@@ -50,15 +50,25 @@ namespace SpdReaderWriter {
         /// <summary>
         /// Display SPD contents in color
         /// </summary>
-        public static bool ShowColor = true;
+        public static bool ShowColor;
+
+        /// <summary>
+        /// Silent state
+        /// </summary>
+        public static bool Silent;
+
+        /// <summary>
+        /// Input or output file path
+        /// </summary>
+        public static string FilePath = "";
 
         static void Main(string[] args) {
 
             Args = args;
 
-            if (Data.ArrayContains(Args, "/nocolor")) {
-                ShowColor = false;
-            }
+            Silent = Data.ArrayContains(Args, "/silent");
+            ShowColor = !Data.ArrayContains(Args, "/nocolor");
+            FilePath = Args.Length >= 4 && Args[3].Contains("/") ? "" : Args[3];
 
             if (IsAdmin()) {
                 Smbus = new Smbus();
@@ -254,24 +264,22 @@ namespace SpdReaderWriter {
         private static void WriteEeprom() {
 
             string mode = Args[0];
-            string filePath = Args.Length >= 4 ? Args[3] : "";
-            bool silent = Args.Length >= 5 && Args[4] == "/silent";
             byte i2CAddress = (byte)int.Parse(Args[2]);
 
-            if (filePath.Length < 1) {
+            if (FilePath.Length < 1) {
                 throw new ArgumentException("File path is mandatory for write mode.");
             }
 
-            if (!File.Exists(filePath)) {
-                throw new FileNotFoundException($"File \"{filePath}\" not found.");
+            if (!File.Exists(FilePath)) {
+                throw new FileNotFoundException($"File \"{FilePath}\" not found.");
             }
 
             byte[] inputFile;
             try {
-                inputFile = File.ReadAllBytes(filePath);
+                inputFile = File.ReadAllBytes(FilePath);
             }
             catch {
-                throw new FileLoadException($"Unable to read {filePath}");
+                throw new FileLoadException($"Unable to read {FilePath}");
             }
 
             Connect();
@@ -280,13 +288,13 @@ namespace SpdReaderWriter {
 
             Console.WriteLine(
                 "Writing \"{0}\" ({1} {2}) to EEPROM at address {3}\n",
-                filePath,
+                FilePath,
                 inputFile.Length,
                 inputFile.Length > 1 ? "bytes" : "byte",
                 Arduino.I2CAddress);
 
             if (inputFile.Length > Spd.GetSpdSize(Arduino)) {
-                throw new Exception($"File \"{filePath}\" is larger than {Arduino.DataLength} bytes.");
+                throw new Exception($"File \"{FilePath}\" is larger than {Arduino.DataLength} bytes.");
             }
 
             int bytesWritten = 0;
@@ -308,7 +316,7 @@ namespace SpdReaderWriter {
 
                 bytesWritten++;
 
-                if (!silent) {
+                if (!Silent) {
                     ConsoleDisplayByte(i, b, 16, true, ShowColor);
                 }
             }
@@ -328,16 +336,15 @@ namespace SpdReaderWriter {
         /// Reads data from EEPROM
         /// </summary>
         private static void ReadEeprom() {
-            string filePath = Args.Length >= 4 ? Args[3] : "";
-            bool silent = Args.Length >= 5 && Args[4] == "/silent";
+
             byte i2CAddress = (byte)int.Parse(Args[2]);
             byte[] spdDump = new byte[0];
             string name;
 
             Console.Write($"Reading EEPROM at address {i2CAddress}");
 
-            if (filePath.Length > 0) {
-                Console.WriteLine($" to {filePath}");
+            if (FilePath.Length > 0) {
+                Console.WriteLine($" to {FilePath}");
             }
             Console.WriteLine("\n");
 
@@ -372,7 +379,7 @@ namespace SpdReaderWriter {
 
             int endTick = Environment.TickCount;
 
-            if (!silent) {
+            if (!Silent) {
                 for (int i = 0; i < spdDump.Length; i++) {
                     ConsoleDisplayByte(i, spdDump[i], 16, true, ShowColor);
                 }
@@ -385,14 +392,14 @@ namespace SpdReaderWriter {
                 name,
                 endTick - startTick);
 
-            if (filePath.Length > 0 && !filePath.Contains("/")) {
+            if (FilePath.Length > 0) {
                 try {
-                    File.WriteAllBytes(filePath, spdDump);
+                    File.WriteAllBytes(FilePath, spdDump);
                 }
                 catch {
-                    throw new Exception($"Unable to write to {filePath}");
+                    throw new Exception($"Unable to write to {FilePath}");
                 }
-                Console.Write($" to file \"{filePath}\"");
+                Console.Write($" to file \"{FilePath}\"");
             }
         }
 
