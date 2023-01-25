@@ -998,7 +998,8 @@ namespace SpdReaderWriterDll {
         private void HandleAlert(Alert alert) {
             if (alert == Alert.SLAVEDEC || 
                 alert == Alert.SLAVEINC) {
-                _addresses = null;
+                _addresses      = null;
+                _ramTypeSupport = null;
             }
         }
 
