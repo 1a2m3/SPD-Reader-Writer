@@ -94,7 +94,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns><see langword="true"/> if bit is set to 1 at <paramref name="position"/></returns>
-        public static bool GetBit(object input, byte position) {
+        public static bool GetBit(object input, int position) {
 
             if (!IsNumeric(input)) {
                 throw new InvalidDataException(nameof(input));
