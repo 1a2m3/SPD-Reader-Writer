@@ -37,11 +37,11 @@ namespace SpdReaderWriterDll {
                 throw new IOException($"Device not connected ({device.PortName})");
             }
 
-            if (device.DetectDdr5(device.I2CAddress)) {
+            if (device.DetectDdr5()) {
                 return RamType.DDR5;
             }
 
-            if (device.DetectDdr4(device.I2CAddress)) {
+            if (device.DetectDdr4()) {
                 return RamType.DDR4;
             }
 
@@ -69,32 +69,6 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Gets total EEPROM size
         /// </summary>
-        /// <param name="device">Device instance</param>
-        /// <returns>SPD size</returns>
-        public static int GetSpdSize(Arduino device) {
-
-            if (device == null) {
-                throw new NullReferenceException($"Invalid device");
-            }
-
-            if (!device.IsConnected) {
-                throw new IOException($"Device not connected ({device.PortName})");
-            }
-
-            if (device.DetectDdr5()) {
-                return DataLength.DDR5;
-            }
-
-            if (device.DetectDdr4()) {
-                return DataLength.DDR4;
-            }
-
-            return device.Scan().Length > 0 ? DataLength.Minimum : DataLength.Unknown;
-        }
-
-        /// <summary>
-        /// Gets total EEPROM size
-        /// </summary>
         /// <param name="ramType">Ram Type</param>
         /// <returns>SPD size</returns>
         public static int GetSpdSize(RamType ramType) {
@@ -107,6 +81,7 @@ namespace SpdReaderWriterDll {
                 case RamType.DDR3:
                     return DataLength.Minimum;
                 case RamType.DDR4:
+                case RamType.DDR4E:
                 case RamType.LPDDR3:
                 case RamType.LPDDR4:
                     return DataLength.DDR4;
@@ -310,6 +285,9 @@ namespace SpdReaderWriterDll {
         /// Defines SPD sizes
         /// </summary>
         public struct DataLength {
+
+            public static ushort[] Length = { Unknown, Minimum, DDR4, DDR5 };
+
             public const ushort Unknown = 0;
             public const ushort Minimum = 256; // DDR3, DDR2, DDR, and SDRAM
             public const ushort DDR4    = 512; // incl. LPDDR3
