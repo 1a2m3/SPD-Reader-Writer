@@ -490,7 +490,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
         public static bool SetRswp(Arduino arduino, byte block) {
             try {
-                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, arduino.I2CAddress, block, Arduino.Command.ON }) == Arduino.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to set RSWP on {arduino.PortName}");
@@ -505,7 +505,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if the block is write protected (or RSWP is not supported) or <see langword="false"/> when the block is writable</returns>
         public static bool GetRswp(Arduino arduino, byte block) {
             try {
-                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, block, Arduino.Command.GET }) == Arduino.Response.ENABLED;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, arduino.I2CAddress, block, Arduino.Command.GET }) == Arduino.Response.ENABLED;
             }
             catch {
                 throw new Exception($"Unable to get block {block} RSWP status on {arduino.PortName}");
@@ -519,7 +519,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if the write protection has been disabled</returns>
         public static bool ClearRswp(Arduino arduino) {
             try {
-                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, Data.BoolToNum<byte>(false), Arduino.Command.OFF }) == Arduino.Response.SUCCESS;
+                return arduino.ExecuteCommand(new[] { Arduino.Command.RSWP, arduino.I2CAddress, Data.BoolToNum<byte>(false), Arduino.Command.OFF }) == Arduino.Response.SUCCESS;
             }
             catch {
                 throw new Exception($"Unable to clear RSWP on {arduino.PortName}");
@@ -560,13 +560,8 @@ namespace SpdReaderWriterDll {
         /// <param name="arduino">Device instance</param>
         /// <param name="offset">Byte position</param>
         private static void CheckOffset(Arduino arduino, ushort offset) {
-
-            if (offset >= Spd.DataLength.DDR5 && arduino.DetectDdr5(arduino.I2CAddress)) {
-                throw new IndexOutOfRangeException("Invalid DDR5 offset");
-            }
-
-            if (offset >= Spd.DataLength.DDR4 && arduino.DetectDdr4(arduino.I2CAddress)) {
-                throw new IndexOutOfRangeException("Invalid DDR4 offset");
+            if (offset >= arduino.DataLength) {
+                throw new IndexOutOfRangeException("Invalid offset");
             }
         }
 
@@ -624,7 +619,7 @@ namespace SpdReaderWriterDll {
             public const byte LocalHid = 0b111;
 
             // I2C Legacy Mode Device Configuration
-            internal const byte MR11   = 11;
+            public const byte MR11     = 11;
 
             // Write Protection For NVM Blocks [7:0]
             public const byte MR12     = 12;

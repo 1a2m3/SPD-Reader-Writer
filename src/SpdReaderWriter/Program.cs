@@ -125,9 +125,9 @@ namespace SpdReaderWriter {
                 "{0} /write <PORTNAME> <ADDRESS#> <FILEPATH> /silent /nocolor",
                 "{0} /writeforce <PORTNAME> <ADDRESS#> <FILEPATH> /silent /nocolor",
                 "{0} /firmware <FILEPATH>",
-                "{0} /enablewriteprotection <PORTNAME>",
-                "{0} /enablewriteprotection <PORTNAME> <block#>",
-                "{0} /disablewriteprotection <PORTNAME>",
+                "{0} /enablewriteprotection <PORTNAME> <ADDRESS#>",
+                "{0} /enablewriteprotection <PORTNAME> <ADDRESS#> <block#>",
+                "{0} /disablewriteprotection <PORTNAME> <ADDRESS#>",
                 "{0} /enablepermanentwriteprotection <PORTNAME> <ADDRESS#>",
                 "",
                 "Parameters in CAPS are mandatory!",
@@ -293,7 +293,7 @@ namespace SpdReaderWriter {
                 inputFile.Length > 1 ? "bytes" : "byte",
                 Arduino.I2CAddress);
 
-            if (inputFile.Length > Spd.GetSpdSize(Arduino)) {
+            if (inputFile.Length > Arduino.DataLength) {
                 throw new Exception($"File \"{FilePath}\" is larger than {Arduino.DataLength} bytes.");
             }
 
@@ -357,7 +357,7 @@ namespace SpdReaderWriter {
                 name = Arduino.ToString();
                 Arduino.I2CAddress = i2CAddress;
 
-                for (ushort i = 0; i < Spd.GetSpdSize(Arduino); i += 32) {
+                for (ushort i = 0; i < Arduino.DataLength; i += 32) {
                     spdDump = Data.MergeArray(spdDump, Eeprom.Read(Arduino, i, 32));
                 }
 
@@ -427,20 +427,22 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void EnableRswp() {
             int[] block;
+            byte i2CAddress = (byte)int.Parse(Args[2]);
 
             Connect();
+            Arduino.I2CAddress = i2CAddress;
 
             Spd.RamType ramType = Spd.GetRamType(Arduino);
 
-            if (Args.Length == 3) { // Block # was specified
+            if (Args.Length == 4) { // Block # was specified
                 try {
-                    block = new[] { int.Parse(Args[2]) };
+                    block = new[] { int.Parse(Args[3]) };
                 }
                 catch {
                     throw new ArgumentException("Block number should be specified in decimal notation.");
                 }
 
-                if ((block[0] > 15 || block[0] < 0) ||
+                if (block[0] > 15 || block[0] < 0 ||
                     (block[0] > 3 && ramType == Spd.RamType.DDR4) ||
                     (block[0] > 0 && ramType != Spd.RamType.DDR4 && ramType != Spd.RamType.DDR5)) {
                     throw new ArgumentOutOfRangeException("Incorrect block number specified");
