@@ -483,6 +483,26 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Performs write protection test on the specified EEPROM offset
+        /// </summary>
+        /// <param name="arduino">SPD reader/writer device instance</param>
+        /// <param name="offset">Byte position</param>
+        /// <returns><see langword="true"/> if byte at <paramref name="offset"/> is writable</returns>
+        public static bool Overwrite(Arduino arduino, ushort offset) {
+            try {
+                return arduino.ExecuteCommand(new[] {
+                    Arduino.Command.OVERWRITE,
+                    arduino.I2CAddress,
+                    (byte)(offset >> 8), // MSB
+                    (byte)offset         // LSB
+                }) == Arduino.Response.SUCCESS;
+            }
+            catch {
+                throw new Exception($"Unable to perform offset # 0x{offset:X4} write test at {arduino.PortName}:{arduino.I2CAddress}");
+            }
+        }
+
+        /// <summary>
         /// Enables software write protection on the specified EEPROM block 
         /// </summary>
         /// <param name="arduino">SPD reader/writer device instance</param>
