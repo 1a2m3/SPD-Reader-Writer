@@ -258,7 +258,7 @@ namespace SpdReaderWriterDll {
                 DataReceiving   = false;
                 IsValid         = false;
                 _addresses      = null;
-                _ramTypeSupport = null;
+                _ramTypeSupport = -1;
             }
         }
 
@@ -902,7 +902,11 @@ namespace SpdReaderWriterDll {
         public byte RamTypeSupport {
             get {
                 try {
-                    return (byte)(_ramTypeSupport ?? (_ramTypeSupport = GetRswpSupport()));
+                    if (_ramTypeSupport == -1) {
+                        _ramTypeSupport = GetRswpSupport();
+                    }
+
+                    return (byte)_ramTypeSupport;
                 }
                 catch {
                     throw new Exception("Unable to get supported RAM type");
@@ -999,7 +1003,7 @@ namespace SpdReaderWriterDll {
             if (alert == Alert.SLAVEDEC || 
                 alert == Alert.SLAVEINC) {
                 _addresses      = null;
-                _ramTypeSupport = null;
+                _ramTypeSupport = -1;
             }
         }
 
@@ -1146,7 +1150,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
         /// </summary>
-        private byte? _ramTypeSupport;
+        private int _ramTypeSupport = -1;
 
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
@@ -1201,6 +1205,11 @@ namespace SpdReaderWriterDll {
             /// PSWP control
             /// </summary>
             public const byte PSWP          = (byte)'l';
+
+            /// <summary>
+            /// Write test
+            /// </summary>
+            public const byte OVERWRITE     = (byte)'o';
 
             /// <summary>
             /// Get Firmware version
