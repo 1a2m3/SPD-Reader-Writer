@@ -150,7 +150,7 @@ namespace SpdReaderWriterDll {
         /// <param name="eepromPageNumber">Page number</param>
         private static void SetPageAddress(Smbus smbus, byte eepromPageNumber) {
 
-            if (smbus.MaxSpdSize != 0 && smbus.MaxSpdSize < Spd.DataLength.DDR4) {
+            if (smbus.MaxSpdSize <= Spd.DataLength.Minimum) {
                 return;
             }
 
@@ -238,33 +238,17 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
         public static bool SetRswp(Smbus smbus, byte block) {
 
-            if (smbus.MaxSpdSize == Spd.DataLength.Minimum && block >= 1) {
-                throw new ArgumentOutOfRangeException(nameof(block));
-            }
-
-            if (smbus.MaxSpdSize == Spd.DataLength.DDR4 && block >= 4) {
+            if ((smbus.MaxSpdSize == Spd.DataLength.Minimum && block >= 1) ||
+                (smbus.MaxSpdSize == Spd.DataLength.DDR4 && block >= 4) ||
+                (smbus.MaxSpdSize == Spd.DataLength.DDR5 && block >= 16)) {
                 throw new ArgumentOutOfRangeException(nameof(block));
             }
 
             if (smbus.IsDdr5Present) {
 
-                byte memReg;
-                byte currentValue; // Existing RSWP value
-                byte updatedValue; // Updated RSWP value
-
-                if (block <= 7) {
-                    memReg       = Spd5Register.MR12;
-                    currentValue = smbus.ReadByte(smbus, smbus.I2CAddress, memReg);
-                    updatedValue = Data.SetBit(currentValue, block, true);
-                }
-                else if (block <= 15) {
-                    memReg       = Spd5Register.MR13;
-                    currentValue = smbus.ReadByte(smbus, smbus.I2CAddress, memReg);
-                    updatedValue = Data.SetBit(currentValue, block - 8, true);
-                }
-                else {
-                    throw new ArgumentOutOfRangeException("Wrong block # specified");
-                }
+                byte memReg       = (byte)(Spd5Register.MR12 + Data.BoolToNum<byte>(Data.GetBit(block, 3)));
+                byte currentValue = smbus.ReadByte(smbus, smbus.I2CAddress, memReg); // Existing RSWP value
+                byte updatedValue = Data.SetBit(currentValue, block & 0b111, true); // Updated RSWP value
 
                 return smbus.WriteByte(smbus, smbus.I2CAddress, memReg, (byte)(currentValue | updatedValue));
             }
@@ -652,7 +636,7 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// DDR5 Slave Device LID Codes
+        /// Device LID Codes
         /// </summary>
         internal struct LidCode {
             // EEPROM & SPD5 hub
