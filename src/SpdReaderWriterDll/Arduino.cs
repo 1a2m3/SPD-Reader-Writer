@@ -11,7 +11,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
@@ -529,11 +528,14 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <returns><see langword="true"/> when all config pins are reset</returns>
         public bool ResetConfigPins() {
-
-            PIN_SA1     = Pin.State.DEFAULT;
-            PIN_VHV     = Pin.State.DEFAULT;
-
-            return !PIN_SA1 && !PIN_VHV;
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand(new[] { Command.PINRESET }) == Response.SUCCESS;
+                }
+                catch {
+                    throw new Exception($"Unable to reset pin state on {PortName}");
+                }
+            }
         }
 
         /// <summary>
@@ -824,8 +826,7 @@ namespace SpdReaderWriterDll {
         public ushort GetSpdSize() {
             lock (_portLock) {
                 try {
-                    byte index = ExecuteCommand(new[] { Command.SIZE, I2CAddress });
-                    return index != Response.ERROR ? Spd.DataLength.Length[index] : Spd.DataLength.Unknown;
+                    return Spd.DataLength.Length[ExecuteCommand(new[] { Command.SIZE, I2CAddress })];
                 }
                 catch {
                     throw new Exception($"Unable to get SPD size on {PortName}:{I2CAddress}");
@@ -1197,6 +1198,11 @@ namespace SpdReaderWriterDll {
             public const byte PINCONTROL    = (byte)'p';
 
             /// <summary>
+            /// Pins state reset
+            /// </summary>
+            public const byte PINRESET      = (byte)'d';
+
+            /// <summary>
             /// RSWP control
             /// </summary>
             public const byte RSWP          = (byte)'b';
@@ -1207,7 +1213,7 @@ namespace SpdReaderWriterDll {
             public const byte PSWP          = (byte)'l';
 
             /// <summary>
-            /// Write test
+            /// Offset write protection test
             /// </summary>
             public const byte OVERWRITE     = (byte)'o';
 
@@ -1353,19 +1359,14 @@ namespace SpdReaderWriterDll {
         /// </summary>
         public struct Response {
             /// <summary>
-            /// Boolean True response
+            /// Boolean <see langword="true"/> response
             /// </summary>
             public const byte TRUE     = 0x01;
 
             /// <summary>
-            /// Boolean False response
+            /// Boolean <see langword="false"/> response
             /// </summary>
             public const byte FALSE    = 0x00;
-
-            /// <summary>
-            /// Indicates the operation has failed
-            /// </summary>
-            public const byte ERROR    = 0xFF;
 
             /// <summary>
             /// Indicates the operation was executed successfully
@@ -1401,9 +1402,9 @@ namespace SpdReaderWriterDll {
             public const byte ACK      = SUCCESS;
             public const byte ENABLED  = TRUE;
             public const byte DISABLED = FALSE;
-            public const byte NACK     = ERROR;
-            public const byte NOACK    = ERROR;
-            public const byte FAIL     = ERROR;
+            public const byte NACK     = FALSE;
+            public const byte NOACK    = FALSE;
+            public const byte FAIL     = FALSE;
             public const byte ZERO     = NULL;
 
             /// <summary>
