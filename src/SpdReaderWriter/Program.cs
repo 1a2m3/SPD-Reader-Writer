@@ -410,16 +410,12 @@ namespace SpdReaderWriter {
 
             Connect();
 
-            Arduino.PIN_SA1 = Arduino.Pin.State.ON;
-
             if (Eeprom.ClearRswp(Arduino)) {
                 Console.WriteLine("Write protection successfully disabled.");
             }
             else {
                 throw new Exception("Unable to clear write protection");
             }
-
-            Arduino.ResetConfigPins();
         }
 
         /// <summary>
@@ -465,8 +461,6 @@ namespace SpdReaderWriter {
 
                 block = Data.ConsecutiveArray<int>(0, totalBlocks - 1, 1);
             }
-
-            Arduino.ResetConfigPins();
 
             for (byte i = 0; i < block.Length; i++) {
                 Console.WriteLine(Eeprom.SetRswp(Arduino, i)
