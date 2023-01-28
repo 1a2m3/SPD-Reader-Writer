@@ -268,7 +268,7 @@ namespace SpdReaderWriterDll {
         public bool Test() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(Command.TEST) == Response.WELCOME;
+                    return ExecuteCommand<bool>(Command.TEST);
                 }
                 catch {
                     throw new Exception($"Unable to test {PortName}");
@@ -283,7 +283,7 @@ namespace SpdReaderWriterDll {
         public byte GetRswpSupport() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(Command.RSWPREPORT);
+                    return ExecuteCommand<byte>(Command.RSWPREPORT);
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} supported RAM");
@@ -337,7 +337,7 @@ namespace SpdReaderWriterDll {
                     if (IsConnected) {
                         byte response = Scan(true);
 
-                        if (response == Response.NULL) {
+                        if (response == 0) {
                             return new byte[0];
                         }
 
@@ -366,7 +366,7 @@ namespace SpdReaderWriterDll {
             if (bitmask) {
                 lock (_portLock) {
                     try {
-                        return ExecuteCommand(Command.SCANBUS);
+                        return ExecuteCommand<byte>(Command.SCANBUS);
                     }
                     catch {
                         throw new Exception($"Unable to scan I2C bus on {PortName}");
@@ -385,7 +385,7 @@ namespace SpdReaderWriterDll {
         public bool SetI2CClock(bool fastMode) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.I2CCLOCK, Data.BoolToNum<byte>(fastMode) }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.I2CCLOCK, Data.BoolToNum<byte>(fastMode) });
                 }
                 catch {
                     throw new Exception($"Unable to set I2C clock mode on {PortName}");
@@ -401,7 +401,7 @@ namespace SpdReaderWriterDll {
         public bool GetI2CClock() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.I2CCLOCK, Command.GET }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.I2CCLOCK, Command.GET });
                 }
                 catch {
                     throw new Exception($"Unable to get I2C clock mode on {PortName}");
@@ -421,7 +421,7 @@ namespace SpdReaderWriterDll {
         public bool FactoryReset() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(Command.FACTORYRESET) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(Command.FACTORYRESET);
                 }
                 catch {
                     throw new Exception($"Unable to reset device settings on {PortName}");
@@ -453,7 +453,7 @@ namespace SpdReaderWriterDll {
         public bool SetHighVoltage(bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HV_SWITCH, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.PINCONTROL, Pin.Name.HV_SWITCH, Data.BoolToNum<byte>(state) });
                 }
                 catch {
                     throw new Exception($"Unable to set High Voltage state on {PortName}");
@@ -468,7 +468,7 @@ namespace SpdReaderWriterDll {
         public bool GetHighVoltage() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, Pin.Name.HV_SWITCH, Command.GET }) == Response.ON;
+                    return ExecuteCommand<bool>(new[] { Command.PINCONTROL, Pin.Name.HV_SWITCH, Command.GET });
                 }
                 catch {
                     throw new Exception($"Unable to get High Voltage state on {PortName}");
@@ -485,7 +485,7 @@ namespace SpdReaderWriterDll {
         public bool SetConfigPin(byte pin, bool state) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, pin, Data.BoolToNum<byte>(state) }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.PINCONTROL, pin, Data.BoolToNum<byte>(state) });
                 }
                 catch {
                     throw new Exception($"Unable to set config pin state on {PortName}");
@@ -500,10 +500,25 @@ namespace SpdReaderWriterDll {
         public bool GetConfigPin(byte pin) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PINCONTROL, pin, Command.GET }) == Response.ON;
+                    return ExecuteCommand<bool>(new[] { Command.PINCONTROL, pin, Command.GET });
                 }
                 catch {
                     throw new Exception($"Unable to get config pin state on {PortName}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Resets all config pins to their default state
+        /// </summary>
+        /// <returns><see langword="true"/> when all config pins are reset</returns>
+        public bool ResetConfigPins() {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand<bool>(new[] { Command.PINRESET });
+                }
+                catch {
+                    throw new Exception($"Unable to reset pin state on {PortName}");
                 }
             }
         }
@@ -524,21 +539,6 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Resets all config pins to their default state
-        /// </summary>
-        /// <returns><see langword="true"/> when all config pins are reset</returns>
-        public bool ResetConfigPins() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand(new[] { Command.PINRESET }) == Response.SUCCESS;
-                }
-                catch {
-                    throw new Exception($"Unable to reset pin state on {PortName}");
-                }
-            }
-        }
-
-        /// <summary>
         /// Probes default EEPROM address
         /// </summary>
         /// <returns><see langword="true"/> if EEPROM is detected at assigned <see cref="I2CAddress"/></returns>
@@ -554,7 +554,7 @@ namespace SpdReaderWriterDll {
         public bool ProbeAddress(byte address) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.PROBEADDRESS, address }) == Response.ACK;
+                    return ExecuteCommand<bool>(new[] { Command.PROBEADDRESS, address });
                 }
                 catch {
                     throw new Exception($"Unable to probe address {address} on {PortName}");
@@ -614,7 +614,7 @@ namespace SpdReaderWriterDll {
         private int GetFirmwareVersion() {
             lock (_portLock) {
                 try {
-                    return int.Parse(Data.BytesToString(ExecuteCommand(Command.VERSION, Command.VERSIONLENGTH)));
+                    return BitConverter.ToInt32(ExecuteCommand<byte>(Command.VERSION, Data.CountBytes(typeof(int))), 0);
                 }
                 catch {
                     throw new Exception($"Unable to get firmware version on {PortName}");
@@ -639,10 +639,11 @@ namespace SpdReaderWriterDll {
         private static int GetIncludedFirmwareVersion() {
             try {
                 byte[] fwHeader         = Data.GzipPeek(Properties.Resources.Firmware.SpdReaderWriter_ino, 1024);
-                Regex versionPattern    = new Regex($@"([\d]{{{Command.VERSIONLENGTH}}})"); // ([\d]{8})
+                int versionLength       = Data.CountBytes(typeof(int)) * 2;
+                Regex versionPattern    = new Regex($@"([\d]{{{versionLength}}})"); // ([\d]{8})
                 MatchCollection matches = versionPattern.Matches(Data.BytesToString(fwHeader));
 
-                if (matches.Count > 0 && matches[0].Length == Command.VERSIONLENGTH) {
+                if (matches.Count > 0 && matches[0].Length == versionLength) {
                     return int.Parse(matches[0].Value);
                 }
 
@@ -666,7 +667,7 @@ namespace SpdReaderWriterDll {
         /// </summary>
         /// <param name="name">Device name</param>
         /// <returns><see langword="true"/> when the device name is set</returns>
-        public bool SetName(string name) {
+        private bool SetName(string name) {
             
             if (name == null) {
                 throw new ArgumentNullException(nameof(name));
@@ -689,7 +690,7 @@ namespace SpdReaderWriterDll {
                     // Prepare a byte array containing cmd byte + name length + name
                     byte[] command = { Command.NAME, (byte)newName.Length };
 
-                    return ExecuteCommand(Data.MergeArray(command, Encoding.ASCII.GetBytes(newName))) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(Data.MergeArray(command, Encoding.ASCII.GetBytes(newName)));
                 }
                 catch {
                     throw new Exception($"Unable to assign name to {PortName}");
@@ -701,10 +702,10 @@ namespace SpdReaderWriterDll {
         /// Gets Device's name
         /// </summary>
         /// <returns>Device's name</returns>
-        public string GetName() {
+        private string GetName() {
             lock (_portLock) {
                 try {
-                    return Data.BytesToString(ExecuteCommand(new[] { Command.NAME, Command.GET }, Command.NAMELENGTH)).Trim();
+                    return Data.BytesToString(ExecuteCommand<byte>(new[] { Command.NAME, Command.GET }, Command.NAMELENGTH)).Trim();
                 }
                 catch {
                     throw new Exception($"Unable to get {PortName} name");
@@ -763,7 +764,7 @@ namespace SpdReaderWriterDll {
         public bool DetectDdr4() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.DDR4DETECT, I2CAddress }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.DDR4DETECT, I2CAddress });
                 }
                 catch {
                     throw new Exception($"Error detecting DDR4 on {PortName}");
@@ -778,7 +779,7 @@ namespace SpdReaderWriterDll {
         public bool DetectDdr5() {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.DDR5DETECT, I2CAddress }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.DDR5DETECT, I2CAddress });
                 }
                 catch {
                     throw new Exception($"Error detecting DDR5 on {PortName}");
@@ -794,7 +795,7 @@ namespace SpdReaderWriterDll {
         public byte ReadSpd5Hub(byte register) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.GET });
+                    return ExecuteCommand<byte>(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.GET });
                 }
                 catch {
                     throw new Exception($"Unable to read SPD5 hub on {PortName}");
@@ -811,7 +812,7 @@ namespace SpdReaderWriterDll {
         public bool WriteSpd5Hub(byte register, byte value) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.SET, value }) == Response.SUCCESS;
+                    return ExecuteCommand<bool>(new[] { Command.SPD5HUBREG, I2CAddress, register, Command.SET, value });
                 }
                 catch {
                     throw new Exception($"Unable to read SPD5 hub on {PortName}");
@@ -826,7 +827,7 @@ namespace SpdReaderWriterDll {
         public ushort GetSpdSize() {
             lock (_portLock) {
                 try {
-                    return Spd.DataLength.Length[ExecuteCommand(new[] { Command.SIZE, I2CAddress })];
+                    return Spd.DataLength.Length[ExecuteCommand<byte>(new[] { Command.SIZE, I2CAddress })];
                 }
                 catch {
                     throw new Exception($"Unable to get SPD size on {PortName}:{I2CAddress}");
@@ -850,10 +851,6 @@ namespace SpdReaderWriterDll {
         public byte I2CAddress {
             get => _i2CAddress;
             set {
-                if (_i2CAddress == value) {
-                    //return;
-                }
-
                 _i2CAddress = value;
 
                 if (IsConnected && Eeprom.ValidateAddress(_i2CAddress)) {
@@ -923,7 +920,7 @@ namespace SpdReaderWriterDll {
                                                       Response.RswpSupport.DDR5)) > 0;
 
         /// <summary>
-        /// Indicates whether or not a response is expected after <see cref="ExecuteCommand(byte)"/>
+        /// Indicates whether or not a response is expected after <see cref="ExecuteCommand"/>
         /// </summary>
         public bool ResponseExpected { get; private set; }
 
@@ -971,29 +968,28 @@ namespace SpdReaderWriterDll {
 
             _bytesReceived += receiver.BytesToRead;
 
-            if (!ResponseExpected) {
-                if (receiver.BytesToRead >= 2) {
-                    if (ReadByte() == (byte)Alert.ALERT) {
+            if (ResponseExpected) {
 
-                        byte notificationReceived = ReadByte();
+                while (receiver.IsOpen && receiver.BytesToRead > 0) {
+                    DataReceiving = true;
+                    ResponseData.Enqueue(ReadByte());
+                }
 
-                        if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
-                            HandleAlert((Alert)notificationReceived);
-                            RaiseAlert(new ArduinoEventArgs {
-                                Notification = (Alert)notificationReceived
-                            });
-                            return;
-                        }
+                DataReceiving = false;
+            }
+            else {
+                if (receiver.BytesToRead >= 2 && ReadByte() == (byte)Alert.ALERT) {
+
+                    byte notificationReceived = ReadByte();
+
+                    if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
+                        HandleAlert((Alert)notificationReceived);
+                        RaiseAlert(new ArduinoEventArgs {
+                            Notification = (Alert)notificationReceived
+                        });
                     }
                 }
             }
-
-            while (receiver.IsOpen && receiver.BytesToRead > 0) {
-                DataReceiving = true;
-                ResponseData.Enqueue(ReadByte());
-            }
-
-            DataReceiving = false;
         }
 
         /// <summary>
@@ -1020,32 +1016,37 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
-        /// Executes a single byte command on the device and expects a single byte response
+        /// Executes a single byte command on the device and gets a single byte response
         /// </summary>
-        /// <param name="command">Byte to be sent to the device</param>
+        /// <param name="command">Command to be executed on the device</param>
         /// <returns>A byte received from the device in response</returns>
-        public byte ExecuteCommand(byte command) {
-            return ExecuteCommand(new[] { command }, 1)[0];
-        }
+        public T ExecuteCommand<T>(byte command) => ExecuteCommand<T>(new[] { command });
 
         /// <summary>
-        /// Executes a multi byte command on the device and expects a single byte response
+        /// Executes a multi byte command on the device and gets a single byte response
         /// </summary>
-        /// <param name="command">Bytes to be sent to the device</param>
-        /// <returns>A byte received from the device in response</returns>
-        public byte ExecuteCommand(byte[] command) {
-            return ExecuteCommand(command, 1)[0];
-        }
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="command">Command to be executed on the device</param>
+        /// <returns>A response received from the device converted to <typeparamref name="T"/></returns>
+        public T ExecuteCommand<T>(byte[] command) => (T)Convert.ChangeType(ExecuteCommand(command, Data.CountBytes(typeof(T)))[0], typeof(T));
 
         /// <summary>
-        /// Executes a single byte command on the device and expects a multi byte response
+        /// Executes a single byte command on the device and gets an array response
         /// </summary>
-        /// <param name="command">Byte to be sent to the device</param>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="command">Command with parameters to be executed on the device</param>
         /// <param name="length">Number of bytes to receive in response</param>
-        /// <returns>A byte array received from the device in response</returns>
-        public byte[] ExecuteCommand(byte command, uint length) {
-            return ExecuteCommand(new[] { command }, length);
-        }
+        /// <returns>An array of <typeparamref name="T"/> received from the device in response</returns>
+        public T[] ExecuteCommand<T>(byte command, int length) => ExecuteCommand<T>(new[] { command }, length);
+
+        /// <summary>
+        /// Executes a multi byte command on the device and gets an array response
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="command">Command with parameters to be executed on the device</param>
+        /// <param name="length">Number of bytes to receive in response</param>
+        /// <returns>An array of <typeparamref name="T"/> received from the device in response</returns>
+        public T[] ExecuteCommand<T>(byte[] command, int length) => (T[])Convert.ChangeType(ExecuteCommand(command, length), typeof(T[]));
 
         /// <summary>
         /// Executes commands on the device.
@@ -1053,7 +1054,7 @@ namespace SpdReaderWriterDll {
         /// <param name="command">Bytes to be sent to the device</param>
         /// <param name="responseLength">Number of bytes to receive in response</param>
         /// <returns>A byte array received from the device in response</returns>
-        public byte[] ExecuteCommand(byte[] command, uint responseLength) {
+        private byte[] ExecuteCommand(byte[] command, int responseLength) {
             if (command.Length == 0) {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
@@ -1123,6 +1124,7 @@ namespace SpdReaderWriterDll {
                     throw new IOException($"{PortName} failed to execute command {command}");
                 }
                 finally {
+                    ResponseData.Clear();
                     ResponseExpected = false;
                 }
             }
@@ -1165,137 +1167,132 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Read byte
             /// </summary>
-            public const byte READBYTE      = (byte)'r';
+            public const byte READBYTE     = (byte)'r';
 
             /// <summary>
             /// Write byte
             /// </summary>
-            public const byte WRITEBYTE     = (byte)'w';
+            public const byte WRITEBYTE    = (byte)'w';
 
             /// <summary>
             /// Write page
             /// </summary>
-            public const byte WRITEPAGE     = (byte)'g';
+            public const byte WRITEPAGE    = (byte)'g';
 
             /// <summary>
             /// Scan i2c bus
             /// </summary>
-            public const byte SCANBUS       = (byte)'s';
+            public const byte SCANBUS      = (byte)'s';
 
             /// <summary>
             /// Set i2c clock 
             /// </summary>
-            public const byte I2CCLOCK      = (byte)'c';
+            public const byte I2CCLOCK     = (byte)'c';
 
             /// <summary>
             /// Probe i2c address
             /// </summary>
-            public const byte PROBEADDRESS  = (byte)'a';
+            public const byte PROBEADDRESS = (byte)'a';
 
             /// <summary>
             /// Config pin state control
             /// </summary>
-            public const byte PINCONTROL    = (byte)'p';
+            public const byte PINCONTROL   = (byte)'p';
 
             /// <summary>
             /// Pins state reset
             /// </summary>
-            public const byte PINRESET      = (byte)'d';
+            public const byte PINRESET     = (byte)'d';
 
             /// <summary>
             /// RSWP control
             /// </summary>
-            public const byte RSWP          = (byte)'b';
+            public const byte RSWP         = (byte)'b';
 
             /// <summary>
             /// PSWP control
             /// </summary>
-            public const byte PSWP          = (byte)'l';
+            public const byte PSWP         = (byte)'l';
 
             /// <summary>
             /// Offset write protection test
             /// </summary>
-            public const byte OVERWRITE     = (byte)'o';
+            public const byte OVERWRITE    = (byte)'o';
 
             /// <summary>
             /// Get Firmware version
             /// </summary>
-            public const byte VERSION       = (byte)'v';
-
-            /// <summary>
-            /// Firmware version number length
-            /// </summary>
-            public const byte VERSIONLENGTH = 8;
+            public const byte VERSION      = (byte)'v';
 
             /// <summary>
             /// Device Communication Test
             /// </summary>
-            public const byte TEST          = (byte)'t';
+            public const byte TEST         = (byte)'t';
 
             /// <summary>
             /// Report current RSWP RAM support
             /// </summary>
-            public const byte RSWPREPORT    = (byte)'f';
+            public const byte RSWPREPORT   = (byte)'f';
 
             /// <summary>
             /// Device name controls
             /// </summary>
-            public const byte NAME          = (byte)'n';
+            public const byte NAME         = (byte)'n';
 
             /// <summary>
             /// Maximum name length
             /// </summary>
-            public const byte NAMELENGTH    = 16;
+            public const byte NAMELENGTH   = 16;
 
             /// <summary>
             /// DDR4 detection
             /// </summary>
-            public const byte DDR4DETECT    = (byte)'4';
+            public const byte DDR4DETECT   = (byte)'4';
 
             /// <summary>
             /// DDR5 detection
             /// </summary>
-            public const byte DDR5DETECT    = (byte)'5';
+            public const byte DDR5DETECT   = (byte)'5';
 
             /// <summary>
             /// Access SPD5 Hub register space
             /// </summary>
-            public const byte SPD5HUBREG    = (byte)'h';
+            public const byte SPD5HUBREG   = (byte)'h';
 
             /// <summary>
             /// Get EEPROM size
             /// </summary>
-            public const byte SIZE          = (byte)'z';
+            public const byte SIZE         = (byte)'z';
 
             /// <summary>
             /// Restore device settings to default
             /// </summary>
-            public const byte FACTORYRESET  = (byte)'-';
+            public const byte FACTORYRESET = (byte)'-';
 
             /// <summary>
             /// Command modifier used to modify variable value
             /// </summary>
-            public const byte SET           = 1;
+            public const byte SET          = 1;
 
             /// <summary>
             /// Suffix added to get current state
             /// </summary>
-            public const byte GET           = (byte)'?';
+            public const byte GET          = (byte)'?';
 
             /// <summary>
             /// Suffix added to set state equivalent to true/on/enable etc
             /// </summary>
-            public const byte ON            = 1;
+            public const byte ON           = 1;
 
             /// <summary>
             /// Suffix added to set state equivalent to false/off/disable etc
             /// </summary>
-            public const byte OFF           = 0;
+            public const byte OFF          = 0;
 
             /// <summary>
             /// "Do not care" byte
             /// </summary>
-            public const byte DNC           = 0;
+            public const byte DNC          = 0;
         }
 
         /// <summary>
@@ -1317,41 +1314,6 @@ namespace SpdReaderWriterDll {
                 /// </summary>
                 public const byte SA1_SWITCH = 1;
             }
-
-            /// <summary>
-            /// Struct describing config pin states
-            /// </summary>
-            public struct State {
-                /// <summary>
-                /// Pin state name describing condition when pin is <b>HIGH</b>
-                /// </summary>
-                public const bool HIGH     = true;
-
-                /// <summary>
-                /// Pin state name describing condition when pin is <b>LOW</b>
-                /// </summary>
-                public const bool LOW      = false;
-
-                // Aliases for HIGH
-                public const bool VDDSPD   = HIGH;
-                public const bool PULLUP   = HIGH;
-                public const bool VCC      = HIGH;
-                public const bool ON       = HIGH;
-                public const bool UP       = HIGH;
-                public const bool ENABLE   = HIGH;
-                public const bool ENABLED  = HIGH;
-
-                // Aliases for LOW
-                public const bool VSSSPD   = LOW;
-                public const bool PUSHDOWN = LOW;
-                public const bool VSS      = LOW;
-                public const bool GND      = LOW;
-                public const bool OFF      = LOW;
-                public const bool DOWN     = LOW;
-                public const bool DISABLE  = LOW;
-                public const bool DISABLED = LOW;
-                public const bool DEFAULT  = LOW;
-            }
         }
 
         /// <summary>
@@ -1361,51 +1323,13 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// Boolean <see langword="true"/> response
             /// </summary>
-            public const byte TRUE     = 0x01;
+            public const byte TRUE  = 0x01;
 
             /// <summary>
             /// Boolean <see langword="false"/> response
             /// </summary>
-            public const byte FALSE    = 0x00;
+            public const byte FALSE = 0x00;
 
-            /// <summary>
-            /// Indicates the operation was executed successfully
-            /// </summary>
-            public const byte SUCCESS  = 0x01;
-
-            /// <summary>
-            /// A response used to indicate an error when normally a numeric non-zero answer is expected if the operation was executed successfully
-            /// </summary>
-            public const byte NULL     = 0x00;
-
-            /// <summary>
-            /// A response used to describe when SA pin is tied to VCC
-            /// </summary> 
-            public const byte ON       = 0x01;
-
-            /// <summary>
-            /// A response used to describe when SA pin is tied to GND
-            /// </summary>
-            public const byte OFF      = 0x00;
-
-            /// <summary>
-            /// A response expected from the device after executing <see cref="Command.TEST"/> command to identify the correct device
-            /// </summary>
-            public const char WELCOME  = '!';
-
-            /// <summary>
-            /// A response indicating the command or syntax was not in a correct format
-            /// </summary>
-            public const char UNKNOWN  = '?';
-
-            // Aliases
-            public const byte ACK      = SUCCESS;
-            public const byte ENABLED  = TRUE;
-            public const byte DISABLED = FALSE;
-            public const byte NACK     = FALSE;
-            public const byte NOACK    = FALSE;
-            public const byte FAIL     = FALSE;
-            public const byte ZERO     = NULL;
 
             /// <summary>
             /// Bitmask values describing specific RSWP support in response to <see cref="Command.RSWPREPORT"/> command
@@ -1453,27 +1377,27 @@ namespace SpdReaderWriterDll {
             /// <summary>
             /// A notification received header
             /// </summary>
-            ALERT     = '@',
+            ALERT    = '@',
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has increased
             /// </summary>
-            SLAVEINC  = '+',
+            SLAVEINC = '+',
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has decreased
             /// </summary>
-            SLAVEDEC  = '-',
+            SLAVEDEC = '-',
 
             /// <summary>
             /// Notification of I2C clock frequency increase
             /// </summary>
-            CLOCKINC  = '/',
+            CLOCKINC = '/',
 
             /// <summary>
             /// Notification of I2C clock frequency decrease
             /// </summary>
-            CLOCKDDEC = '\\',
+            CLOCKDEC = '\\',
         }
 
         /// <summary>
