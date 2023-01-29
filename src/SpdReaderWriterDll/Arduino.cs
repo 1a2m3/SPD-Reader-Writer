@@ -254,10 +254,10 @@ namespace SpdReaderWriterDll {
                 }
 
                 ResponseData.Clear();
-                DataReceiving   = false;
-                IsValid         = false;
-                _addresses      = null;
-                _ramTypeSupport = -1;
+                DataReceiving    = false;
+                IsValid          = false;
+                _addresses       = null;
+                _rswpTypeSupport = -1;
             }
         }
 
@@ -897,14 +897,14 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
         /// </summary>
-        public byte RamTypeSupport {
+        public byte RswpTypeSupport {
             get {
                 try {
-                    if (_ramTypeSupport == -1) {
-                        _ramTypeSupport = GetRswpSupport();
+                    if (_rswpTypeSupport == -1) {
+                        _rswpTypeSupport = GetRswpSupport();
                     }
 
-                    return (byte)_ramTypeSupport;
+                    return (byte)_rswpTypeSupport;
                 }
                 catch {
                     throw new Exception("Unable to get supported RAM type");
@@ -915,9 +915,7 @@ namespace SpdReaderWriterDll {
         /// <summary>
         /// Value representing whether the device supports RSWP capabilities based on RAM type supported reported by the device
         /// </summary>
-        public bool RswpPresent => (RamTypeSupport & (Response.RswpSupport.DDR3 | 
-                                                      Response.RswpSupport.DDR4 |
-                                                      Response.RswpSupport.DDR5)) > 0;
+        public bool RswpPresent => RswpTypeSupport > 0;
 
         /// <summary>
         /// Indicates whether or not a response is expected after <see cref="ExecuteCommand"/>
@@ -1000,7 +998,7 @@ namespace SpdReaderWriterDll {
             if (alert == Alert.SLAVEDEC || 
                 alert == Alert.SLAVEINC) {
                 _addresses      = null;
-                _ramTypeSupport = -1;
+                _rswpTypeSupport = -1;
             }
         }
 
@@ -1151,9 +1149,9 @@ namespace SpdReaderWriterDll {
         private byte[] _addresses;
 
         /// <summary>
-        /// Bitmask value representing RAM type supported defined in <see cref="Response.RswpSupport"/> enum
+        /// Bitmask value representing RSWP type supported defined in <see cref="Response.RswpSupport"/> enum
         /// </summary>
-        private int _ramTypeSupport = -1;
+        private int _rswpTypeSupport = -1;
 
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock 
