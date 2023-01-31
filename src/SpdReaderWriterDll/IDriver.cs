@@ -9,7 +9,7 @@
 
 */
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// Driver interface

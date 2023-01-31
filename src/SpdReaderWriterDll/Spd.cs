@@ -13,9 +13,9 @@ using System;
 using System.ComponentModel;
 using System.IO;
 using System.Text;
-using SpdReaderWriterDll.Properties;
+using SpdReaderWriterCore.Properties;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// SPD class to deal with SPD data

@@ -17,7 +17,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// Data class which works with bytes, bits, strings, streams, and other types of data
@@ -511,7 +511,6 @@ namespace SpdReaderWriterDll {
 
             StringBuilder sbOutput = new StringBuilder();
 
-            // Process ASCII printable characters only
             for (int i = 0; i < input.Length; i++) {
                 char c = (char)Convert.ChangeType(input[i], typeof(char));
                 sbOutput.Append(c.ToString());

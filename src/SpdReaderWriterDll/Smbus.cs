@@ -17,7 +17,7 @@ using System.Linq;
 using System.Threading;
 using SpdReaderWriterDll.Driver;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// SMBus class

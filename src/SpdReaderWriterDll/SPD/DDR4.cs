@@ -15,7 +15,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Globalization;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
     public partial class Spd {
 
         /// <summary>

@@ -9,9 +9,7 @@
 
 */
 
-using static SpdReaderWriterDll.Spd;
-
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// Interface for different SPD classes
@@ -20,10 +18,10 @@ namespace SpdReaderWriterDll {
 
         int Length { get; }
         int SpdBytesUsed { get; }
-        RamType DramDeviceType { get; }
-        ManufacturerIdCodeData ManufacturerIdCode { get; }
+        Spd.RamType DramDeviceType { get; }
+        Spd.ManufacturerIdCodeData ManufacturerIdCode { get; }
         string PartNumber { get; }
-        DateCodeData ModuleManufacturingDate { get; }
+        Spd.DateCodeData ModuleManufacturingDate { get; }
         //ulong DieDensity { get; }
         ulong TotalModuleCapacity { get; }
         bool CrcStatus { get; }
