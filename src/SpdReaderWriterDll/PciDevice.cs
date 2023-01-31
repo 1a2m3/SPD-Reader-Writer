@@ -11,9 +11,9 @@
 
 using System;
 using System.IO;
-using SpdReaderWriterDll.Driver;
+using SpdReaderWriterCore.Driver;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// PCI Device class

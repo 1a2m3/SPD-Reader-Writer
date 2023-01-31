@@ -12,7 +12,7 @@
 #if DEBUG
 
 using System;
-using SpdReaderWriterDll;
+using SpdReaderWriterCore;
 
 namespace SpdReaderWriter {
     class Example {

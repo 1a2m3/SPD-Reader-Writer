@@ -17,9 +17,9 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using Microsoft.Win32.SafeHandles;
-using SpdReaderWriterDll.Properties;
+using SpdReaderWriterCore.Properties;
 
-namespace SpdReaderWriterDll.Driver {
+namespace SpdReaderWriterCore.Driver {
 
     /// <summary>
     /// WinRing0 Kernel driver class

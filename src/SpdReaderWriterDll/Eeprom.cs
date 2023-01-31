@@ -12,7 +12,7 @@
 using System;
 using System.ComponentModel;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
     /// <summary>
     /// Defines EEPROM class, properties, and methods to handle EEPROM operations
     /// </summary>

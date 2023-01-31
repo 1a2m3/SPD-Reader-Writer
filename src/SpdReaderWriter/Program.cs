@@ -13,8 +13,8 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Security.Principal;
-using SpdReaderWriterDll;
-using SpdReaderWriterDll.Properties;
+using SpdReaderWriterCore;
+using SpdReaderWriterCore.Properties;
 
 namespace SpdReaderWriter {
     class Program {

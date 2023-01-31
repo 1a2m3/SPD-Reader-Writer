@@ -14,7 +14,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
     public partial class Spd {
 
         /// <summary>

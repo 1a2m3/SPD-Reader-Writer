@@ -20,7 +20,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// Defines Device class, properties, and methods to handle the communication with the device
