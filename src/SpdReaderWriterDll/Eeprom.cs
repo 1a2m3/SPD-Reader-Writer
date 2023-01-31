@@ -302,12 +302,12 @@ namespace SpdReaderWriterDll {
             CheckOffset(arduino, offset);
 
             try {
-                return arduino.ExecuteCommand<byte>(new[] {
+                return arduino.ExecuteCommand<byte>(
                     Arduino.Command.READBYTE,
                     arduino.I2CAddress,
                     (byte)(offset >> 8), // MSB
                     (byte)offset,        // LSB
-                    (byte)1 });
+                    1);
             }
             catch {
                 throw new Exception($"Unable to read byte 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
@@ -330,13 +330,12 @@ namespace SpdReaderWriterDll {
             CheckOffset(arduino, offset);
 
             try {
-                return arduino.ExecuteCommand<byte>(new[] {
+                return arduino.ExecuteCommand<byte[]>(
                     Arduino.Command.READBYTE,
                     arduino.I2CAddress,
                     (byte)(offset >> 8), // MSB
                     (byte)offset,        // LSB
-                    count
-                }, count);
+                    count);
             }
             catch {
                 throw new Exception($"Unable to read byte # 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
@@ -355,12 +354,12 @@ namespace SpdReaderWriterDll {
             CheckOffset(arduino, offset);
 
             try {
-                return arduino.ExecuteCommand<bool>(new[] {
+                return arduino.ExecuteCommand<bool>(
                     Arduino.Command.WRITEBYTE,
                     arduino.I2CAddress,
                     (byte)(offset >> 8), // MSB
                     (byte)offset,        // LSB
-                    value });
+                    value);
             }
             catch {
                 throw new Exception($"Unable to write \"0x{value:X2}\" to # 0x{offset:X4} at {arduino.PortName}:{arduino.I2CAddress}");
@@ -473,11 +472,11 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if byte at <paramref name="offset"/> is writable</returns>
         public static bool Overwrite(Arduino arduino, ushort offset) {
             try {
-                return arduino.ExecuteCommand<bool>(new[] {
+                return arduino.ExecuteCommand<bool>(
                     Arduino.Command.OVERWRITE,
                     arduino.I2CAddress,
                     (byte)(offset >> 8), // MSB
-                    (byte)offset});      // LSB
+                    (byte)offset);       // LSB
             }
             catch {
                 throw new Exception($"Unable to perform offset # 0x{offset:X4} write test at {arduino.PortName}:{arduino.I2CAddress}");
@@ -492,7 +491,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when the write protection has been enabled on block <paramref name="block"/></returns>
         public static bool SetRswp(Arduino arduino, byte block) {
             try {
-                return arduino.ExecuteCommand<bool>(new[] { Arduino.Command.RSWP, arduino.I2CAddress, block, Arduino.Command.ON });
+                return arduino.ExecuteCommand<bool>(Arduino.Command.RSWP, arduino.I2CAddress, block, true);
             }
             catch {
                 throw new Exception($"Unable to set RSWP on {arduino.PortName}");
@@ -507,7 +506,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if the block is write protected (or RSWP is not supported) or <see langword="false"/> when the block is writable</returns>
         public static bool GetRswp(Arduino arduino, byte block) {
             try {
-                return arduino.ExecuteCommand<bool>(new[] { Arduino.Command.RSWP, arduino.I2CAddress, block, Arduino.Command.GET });
+                return arduino.ExecuteCommand<bool>(Arduino.Command.RSWP, arduino.I2CAddress, block, Arduino.Command.GET);
             }
             catch {
                 throw new Exception($"Unable to get block {block} RSWP status on {arduino.PortName}");
@@ -521,7 +520,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> if the write protection has been disabled</returns>
         public static bool ClearRswp(Arduino arduino) {
             try {
-                return arduino.ExecuteCommand<bool>(new[] { Arduino.Command.RSWP, arduino.I2CAddress, Data.BoolToNum<byte>(false), Arduino.Command.OFF });
+                return arduino.ExecuteCommand<bool>(Arduino.Command.RSWP, arduino.I2CAddress, 0, false);
             }
             catch {
                 throw new Exception($"Unable to clear RSWP on {arduino.PortName}");
@@ -535,7 +534,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when the permanent write protection is enabled</returns>
         public static bool SetPswp(Arduino arduino) {
             try {
-                return arduino.ExecuteCommand<bool>(new[] { Arduino.Command.PSWP, arduino.I2CAddress, Arduino.Command.ON });
+                return arduino.ExecuteCommand<bool>(Arduino.Command.PSWP, arduino.I2CAddress, true);
             }
             catch {
                 throw new Exception($"Unable to set PSWP on {arduino.PortName}");
@@ -549,7 +548,7 @@ namespace SpdReaderWriterDll {
         /// <returns><see langword="true"/> when PSWP is enabled or <see langword="false"/> if when PSWP has NOT been set and EEPROM is writable</returns>
         public static bool GetPswp(Arduino arduino) {
             try {
-                return arduino.ExecuteCommand<bool>(new[] { Arduino.Command.PSWP, arduino.I2CAddress, Arduino.Command.GET });
+                return arduino.ExecuteCommand<bool>(Arduino.Command.PSWP, arduino.I2CAddress, Arduino.Command.GET);
             }
             catch {
                 throw new Exception($"Unable to get PSWP status on {arduino.PortName}");
