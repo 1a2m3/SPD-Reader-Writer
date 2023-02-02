@@ -411,6 +411,22 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Converts byte array to hex string
+        /// </summary>
+        /// <param name="input">Input byte array</param>
+        /// <returns>Space separated hexadecimal string</returns>
+        public static string BytesToHexString(byte[] input) {
+
+            StringBuilder hex = new StringBuilder(input.Length * 2);
+
+            foreach (byte b in input) {
+                hex.Append($"{b:X2}");
+            }
+
+            return hex.ToString();
+        }
+
+        /// <summary>
         /// Compresses any data or decompresses Gzip data
         /// </summary>
         /// <param name="input">Input data</param>
