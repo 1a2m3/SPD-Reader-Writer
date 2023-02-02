@@ -165,52 +165,53 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the connection is established</returns>
         public bool Connect() {
             lock (_portLock) {
-                if (!IsConnected) {
-                    _sp = new SerialPort {
-                        // New connection settings
-                        PortName     = PortName,
-                        BaudRate     = PortSettings.BaudRate,
-                        DtrEnable    = PortSettings.DtrEnable,
-                        RtsEnable    = PortSettings.RtsEnable,
-                        ReadTimeout  = 1000,
-                        WriteTimeout = 1000,
-                    };
+                if (IsConnected) {
+                    return IsConnected;
+                }
 
-                    // Event to handle Data Reception
-                    _sp.DataReceived  += DataReceivedHandler;
+                _sp = new SerialPort {
+                    // New connection settings
+                    PortName               = PortName,
+                    BaudRate               = PortSettings.BaudRate,
+                    DtrEnable              = PortSettings.DtrEnable,
+                    RtsEnable              = PortSettings.RtsEnable,
+                    ReadTimeout            = 1000,
+                    WriteTimeout           = 1000,
+                    ReceivedBytesThreshold = PacketData.MinSize,
+                };
 
-                    // Event to handle Errors
-                    _sp.ErrorReceived += ErrorReceivedHandler;
+                // Event to handle Data Reception
+                _sp.DataReceived  += DataReceivedHandler;
 
-                    // Test the connection
+                // Event to handle Errors
+                _sp.ErrorReceived += ErrorReceivedHandler;
+
+                // Test the connection
+                try {
+                    // Establish a connection
+                    _sp.Open();
+
+                    // Reset stats
+                    _bytesSent     = 0;
+                    _bytesReceived = 0;
+
                     try {
-                        // Establish a connection
-                        _sp.Open();
-
-                        // Reset stats
-                        _bytesSent     = 0;
-                        _bytesReceived = 0;
-
-                        try {
-                            IsValid = Test();
-                        }
-                        catch {
-                            IsValid = false;
-                            Dispose();
-                        }
-
-                        if (!IsValid) {
-                            try {
-                                Dispose();
-                            }
-                            finally {
-                                throw new Exception("Invalid device");
-                            }
-                        }
+                        IsValid = Test();
                     }
-                    catch (Exception ex) {
-                        throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
+                    catch {
+                        Dispose();
+                        throw new Exception("Device failed to pass communication test");
                     }
+
+                    new Thread(ConnectionMonitor) {
+#if DEBUG
+                        Name     = "ConnectionMonitor",
+#endif
+                        Priority = ThreadPriority.BelowNormal,
+                    }.Start();
+                }
+                catch (Exception ex) {
+                    throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
                 }
             }
 
@@ -223,16 +224,18 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> once the device is disconnected</returns>
         public bool Disconnect() {
             lock (_portLock) {
-                if (IsConnected) {
-                    try {
-                        // Remove handlers
-                        _sp.DataReceived  -= DataReceivedHandler;
-                        _sp.ErrorReceived -= ErrorReceivedHandler;
-                        Dispose();
-                    }
-                    catch (Exception ex) {
-                        throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
-                    }
+                if (!IsConnected) {
+                    return !IsConnected;
+                }
+
+                try {
+                    // Remove handlers
+                    _sp.DataReceived  -= DataReceivedHandler;
+                    _sp.ErrorReceived -= ErrorReceivedHandler;
+                    Dispose();
+                }
+                catch (Exception ex) {
+                    throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
                 }
 
                 return !IsConnected;
@@ -254,8 +257,6 @@ namespace SpdReaderWriterCore {
                     _sp = null;
                 }
 
-                ResponseData.Clear();
-                DataReceiving    = false;
                 IsValid          = false;
                 _addresses       = null;
                 _rswpTypeSupport = -1;
@@ -306,7 +307,13 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>A single byte value received from the device</returns>
         public byte ReadByte() {
-            return (byte)_sp.ReadByte();
+            int value = _sp.ReadByte();
+            
+            if (value != -1) {
+                return (byte)value;
+            }
+
+            throw new EndOfStreamException("No data to read");
         }
 
         /// <summary>
@@ -545,14 +552,10 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
         /// </summary>
-        public void ClearBuffer() {
+        private void ClearBuffer() {
             lock (_portLock) {
                 try {
                     if (IsConnected) {
-                        // Clear response data
-                        if (ResponseData.Count > 0) {
-                            ResponseData.Clear();
-                        }
 
                         // Clear receive buffer
                         if (BytesToRead > 0) {
@@ -574,7 +577,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Clears serial port buffers and causes any buffered data to be written
         /// </summary>
-        public void FlushBuffer() {
+        private void FlushBuffer() {
             lock (_portLock) {
                 if (IsConnected) {
                     _sp.BaseStream.Flush();
@@ -833,7 +836,7 @@ namespace SpdReaderWriterCore {
             set {
                 _i2CAddress = value;
 
-                if (IsConnected && Eeprom.ValidateAddress(_i2CAddress)) {
+                if (Eeprom.ValidateAddress(_i2CAddress)) {
                     DataLength = GetSpdSize();
                 }
             }
@@ -898,22 +901,12 @@ namespace SpdReaderWriterCore {
         public bool RswpPresent => RswpTypeSupport > 0;
 
         /// <summary>
-        /// Indicates whether or not a response is expected after <see cref="ExecuteCommand"/>
-        /// </summary>
-        public bool ResponseExpected { get; private set; }
-
-        /// <summary>
-        /// Byte stack containing data received from Serial Port
-        /// </summary>
-        public Queue<byte> ResponseData = new Queue<byte>();
-
-        /// <summary>
         /// Indicates whether data reception is complete
         /// </summary>
-        public bool DataReceiving { get; private set; }
+        public bool IsReceivingData => _sp.BytesToRead > 0;
 
         /// <summary>
-        /// Indicates an unexpected alert has been received from Arduino
+        /// Occurs when an alert has been received from Arduino
         /// </summary>
         public event EventHandler AlertReceived;
 
@@ -931,41 +924,56 @@ namespace SpdReaderWriterCore {
         /// <param name="sender">Sender object</param>
         /// <param name="e">Event arguments</param>
         private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
-            if (sender == null || sender.GetType() != typeof(SerialPort)) {
+
+            if (sender != _sp || !IsConnected) {
                 return;
             }
 
-            _bytesReceived += _sp.BytesToRead;
+            // Set current thread priority highest
+            Thread.CurrentThread.Priority = ThreadPriority.Highest;
 
-            while (_sp.IsOpen && _sp.BytesToRead > 0) {
-                DataReceiving = true;
-                ResponseData.Enqueue(ReadByte());
+            // Prepare input buffer
+            _inputBuffer = new byte[PacketData.MaxSize];
+
+            // Wait till data is ready
+            while (BytesToRead < _sp.ReceivedBytesThreshold) {
+                Thread.Sleep(1);
             }
 
-            if (ResponseExpected) {
-                DataReceiving = false;
-                return;
+            // Read buffer data header
+            _bytesReceived += _sp.Read(_inputBuffer, 0, _sp.ReceivedBytesThreshold);
+
+            // Process input data header
+            switch (_inputBuffer[0]) {
+                case Header.ALERT:
+                    // Read alert type
+                    byte notificationReceived = _inputBuffer[1];
+
+                    // Invoke alert event
+                    if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
+                        HandleAlert((Alert)notificationReceived);
+                        OnAlertReceived(new ArduinoEventArgs {
+                            Notification = (Alert)notificationReceived
+                        });
+                    }
+
+                    break;
+
+                case Header.RESPONSE:
+                    // Wait till full packet is ready
+                    while (BytesToRead < PacketData.MaxSize - _sp.ReceivedBytesThreshold) { }
+
+                    // Read the rest of the data
+                    _bytesReceived += _sp.Read(_inputBuffer, PacketData.MinSize, PacketData.MaxSize - PacketData.MinSize);
+
+                    // Put data into response data packet
+                    _response.RawBytes = _inputBuffer;
+
+                    break;
             }
 
-            while (ResponseData.Count >= 2) {
-                if (ResponseData.Peek() != (byte)Alert.ALERT ||
-                    ResponseData.Dequeue() != (byte)Alert.ALERT) {
-                    continue;
-                }
-                
-                if (!Enum.IsDefined(typeof(Alert), (Alert)ResponseData.Peek())) {
-                    continue;
-                }
-
-                byte notificationReceived = ResponseData.Dequeue();
-
-                HandleAlert((Alert)notificationReceived);
-                OnAlertReceived(new ArduinoEventArgs {
-                    Notification = (Alert)notificationReceived
-                });
-            }
-
-            DataReceiving = false;
+            // Reset input buffer
+            _inputBuffer = null;
         }
 
         /// <summary>
@@ -990,6 +998,33 @@ namespace SpdReaderWriterCore {
             if (sender != null && sender.GetType() == typeof(SerialPort)) {
                 throw new Exception($"Error received on {((SerialPort)sender).PortName}");
             }
+        }
+
+        /// <summary>
+        /// Connection monitor
+        /// </summary>
+        private void ConnectionMonitor() {
+            while (IsValid) {
+                if (!IsConnected) {
+                    OnConnectionLost(EventArgs.Empty);
+                    Dispose();
+                    return;
+                }
+                Thread.Sleep(10);
+            }
+        }
+
+        /// <summary>
+        /// Occurs when the connection has been lost
+        /// </summary>
+        public event EventHandler ConnectionLost;
+
+        /// <summary>
+        /// Invokes the <see cref="ConnectionLost"/> event
+        /// </summary>
+        /// <param name="e">Event arguments</param>
+        protected virtual void OnConnectionLost(EventArgs e) {
+            ConnectionLost?.Invoke(this, e);
         }
 
         /// <summary>
@@ -1058,7 +1093,7 @@ namespace SpdReaderWriterCore {
         /// <param name="p2">Second parameter</param>
         /// <param name="p3">Third parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, byte p2, bool p3) => ExecuteCommand<T>(new[] { command, p1, p2, Data.BoolToNum<byte>(p3) });
+        public T ExecuteCommand<T>(byte command, byte p1, byte p2, bool p3) => ExecuteCommand<T>(command, p1, p2, Data.BoolToNum<byte>(p3));
 
         /// <summary>
         /// Executes a command with four parameters on the device
@@ -1086,28 +1121,32 @@ namespace SpdReaderWriterCore {
                 return (T)Convert.ChangeType(response, typeof(T));
             }
 
+            if (typeof(T) == typeof(bool)) {
+                return (T)Convert.ChangeType(response[0] == Response.TRUE, typeof(T));
+            }
+
             if (typeof(T) == typeof(short)) {
-                return (T)Convert.ChangeType(BitConverter.ToInt16(response, 0), TypeCode.Int16);
+                return (T)Convert.ChangeType(BitConverter.ToInt16(Data.SubArray(response, 0, 2), 0), TypeCode.Int16);
             }
 
             if (typeof(T) == typeof(ushort)) {
-                return (T)Convert.ChangeType(BitConverter.ToUInt16(response, 0), TypeCode.UInt16);
+                return (T)Convert.ChangeType(BitConverter.ToUInt16(Data.SubArray(response, 0, 2), 0), TypeCode.UInt16);
             }
 
             if (typeof(T) == typeof(int)) {
-                return (T)Convert.ChangeType(BitConverter.ToInt32(response, 0), TypeCode.Int32);
+                return (T)Convert.ChangeType(BitConverter.ToInt32(Data.SubArray(response, 0, 4), 0), TypeCode.Int32);
             }
 
             if (typeof(T) == typeof(uint)) {
-                return (T)Convert.ChangeType(BitConverter.ToUInt32(response, 0), TypeCode.UInt32);
+                return (T)Convert.ChangeType(BitConverter.ToUInt32(Data.SubArray(response, 0, 4), 0), TypeCode.UInt32);
             }
 
             if (typeof(T) == typeof(long)) {
-                return (T)Convert.ChangeType(BitConverter.ToInt64(response, 0), TypeCode.Int64);
+                return (T)Convert.ChangeType(BitConverter.ToInt64(Data.SubArray(response, 0, 8), 0), TypeCode.Int64);
             }
 
             if (typeof(T) == typeof(ulong)) {
-                return (T)Convert.ChangeType(BitConverter.ToUInt64(response, 0), TypeCode.UInt64);
+                return (T)Convert.ChangeType(BitConverter.ToUInt64(Data.SubArray(response, 0, 8), 0), TypeCode.UInt64);
             }
 
             if (typeof(T) == typeof(string)) {
@@ -1145,12 +1184,6 @@ namespace SpdReaderWriterCore {
                     // Flush the buffer
                     FlushBuffer();
 
-                    // Set to get response
-                    ResponseExpected = true;
-
-                    // Buffer for header, size, body, and checksum
-                    byte[] inputBuffer = new byte[1 + 1 + 32 + 1];
-
                     // Timeout monitoring start
                     Stopwatch sw = new Stopwatch();
                     sw.Start();
@@ -1159,50 +1192,33 @@ namespace SpdReaderWriterCore {
                     while (sw.ElapsedMilliseconds < PortSettings.Timeout * 1000) {
 
                         // Wait for data
-                        if (ResponseData.Count >= inputBuffer.Length && !DataReceiving) {
-
-                            // Get response
-                            for (int i = 0; i < inputBuffer.Length; i++) {
-                                inputBuffer[i] = ResponseData.Dequeue();
+                        if (!_response.Ready) {
+                            if (command.Length < 3) {
+                                Thread.Sleep(10);
                             }
-
-                            // Validate response
-                            if (inputBuffer[0] == Response.RESPONSE) {
-                                byte responseLength = inputBuffer[1];
-
-                                if (responseLength == 0) {
-                                    return new byte[0];
-                                }
-
-                                if (responseLength > inputBuffer.Length - 3) {
-                                    throw new OverflowException("Response length larger than buffer");
-                                }
-
-                                byte[] responseData = Data.SubArray(inputBuffer, 2, responseLength);
-
-                                if (Data.Crc(responseData) == inputBuffer[inputBuffer.Length - 1]) {
-                                    return responseData;
-                                }
-                                else {
-                                    throw new DataException("Response CRC error");
-                                }
-                            }
+                            continue;
                         }
 
-                        // Wait while waiting for data transfer
-                        if (ResponseData.Count == 0 && !DataReceiving && command.Length < 3) {
-                            Thread.Sleep(10);
+                        // Validate response
+                        if (_response.Type != Header.RESPONSE) {
+                            throw new InvalidDataException("Invalid response header");
                         }
+
+                        // Verify checksum
+                        if (_response.Checksum != Data.Crc(_response.Body)) {
+                            throw new DataException("Response CRC error");
+                        }
+
+                        return _response.Body;
                     }
 
                     throw new TimeoutException($"{PortName} response timeout");
                 }
                 catch {
-                    throw new IOException($"{PortName} failed to execute command {command}");
+                    throw new IOException($"{PortName} failed to execute command {Data.BytesToHexString(command)}");
                 }
                 finally {
-                    ResponseData.Clear();
-                    ResponseExpected = false;
+                    _response = new PacketData();
                 }
             }
         }
@@ -1211,6 +1227,16 @@ namespace SpdReaderWriterCore {
         /// Serial port instance
         /// </summary>
         private SerialPort _sp;
+
+        /// <summary>
+        /// Response packet
+        /// </summary>
+        private PacketData _response;
+
+        /// <summary>
+        /// Incoming data buffer
+        /// </summary>
+        private byte[] _inputBuffer;
 
         /// <summary>
         /// Number of bytes received from the device
@@ -1233,7 +1259,7 @@ namespace SpdReaderWriterCore {
         private int _rswpTypeSupport = -1;
 
         /// <summary>
-        /// PortLock object used to prevent other threads from acquiring the lock 
+        /// PortLock object used to prevent other threads from acquiring the lock
         /// </summary>
         private readonly object _portLock = new object();
 
@@ -1379,14 +1405,76 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Incoming packet data
+        /// </summary>
+        private struct PacketData {
+
+            /// <summary>
+            /// Raw packet contents
+            /// </summary>
+            public byte[] RawBytes {
+                get => _rawBytes;
+                set {
+                    if (value.Length > MaxSize) {
+                        throw new ArgumentOutOfRangeException();
+                    }
+
+                    _rawBytes = value;
+                }
+            }
+
+            private byte[] _rawBytes;
+
+            /// <summary>
+            /// Maximum packet length
+            /// </summary>
+            /// <remarks>
+            /// 1 byte for <see cref="Header.RESPONSE"/>,
+            /// 1 byte for <see cref="Length"/>,
+            /// 32 bytes for <see cref="Body"/>, and
+            /// 1 byte for <see cref="Checksum"/>
+            /// </remarks>
+            public static int MaxSize => 35;
+
+            /// <summary>
+            /// Minimum packet length
+            /// </summary>
+            /// <remarks>
+            /// 1 byte for <see cref="Header.ALERT"/> and
+            /// 1 byte for <see cref="Alert"/>
+            /// </remarks>
+            public static int MinSize => 2;
+
+            /// <summary>
+            /// Packet state
+            /// </summary>
+            public bool Ready => _rawBytes != null && _rawBytes.Length == MaxSize;
+
+            /// <summary>
+            /// Packet header
+            /// </summary>
+            public byte Type => _rawBytes[0];
+
+            /// <summary>
+            /// Packet body length, when <see cref="Type"/> is <see cref="Header.RESPONSE"/>
+            /// </summary>
+            public byte Length => _rawBytes[1];
+
+            /// <summary>
+            /// Packet body contents
+            /// </summary>
+            public byte[] Body => Data.SubArray(_rawBytes, 2, Length);
+
+            /// <summary>
+            /// Packet body checksum
+            /// </summary>
+            public byte Checksum => _rawBytes[_rawBytes.Length - 1];
+        }
+
+        /// <summary>
         /// Responses received from Arduino
         /// </summary>
         public struct Response {
-
-            /// <summary>
-            /// Response data header
-            /// </summary>
-            public const byte RESPONSE = (byte)'&';
 
             /// <summary>
             /// Boolean <see langword="true"/> response
@@ -1397,6 +1485,21 @@ namespace SpdReaderWriterCore {
             /// Boolean <see langword="false"/> response
             /// </summary>
             public const byte FALSE = 0x00;
+        }
+
+        /// <summary>
+        /// Incoming serial data headers
+        /// </summary>
+        public struct Header {
+            /// <summary>
+            /// Response data header
+            /// </summary>
+            public const byte RESPONSE = (byte)'&';
+
+            /// <summary>
+            /// A notification received header
+            /// </summary>
+            public const byte ALERT    = (byte)'@';
         }
 
         /// <summary>
@@ -1440,11 +1543,6 @@ namespace SpdReaderWriterCore {
         /// Alerts received from Arduino
         /// </summary>
         public enum Alert {
-
-            /// <summary>
-            /// A notification received header
-            /// </summary>
-            ALERT    = '@',
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has increased
