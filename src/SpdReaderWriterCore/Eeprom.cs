@@ -581,7 +581,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// EEPROM or SPD5 hub page number
         /// </summary>
-        public static byte PageNumber { get; set; }
+        private static byte PageNumber { get; set; }
 
         /// <summary>
         /// DDR4 EEPROM commands

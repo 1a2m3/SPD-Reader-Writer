@@ -1142,8 +1142,7 @@ namespace SpdReaderWriterCore.Driver {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private static string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
-                                           Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+        private static string _fileName => $"{Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)}\\spdrwdrv.sys";
 
         /// <summary>
         /// Indicates whether the driver service should be stopped and deleted on exit

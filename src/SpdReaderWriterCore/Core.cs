@@ -10,5 +10,8 @@
 */
 
 namespace SpdReaderWriterCore {
+    /// <summary>
+    /// Core class
+    /// </summary>
     public class Core { }
 }
