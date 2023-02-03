@@ -80,9 +80,11 @@ namespace SpdReaderWriterCore {
             get => _i2CAddress;
             set {
                 _i2CAddress = value;
+
+                // Check for DDR5 presence
                 IsDdr5Present = Eeprom.ValidateAddress(_i2CAddress) &&
                                 ProbeAddress((byte)(Eeprom.LidCode.Pmic0 << 3 | (Eeprom.Spd5Register.LocalHid & value)));
-                
+
                 // Reset Eeprom page
                 Eeprom.ResetPageAddress(this);
 
@@ -1380,6 +1382,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>SPD size</returns>
         private ushort GetMaxSpdSize(byte address) {
+
+            if (IsDdr5Present) {
+                return Spd.DataLength.DDR5;
+            }
+            
             // Read dram device type byte
             byte ramTypeByte = ReadByte(this, address, 2);
 
