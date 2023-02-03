@@ -150,7 +150,7 @@ namespace SpdReaderWriterCore {
         /// <param name="eepromPageNumber">Page number</param>
         private static void SetPageAddress(Smbus smbus, byte eepromPageNumber) {
 
-            if (smbus.MaxSpdSize <= Spd.DataLength.Minimum) {
+            if (smbus.MaxSpdSize == Spd.DataLength.Minimum) {
                 return;
             }
 
