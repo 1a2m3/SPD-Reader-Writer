@@ -196,19 +196,19 @@ namespace SpdReaderWriterCore {
                     _bytesReceived = 0;
 
                     try {
-                        IsValid = Test();
+                        if (Test()) {
+                            new Thread(ConnectionMonitor) {
+#if DEBUG
+                                Name = "ConnectionMonitor",
+#endif
+                                Priority = ThreadPriority.BelowNormal,
+                            }.Start();
+                        }
                     }
                     catch {
                         Dispose();
                         throw new Exception("Device failed to pass communication test");
                     }
-
-                    new Thread(ConnectionMonitor) {
-#if DEBUG
-                        Name     = "ConnectionMonitor",
-#endif
-                        Priority = ThreadPriority.BelowNormal,
-                    }.Start();
                 }
                 catch (Exception ex) {
                     throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
@@ -257,7 +257,6 @@ namespace SpdReaderWriterCore {
                     _sp = null;
                 }
 
-                IsValid          = false;
                 _addresses       = null;
                 _rswpTypeSupport = -1;
             }
@@ -736,11 +735,6 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Describes if the device passed connection and communication tests
-        /// </summary>
-        public bool IsValid { get; private set; }
-
-        /// <summary>
         /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="I2CAddress"/>
         /// </summary>
         /// <returns><see langword="true"/> if DDR4 is found at <see cref="I2CAddress"/></returns>
@@ -925,67 +919,73 @@ namespace SpdReaderWriterCore {
         /// <param name="e">Event arguments</param>
         private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
 
-            if (sender != _sp || !IsConnected) {
-                return;
+            lock (_receiveLock) {
+                if (sender != _sp || !IsConnected) {
+                    return;
+                }
+
+                // Set current thread priority highest
+                Thread.CurrentThread.Priority = ThreadPriority.Highest;
+
+                // Wait till data is ready
+                while (BytesToRead < _sp.ReceivedBytesThreshold) {
+                    Thread.Sleep(10);
+                }
+
+                // Prepare input buffer
+                _inputBuffer = new byte[PacketData.MaxSize];
+
+                // Read buffer data header
+                _bytesReceived += _sp.Read(_inputBuffer, 0, _sp.ReceivedBytesThreshold);
+
+                // Process input data header
+                switch (_inputBuffer[0]) {
+                    case Header.ALERT:
+
+                        // Read alert type
+                        byte messageReceived = _inputBuffer[1];
+
+                        // Invoke alert event
+                        if (Enum.IsDefined(typeof(Alert), (Alert)messageReceived)) {
+                            new Thread(() => HandleAlert((Alert)messageReceived)).Start();
+                        }
+
+                        break;
+
+                    case Header.RESPONSE:
+
+                        // Wait till full packet is ready
+                        while (BytesToRead < _inputBuffer[1] + 1) { }
+
+                        // Read the rest of the data
+                        _bytesReceived += _sp.Read(_inputBuffer, PacketData.MinSize, _inputBuffer[1] + 1);
+
+                        // Put data into response data packet
+                        _response.RawBytes = _inputBuffer;
+
+                        break;
+                }
+
+                // Reset input buffer
+                _inputBuffer = null;
             }
-
-            // Set current thread priority highest
-            Thread.CurrentThread.Priority = ThreadPriority.Highest;
-
-            // Prepare input buffer
-            _inputBuffer = new byte[PacketData.MaxSize];
-
-            // Wait till data is ready
-            while (BytesToRead < _sp.ReceivedBytesThreshold) {
-                Thread.Sleep(1);
-            }
-
-            // Read buffer data header
-            _bytesReceived += _sp.Read(_inputBuffer, 0, _sp.ReceivedBytesThreshold);
-
-            // Process input data header
-            switch (_inputBuffer[0]) {
-                case Header.ALERT:
-                    // Read alert type
-                    byte notificationReceived = _inputBuffer[1];
-
-                    // Invoke alert event
-                    if (Enum.IsDefined(typeof(Alert), (Alert)notificationReceived)) {
-                        HandleAlert((Alert)notificationReceived);
-                        OnAlertReceived(new ArduinoEventArgs {
-                            Notification = (Alert)notificationReceived
-                        });
-                    }
-
-                    break;
-
-                case Header.RESPONSE:
-                    // Wait till full packet is ready
-                    while (BytesToRead < PacketData.MaxSize - _sp.ReceivedBytesThreshold) { }
-
-                    // Read the rest of the data
-                    _bytesReceived += _sp.Read(_inputBuffer, PacketData.MinSize, PacketData.MaxSize - PacketData.MinSize);
-
-                    // Put data into response data packet
-                    _response.RawBytes = _inputBuffer;
-
-                    break;
-            }
-
-            // Reset input buffer
-            _inputBuffer = null;
         }
 
         /// <summary>
         /// Alert handler
         /// </summary>
-        /// <param name="alert">Alert type</param>
-        private void HandleAlert(Alert alert) {
-            if (alert == Alert.SLAVEDEC || 
-                alert == Alert.SLAVEINC) {
-                // Update capabilities
-                _addresses       = null;
-                _rswpTypeSupport = -1;
+        /// <param name="message">Alert type</param>
+        private void HandleAlert(Alert message) {
+
+            OnAlertReceived(new ArduinoEventArgs {
+                Notification = message
+            });
+
+            if (message == Alert.SLAVEDEC || 
+                message == Alert.SLAVEINC) {
+                // Update capabilities properties
+                _addresses       = Scan();
+                _rswpTypeSupport = GetRswpSupport();
             }
         }
 
@@ -1004,14 +1004,14 @@ namespace SpdReaderWriterCore {
         /// Connection monitor
         /// </summary>
         private void ConnectionMonitor() {
-            while (IsValid) {
-                if (!IsConnected) {
-                    OnConnectionLost(EventArgs.Empty);
-                    Dispose();
-                    return;
-                }
-                Thread.Sleep(10);
+            Thread.Sleep(2000);
+
+            while (IsConnected) {
+                Thread.Sleep(50);
             }
+
+            OnConnectionLost(EventArgs.Empty);
+            Dispose();
         }
 
         /// <summary>
@@ -1179,46 +1179,36 @@ namespace SpdReaderWriterCore {
                     // Send the command to device
                     _sp.BaseStream.Write(command, 0, command.Length);
 
+                    // Update stats
                     _bytesSent += command.Length;
 
                     // Flush the buffer
                     FlushBuffer();
 
-                    // Timeout monitoring start
-                    Stopwatch sw = new Stopwatch();
-                    sw.Start();
-
-                    // Get response
-                    while (sw.ElapsedMilliseconds < PortSettings.Timeout * 1000) {
-
-                        // Wait for data
-                        if (!_response.Ready) {
-                            if (command.Length < 3) {
-                                Thread.Sleep(10);
-                            }
-                            continue;
-                        }
-
-                        // Validate response
-                        if (_response.Type != Header.RESPONSE) {
-                            throw new InvalidDataException("Invalid response header");
-                        }
-
-                        // Verify checksum
-                        if (_response.Checksum != Data.Crc(_response.Body)) {
-                            throw new DataException("Response CRC error");
-                        }
-
-                        return _response.Body;
+                    // Wait for data
+                    if (!DataReady.WaitOne(PortSettings.Timeout * 1000)) {
+                        throw new TimeoutException($"{PortName} response timeout");
                     }
 
-                    throw new TimeoutException($"{PortName} response timeout");
+                    // Validate response
+                    if (_response.Type != Header.RESPONSE) {
+                        throw new InvalidDataException("Invalid response header");
+                    }
+
+                    // Verify checksum
+                    if (_response.Checksum != Data.Crc(_response.Body)) {
+                        throw new DataException("Response CRC error");
+                    }
+
+                    // Return response body
+                    return _response.Body;
                 }
                 catch {
                     throw new IOException($"{PortName} failed to execute command {Data.BytesToHexString(command)}");
                 }
                 finally {
                     _response = new PacketData();
+                    DataReady.Reset();
                 }
             }
         }
@@ -1262,6 +1252,16 @@ namespace SpdReaderWriterCore {
         /// PortLock object used to prevent other threads from acquiring the lock
         /// </summary>
         private readonly object _portLock = new object();
+
+        /// <summary>
+        /// Lock object to prevent simultaneous <see cref="DataReceivedHandler"/> calls
+        /// </summary>
+        private readonly object _receiveLock = new object();
+
+        /// <summary>
+        /// Data ready event
+        /// </summary>
+        private static readonly AutoResetEvent DataReady = new AutoResetEvent(false);
 
         /// <summary>
         /// Device commands
@@ -1415,11 +1415,13 @@ namespace SpdReaderWriterCore {
             public byte[] RawBytes {
                 get => _rawBytes;
                 set {
-                    if (value.Length > MaxSize) {
+                    if (MaxSize < value.Length || value.Length < MinSize) {
                         throw new ArgumentOutOfRangeException();
                     }
 
                     _rawBytes = value;
+
+                    DataReady.Set();
                 }
             }
 
@@ -1434,7 +1436,7 @@ namespace SpdReaderWriterCore {
             /// 32 bytes for <see cref="Body"/>, and
             /// 1 byte for <see cref="Checksum"/>
             /// </remarks>
-            public static int MaxSize => 35;
+            public const int MaxSize = 1 + 1 + 32 + 1;
 
             /// <summary>
             /// Minimum packet length
@@ -1443,12 +1445,12 @@ namespace SpdReaderWriterCore {
             /// 1 byte for <see cref="Header.ALERT"/> and
             /// 1 byte for <see cref="Alert"/>
             /// </remarks>
-            public static int MinSize => 2;
+            public const int MinSize = 1 + 1;
 
             /// <summary>
             /// Packet state
             /// </summary>
-            public bool Ready => _rawBytes != null && _rawBytes.Length == MaxSize;
+            public bool Ready => _rawBytes != null && _rawBytes.Length >= MinSize;
 
             /// <summary>
             /// Packet header
@@ -1463,12 +1465,12 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Packet body contents
             /// </summary>
-            public byte[] Body => Data.SubArray(_rawBytes, 2, Length);
+            public byte[] Body => Data.SubArray(_rawBytes, MinSize, Length);
 
             /// <summary>
             /// Packet body checksum
             /// </summary>
-            public byte Checksum => _rawBytes[_rawBytes.Length - 1];
+            public byte Checksum => _rawBytes[Length + MinSize];
         }
 
         /// <summary>
