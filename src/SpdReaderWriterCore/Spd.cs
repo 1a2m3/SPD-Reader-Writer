@@ -159,11 +159,11 @@ namespace SpdReaderWriterCore {
         public static ManufacturerIdCodeData FindManufacturerId(string name) {
 
             // Iterate through continuation codes
-            for (byte i = 0; i < Resources.Database.Jep106Ids.Length; i++) {
+            for (byte i = 0; i < Resources.Database.IdCodes.Length; i++) {
 
                 // Decompress database
                 const byte separatorByte = 0x0A;
-                string[] names = Data.BytesToString(Data.Gzip(Resources.Database.Jep106Ids[i], Data.GzipMethod.Decompress)).Split((char)separatorByte);
+                string[] names = Data.BytesToString(Data.Gzip(Resources.Database.IdCodes[i], Data.GzipMethod.Decompress)).Split((char)separatorByte);
 
                 // Iterate through manufacturer codes
                 for (byte j = 0; j < names.Length; j++) {
@@ -199,13 +199,13 @@ namespace SpdReaderWriterCore {
             byte spdContinuationCode = Data.SetBit((byte)(input >> 8), 7, false);
             byte spdManufacturerCode = Data.SetBit((byte)input, 7, false); // Ignore parity bit
 
-            if (spdContinuationCode > Resources.Database.Jep106Ids.Length - 1) {
+            if (spdContinuationCode > Resources.Database.IdCodes.Length - 1) {
                 return "";
             }
 
             // Decompress database
             const byte separatorByte = 0x0A;
-            byte[] idTableCharArray = Data.Gzip(Resources.Database.Jep106Ids[spdContinuationCode], Data.GzipMethod.Decompress);
+            byte[] idTableCharArray = Data.Gzip(Resources.Database.IdCodes[spdContinuationCode], Data.GzipMethod.Decompress);
             string[] names = Data.BytesToString(idTableCharArray).Split((char)separatorByte);
 
             return spdManufacturerCode <= names.Length ? names[spdManufacturerCode - 1] : "";
