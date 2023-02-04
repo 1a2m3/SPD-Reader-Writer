@@ -12,7 +12,6 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
@@ -554,32 +553,18 @@ namespace SpdReaderWriterCore {
         private void ClearBuffer() {
             lock (_portLock) {
                 try {
-                    if (IsConnected) {
+                    // Clear receive buffer
+                    if (BytesToRead > 0) {
+                        _sp.DiscardInBuffer();
+                    }
 
-                        // Clear receive buffer
-                        if (BytesToRead > 0) {
-                            _sp.DiscardInBuffer();
-                        }
-
-                        // Clear transmit buffer
-                        if (BytesToWrite > 0) {
-                            _sp.DiscardOutBuffer();
-                        }
+                    // Clear transmit buffer
+                    if (BytesToWrite > 0) {
+                        _sp.DiscardOutBuffer();
                     }
                 }
                 catch {
                     throw new Exception($"Unable to clear {PortName} buffer");
-                }
-            }
-        }
-
-        /// <summary>
-        /// Clears serial port buffers and causes any buffered data to be written
-        /// </summary>
-        private void FlushBuffer() {
-            lock (_portLock) {
-                if (IsConnected) {
-                    _sp.BaseStream.Flush();
                 }
             }
         }
@@ -895,11 +880,6 @@ namespace SpdReaderWriterCore {
         public bool RswpPresent => RswpTypeSupport > 0;
 
         /// <summary>
-        /// Indicates whether data reception is complete
-        /// </summary>
-        public bool IsReceivingData => _sp.BytesToRead > 0;
-
-        /// <summary>
         /// Occurs when an alert has been received from Arduino
         /// </summary>
         public event EventHandler AlertReceived;
@@ -924,8 +904,8 @@ namespace SpdReaderWriterCore {
                     return;
                 }
 
-                // Set current thread priority highest
-                Thread.CurrentThread.Priority = ThreadPriority.Highest;
+                // Set current thread priority above normal
+                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
                 // Wait till data is ready
                 while (BytesToRead < _sp.ReceivedBytesThreshold) {
@@ -962,7 +942,7 @@ namespace SpdReaderWriterCore {
 
                         // Put data into response data packet
                         _response.RawBytes = _inputBuffer;
-
+                        
                         break;
                 }
 
@@ -1051,7 +1031,7 @@ namespace SpdReaderWriterCore {
         /// <param name="command">Command to be executed on the device</param>
         /// <param name="p1">Command parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, bool p1) => ExecuteCommand<T>(command, Data.BoolToNum<byte>(p1));
+        public T ExecuteCommand<T>(byte command, bool p1) => ExecuteCommand<T>(new[] { command, Data.BoolToNum<byte>(p1) });
 
         /// <summary>
         /// Executes a command with two parameters on the device
@@ -1071,7 +1051,7 @@ namespace SpdReaderWriterCore {
         /// <param name="p1">First parameter</param>
         /// <param name="p2">Second parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, bool p2) => ExecuteCommand<T>(command, p1, Data.BoolToNum<byte>(p2));
+        public T ExecuteCommand<T>(byte command, byte p1, bool p2) => ExecuteCommand<T>(new[] { command, p1, Data.BoolToNum<byte>(p2) });
 
         /// <summary>
         /// Executes a command with three parameters on the device
@@ -1093,7 +1073,7 @@ namespace SpdReaderWriterCore {
         /// <param name="p2">Second parameter</param>
         /// <param name="p3">Third parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, byte p2, bool p3) => ExecuteCommand<T>(command, p1, p2, Data.BoolToNum<byte>(p3));
+        public T ExecuteCommand<T>(byte command, byte p1, byte p2, bool p3) => ExecuteCommand<T>(new[] { command, p1, p2, Data.BoolToNum<byte>(p3) });
 
         /// <summary>
         /// Executes a command with four parameters on the device
@@ -1178,12 +1158,10 @@ namespace SpdReaderWriterCore {
 
                     // Send the command to device
                     _sp.BaseStream.Write(command, 0, command.Length);
+                    _sp.BaseStream.Flush();
 
                     // Update stats
                     _bytesSent += command.Length;
-
-                    // Flush the buffer
-                    FlushBuffer();
 
                     // Wait for data
                     if (!DataReady.WaitOne(PortSettings.Timeout * 1000)) {
@@ -1196,7 +1174,7 @@ namespace SpdReaderWriterCore {
                     }
 
                     // Verify checksum
-                    if (_response.Checksum != Data.Crc(_response.Body)) {
+                    if (!_response.IsChecksumValid) {
                         throw new DataException("Response CRC error");
                     }
 
@@ -1470,7 +1448,12 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Packet body checksum
             /// </summary>
-            public byte Checksum => _rawBytes[Length + MinSize];
+            private byte Checksum => _rawBytes[Length + MinSize];
+
+            /// <summary>
+            /// Data checksum state
+            /// </summary>
+            public bool IsChecksumValid => Data.Crc(Body) == Checksum;
         }
 
         /// <summary>
