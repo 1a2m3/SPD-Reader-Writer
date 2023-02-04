@@ -868,243 +868,255 @@ namespace SpdReaderWriterCore {
         /// <see cref="SmbStatus.Error"/> or <see cref="SmbStatus.Timeout"/></returns>
         private bool ExecuteCommand(ref SmbusData smbusData) {
 
-            if (PlatformType == Platform.Unknown) {
-                return false;
-            }
+            lock (_smbusLock) {
 
-            if (PlatformType == Platform.SkylakeX) {
-                // Set input for writing
-                if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                if (PlatformType == Platform.Unknown) {
+                    return false;
+                }
+
+                if (PlatformType == Platform.SkylakeX) {
+                    // Set input for writing
+                    if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                        pciDevice.Write(
+                            offset : (byte)(SkylakeXSmbusRegister.Input + smbusData.BusNumber * 4),
+                            value  : smbusData.Input);
+                    }
+
+                    // Set slave address, offset, and Execute command
                     pciDevice.Write(
-                        offset : (byte)(SkylakeXSmbusRegister.Input + smbusData.BusNumber * 4),
-                        value  : smbusData.Input);
+                        offset : (byte)(SkylakeXSmbusRegister.Offset + smbusData.BusNumber * 4),
+                        value  : (uint)(
+                            // Enable byte read
+                            0x20 << 24 |
+                            // Execute command
+                            (SmbusCmd.CmdByteData | SmbusCmd.Start) << 16 |
+                            // Address and R/W mode
+                            (smbusData.Address | (smbusData.AccessMode == SmbusAccessMode.Write ? 1 << 7 : 0)) << 8 |
+                            // Offset
+                            (byte)smbusData.Offset
+                            )
+                        );
+
+                    // Wait after writing
+                    if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                        Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
+                            ? ExecutionDelay.WriteDelay
+                            : ExecutionDelay.WaitDelay);
+                    }
+
+                    // Wait for completion
+                    if (!WaitForStatus(
+                            statuses : new[] { SmbStatus.Ready, SmbStatus.Success, SmbStatus.Error }, 
+                            timeout  : 1000)) {
+                        smbusData.Status = SmbStatus.Timeout;
+                        return false;
+                    }
+
+                    // Set status
+                    smbusData.Status = GetBusStatus();
+
+                    // Read and assign output if read mode is specified
+                    if (smbusData.Status == SmbStatus.Error) {
+                        return false;
+                    }
+
+                    if (smbusData.AccessMode == SmbusAccessMode.Read) {
+                        smbusData.Output = pciDevice.Read<byte>(
+                            offset : (byte)(SkylakeXSmbusRegister.Output + smbusData.BusNumber * 4));
+                    }
                 }
+                else if (PlatformType == Platform.Default && Info.VendorId == VendorId.Nvidia) {
 
-                // Set slave address, offset, and Execute command
-                pciDevice.Write(
-                    offset : (byte)(SkylakeXSmbusRegister.Offset + smbusData.BusNumber * 4),
-                    value  : (uint)(
-                        // Enable byte read
-                        0x20 << 24 |
-                        // Execute command
-                        (SmbusCmd.CmdByteData | SmbusCmd.Start) << 16 |
-                        // Address and R/W mode
-                        (smbusData.Address | (smbusData.AccessMode == SmbusAccessMode.Write ? 1 << 7 : 0)) << 8 |
-                        // Offset
-                        (byte)smbusData.Offset
-                        )
-                    );
+                    if (smbusData.BusNumber > 0) {
+                        return false;
+                    }
 
-                // Wait after writing
-                if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
-                        ? ExecutionDelay.WriteDelay
-                        : ExecutionDelay.WaitDelay);
-                }
-
-                // Wait for completion
-                if (!WaitForStatus(new[] { SmbStatus.Ready, SmbStatus.Success, SmbStatus.Error }, 1000)) {
-                    smbusData.Status = SmbStatus.Timeout;
-                    return false;
-                }
-
-                // Set status
-                smbusData.Status = GetBusStatus();
-
-                // Read and assign output if read mode is specified
-                if (smbusData.Status == SmbStatus.Error) {
-                    return false;
-                }
-
-                if (smbusData.AccessMode == SmbusAccessMode.Read) {
-                    smbusData.Output = pciDevice.Read<byte>(
-                        offset : (byte)(SkylakeXSmbusRegister.Output + smbusData.BusNumber * 4));
-                }
-            }
-            else if (PlatformType == Platform.Default && Info.VendorId == VendorId.Nvidia) {
-
-                if (smbusData.BusNumber > 0) {
-                    return false;
-                }
-
-                // Set Smbus address
-                ioPort.Write(
-                    offset : NvidiaSmbusRegister.Address,
-                    value  : (byte)(smbusData.Address << 1));
-
-                // Set offset
-                ioPort.Write(
-                    offset : NvidiaSmbusRegister.Command,
-                    value  : (byte)smbusData.Offset);
-
-                // Set data byte register if Write mode is set
-                if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                    // Set Smbus address
                     ioPort.Write(
-                        offset : NvidiaSmbusRegister.Data,
-                        value  : smbusData.Input);
-                }
+                        offset : NvidiaSmbusRegister.Address,
+                        value  : (byte)(smbusData.Address << 1));
 
-                // Protocol command
-                byte protocolCmd = 0x00;
-
-                // Check access mode and set protocol mode bit accordingly
-                protocolCmd |= smbusData.AccessMode == SmbusAccessMode.Read
-                    ? NvidiaSmbusProtocol.Read
-                    : NvidiaSmbusProtocol.Write;
-
-                // Command type
-                switch (smbusData.DataCommand) {
-                    case SmbusDataCommand.Quick:
-                        protocolCmd |= NvidiaSmbusProtocol.Quick;
-                        break;
-                    case SmbusDataCommand.Byte:
-                        protocolCmd |= NvidiaSmbusProtocol.Byte;
-                        break;
-                    case SmbusDataCommand.ByteData:
-                    default:
-                        protocolCmd |= NvidiaSmbusProtocol.ByteData;
-                        break;
-                    case SmbusDataCommand.WordData:
-                        protocolCmd |= NvidiaSmbusProtocol.WordData;
-                        break;
-                }
-
-                // Execute command
-                ioPort.Write(
-                    offset : NvidiaSmbusRegister.Protocol,
-                    value  : protocolCmd);
-
-                // Wait after writing
-                if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
-                        ? ExecutionDelay.WriteDelay * 2
-                        : ExecutionDelay.WaitDelay);
-                }
-
-                // Wait for completion
-                if (!WaitForStatus(statuses: new[] { SmbStatus.Success, SmbStatus.Error }, 1000)) {
-                    smbusData.Status = SmbStatus.Timeout;
-                    return false;
-                }
-
-                // Set status
-                smbusData.Status = GetBusStatus();
-
-                if (smbusData.Status == SmbStatus.Error) {
-                    return false;
-                }
-
-                // Read and assign output if read mode is specified
-                if (smbusData.AccessMode == SmbusAccessMode.Read) {
-                    smbusData.Output = ioPort.Read<byte>(NvidiaSmbusRegister.Data);
-                }
-            }
-            else if (PlatformType == Platform.Default && Info.VendorId != VendorId.Nvidia) {
-                // These platforms don't support multiple SMbuses
-                if (smbusData.BusNumber > 0 && Info.VendorId == VendorId.Intel) {
-                    return false;
-                }
-
-                // Alternative AMD SMBus
-                byte portOffset = 0;
-
-                if (Info.VendorId == VendorId.AMD) {
-                    portOffset = (byte)(BusNumber * 20);
-                }
-
-                // Clear status bitmask to reset status
-                byte clearStatusMask = SmbusStatus.Interrupt |
-                                       SmbusStatus.DeviceErr |
-                                       SmbusStatus.BusCollision |
-                                       SmbusStatus.Failed;
-
-                // Reset status 
-                ioPort.Write(
-                    offset : (byte)(DefaultSmbusRegister.Status + portOffset),
-                    value  : clearStatusMask);
-
-                // Wait for ready status
-                if (!WaitForStatus(SmbStatus.Ready, 1000)) {
-                    smbusData.Status = SmbStatus.Timeout;
-                    return false;
-                }
-
-                // Set slave address
-                ioPort.Write(
-                    offset : (byte)(DefaultSmbusRegister.Address + portOffset),
-                    value  : (byte)(smbusData.Address << 1 | (smbusData.AccessMode == SmbusAccessMode.Read ? 1 : 0)));
-
-                // Set input data for writing
-                if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                    // Set offset
                     ioPort.Write(
-                        offset : (byte)(DefaultSmbusRegister.Data0 + portOffset),
-                        value  : smbusData.Input);
+                        offset : NvidiaSmbusRegister.Command,
+                        value  : (byte)smbusData.Offset);
+
+                    // Set data byte register if Write mode is set
+                    if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                        ioPort.Write(
+                            offset : NvidiaSmbusRegister.Data,
+                            value  : smbusData.Input);
+                    }
+
+                    // Protocol command
+                    byte protocolCmd = 0x00;
+
+                    // Check access mode and set protocol mode bit accordingly
+                    protocolCmd |= smbusData.AccessMode == SmbusAccessMode.Read
+                        ? NvidiaSmbusProtocol.Read
+                        : NvidiaSmbusProtocol.Write;
+
+                    // Command type
+                    switch (smbusData.DataCommand) {
+                        case SmbusDataCommand.Quick:
+                            protocolCmd |= NvidiaSmbusProtocol.Quick;
+                            break;
+                        case SmbusDataCommand.Byte:
+                            protocolCmd |= NvidiaSmbusProtocol.Byte;
+                            break;
+                        case SmbusDataCommand.ByteData:
+                        default:
+                            protocolCmd |= NvidiaSmbusProtocol.ByteData;
+                            break;
+                        case SmbusDataCommand.WordData:
+                            protocolCmd |= NvidiaSmbusProtocol.WordData;
+                            break;
+                    }
+
+                    // Execute command
+                    ioPort.Write(
+                        offset : NvidiaSmbusRegister.Protocol,
+                        value  : protocolCmd);
+
+                    // Wait after writing
+                    if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                        Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
+                            ? ExecutionDelay.WriteDelay * 2
+                            : ExecutionDelay.WaitDelay);
+                    }
+
+                    // Wait for completion
+                    if (!WaitForStatus(
+                            statuses : new[] { SmbStatus.Success, SmbStatus.Error },
+                            timeout  : 1000)) {
+                        smbusData.Status = SmbStatus.Timeout;
+                        return false;
+                    }
+
+                    // Set status
+                    smbusData.Status = GetBusStatus();
+
+                    if (smbusData.Status == SmbStatus.Error) {
+                        return false;
+                    }
+
+                    // Read and assign output if read mode is specified
+                    if (smbusData.AccessMode == SmbusAccessMode.Read) {
+                        smbusData.Output = ioPort.Read<byte>(NvidiaSmbusRegister.Data);
+                    }
+                }
+                else if (PlatformType == Platform.Default && Info.VendorId != VendorId.Nvidia) {
+                    // These platforms don't support multiple SMbuses
+                    if (smbusData.BusNumber > 0 && Info.VendorId == VendorId.Intel) {
+                        return false;
+                    }
+
+                    // Alternative AMD SMBus
+                    byte portOffset = 0;
+
+                    if (Info.VendorId == VendorId.AMD) {
+                        portOffset = (byte)(BusNumber * 20);
+                    }
+
+                    // Clear status bitmask to reset status
+                    byte clearStatusMask = SmbusStatus.Interrupt |
+                                           SmbusStatus.DeviceErr |
+                                           SmbusStatus.BusCollision |
+                                           SmbusStatus.Failed;
+
+                    // Reset status
+                    ioPort.Write(
+                        offset : (byte)(DefaultSmbusRegister.Status + portOffset),
+                        value  : clearStatusMask);
+
+                    // Wait for ready status
+                    if (!WaitForStatus(SmbStatus.Ready, 1000)) {
+                        smbusData.Status = SmbStatus.Timeout;
+                        return false;
+                    }
+
+                    // Set slave address
+                    ioPort.Write(
+                        offset : (byte)(DefaultSmbusRegister.Address + portOffset),
+                        value  : (byte)(smbusData.Address << 1 | (smbusData.AccessMode == SmbusAccessMode.Read ? 1 : 0)));
+
+                    // Set input data for writing
+                    if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                        ioPort.Write(
+                            offset : (byte)(DefaultSmbusRegister.Data0 + portOffset),
+                            value  : smbusData.Input);
+                    }
+
+                    // Set offset
+                    ioPort.Write(
+                        offset : (byte)(DefaultSmbusRegister.HostCmd + portOffset),
+                        value  : (byte)smbusData.Offset);
+
+                    // Command type
+                    byte smbusDataCmd;
+
+                    switch (smbusData.DataCommand) {
+                        case SmbusDataCommand.Quick:
+                            smbusDataCmd = SmbusCmd.CmdQuick;
+                            break;
+                        case SmbusDataCommand.Byte:
+                            smbusDataCmd = SmbusCmd.CmdByte;
+                            break;
+                        case SmbusDataCommand.ByteData:
+                        default:
+                            smbusDataCmd = SmbusCmd.CmdByteData;
+                            break;
+                        case SmbusDataCommand.WordData:
+                            smbusDataCmd = SmbusCmd.CmdWordData;
+                            break;
+                    }
+
+                    // Execute
+                    ioPort.Write(
+                        offset : (byte)(DefaultSmbusRegister.Control + portOffset),
+                        value  : (byte)(SmbusCmd.Interrupt | smbusDataCmd | SmbusCmd.Start));
+
+                    // Wait after writing
+                    if (smbusData.AccessMode == SmbusAccessMode.Write) {
+                        Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
+                            ? ExecutionDelay.WriteDelay
+                            : ExecutionDelay.WaitDelay);
+                    }
+
+                    // Wait for completion
+                    if (!WaitForStatus(
+                            statuses : new[] { SmbStatus.Ready, SmbStatus.Success, SmbStatus.Error },
+                            timeout  : 1000)) {
+
+                        // Abort current execution
+                        ioPort.Write((byte)(DefaultSmbusRegister.Control + portOffset), SmbusCmd.Stop);
+
+                        smbusData.Status = SmbStatus.Timeout;
+                        return false;
+                    }
+
+                    // Set status
+                    smbusData.Status = GetBusStatus();
+
+                    // Check status
+                    if (smbusData.Status == SmbStatus.Error) {
+                        return false;
+                    }
+
+                    // Read and assign output if read mode is specified
+                    if (smbusData.AccessMode == SmbusAccessMode.Read) {
+                        smbusData.Output = ioPort.Read<byte>(offset: DefaultSmbusRegister.Data0);
+                    }
                 }
 
-                // Set offset
-                ioPort.Write(
-                    offset : (byte)(DefaultSmbusRegister.HostCmd + portOffset),
-                    value  : (byte)smbusData.Offset);
-
-                // Command type
-                byte smbusDataCmd;
-
-                switch (smbusData.DataCommand) {
-                    case SmbusDataCommand.Quick:
-                        smbusDataCmd = SmbusCmd.CmdQuick;
-                        break;
-                    case SmbusDataCommand.Byte:
-                        smbusDataCmd = SmbusCmd.CmdByte;
-                        break;
-                    case SmbusDataCommand.ByteData:
-                    default:
-                        smbusDataCmd = SmbusCmd.CmdByteData;
-                        break;
-                    case SmbusDataCommand.WordData:
-                        smbusDataCmd = SmbusCmd.CmdWordData;
-                        break;
-                }
-
-                // Execute
-                ioPort.Write(
-                    offset : (byte)(DefaultSmbusRegister.Control + portOffset),
-                    value  : (byte)(SmbusCmd.Interrupt | smbusDataCmd | SmbusCmd.Start));
-
-                // Wait after writing
-                if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                    Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
-                        ? ExecutionDelay.WriteDelay
-                        : ExecutionDelay.WaitDelay);
-                }
-
-                // Wait for completion
-                if (!WaitForStatus(
-                        statuses : new[] { SmbStatus.Ready, SmbStatus.Success, SmbStatus.Error },
-                        timeout  : 1000)) {
-
-                    // Abort current execution
-                    ioPort.Write((byte)(DefaultSmbusRegister.Control + portOffset), SmbusCmd.Stop);
-
-                    smbusData.Status = SmbStatus.Timeout;
-                    return false;
-                }
-
-                // Set status
-                smbusData.Status = GetBusStatus();
-
-                // Check status
-                if (smbusData.Status == SmbStatus.Error) {
-                    return false;
-                }
-
-                // Read and assign output if read mode is specified
-                if (smbusData.AccessMode == SmbusAccessMode.Read) {
-                    smbusData.Output = ioPort.Read<byte>(offset: DefaultSmbusRegister.Data0);
-                }
+                return true;
             }
-
-            return true;
         }
+
+        /// <summary>
+        /// Smbus lock to prevent SMBus access from multiple threads simultaneously
+        /// </summary>
+        private object _smbusLock = new object();
 
         /// <summary>
         /// SMBus Host Control Register data
