@@ -733,30 +733,6 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Scan SMBus for available slave devices
         /// </summary>
-        /// <param name="bitmask">Set to <see langword="true"/> to enable bitmask result</param>
-        /// <returns>
-        /// A bitmask value representing available bus addresses.
-        /// <example>Bit 0 is address 80, bit 1 is address 81, and so on.</example>
-        /// </returns>
-        public byte Scan(bool bitmask) {
-            byte result = 0;
-
-            if (!bitmask) {
-                throw new ArgumentException("Invalid use of method argument " + nameof(bitmask));
-            }
-
-            byte[] scanResult = Scan();
-
-            foreach (byte address in scanResult) {
-                result = Data.SetBit(result, (byte)(address - 0x50), true);
-            }
-
-            return result;
-        }
-
-        /// <summary>
-        /// Scan SMBus for available slave devices
-        /// </summary>
         /// <param name="controller">SMBus instance</param>
         /// <param name="minimumResults">Set to <see langword="true"/> to stop scanning once at least one slave address is found,
         /// or <see langword="false"/> to scan the entire range</param>
@@ -1386,7 +1362,7 @@ namespace SpdReaderWriterCore {
             if (IsDdr5Present) {
                 return Spd.DataLength.DDR5;
             }
-            
+
             // Read dram device type byte
             byte ramTypeByte = ReadByte(this, address, 2);
 
