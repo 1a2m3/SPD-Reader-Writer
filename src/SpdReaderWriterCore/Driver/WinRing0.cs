@@ -17,9 +17,9 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using Microsoft.Win32.SafeHandles;
-using SpdReaderWriterDll.Properties;
+using SpdReaderWriterCore.Properties;
 
-namespace SpdReaderWriterDll.Driver {
+namespace SpdReaderWriterCore.Driver {
 
     /// <summary>
     /// WinRing0 Kernel driver class
@@ -1142,8 +1142,7 @@ namespace SpdReaderWriterDll.Driver {
         /// <summary>
         /// Path to driver file
         /// </summary>
-        private static string _fileName => Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) + "\\" +
-                                           Path.ChangeExtension(Path.GetFileName(Assembly.GetExecutingAssembly().Location), "sys");
+        private static string _fileName => $"{Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)}\\spdrwdrv.sys";
 
         /// <summary>
         /// Indicates whether the driver service should be stopped and deleted on exit

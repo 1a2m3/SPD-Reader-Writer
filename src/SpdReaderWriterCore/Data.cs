@@ -17,7 +17,7 @@ using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// Data class which works with bytes, bits, strings, streams, and other types of data
@@ -68,7 +68,7 @@ namespace SpdReaderWriterDll {
         /// <returns>Parity bit</returns>
         public static byte GetParity(object input, Parity parityType) {
 
-            uint bitCount = CountBits(input);
+            int bitCount = CountBits(input);
             ulong value   = Convert.ToUInt64(input) & GenerateBitmask<ulong>(bitCount);
 
             byte result = 0;
@@ -94,13 +94,13 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input byte to get bit value from</param>
         /// <param name="position">Bit position from 0 (LSB) to 7 (MSB)</param>
         /// <returns><see langword="true"/> if bit is set to 1 at <paramref name="position"/></returns>
-        public static bool GetBit(object input, byte position) {
+        public static bool GetBit(object input, int position) {
 
             if (!IsNumeric(input)) {
                 throw new InvalidDataException(nameof(input));
             }
 
-            ulong value = Convert.ToUInt64(input) & GenerateBitmask<ulong>(CountBits(input));
+            long value = Convert.ToInt64(input) & GenerateBitmask<long>(CountBits(input));
 
             return ((value >> position) & 1) == 1;
         }
@@ -138,7 +138,7 @@ namespace SpdReaderWriterDll {
         /// <param name="input">Input data to get bits from</param>
         /// <param name="position">Bit position</param>
         /// <returns>Value matching bit pattern starting at <paramref name="input"/> position till LSB</returns>
-        public static T SubByte<T>(T input, uint position) {
+        public static T SubByte<T>(T input, int position) {
 
             if (!IsNumeric(input)) {
                 throw new InvalidDataException(nameof(input));
@@ -155,7 +155,7 @@ namespace SpdReaderWriterDll {
         /// <param name="position">Bit position</param>
         /// <param name="count">The number of bits to read to the right of <paramref name="position"/> </param>
         /// <returns>Value matching bit pattern at <paramref name="input"/> position of <paramref name="count"/> bits</returns>
-        public static T SubByte<T>(T input, uint position, uint count) {
+        public static T SubByte<T>(T input, int position, int count) {
 
             if (input == null) {
                 throw new ArgumentNullException(nameof(input));
@@ -184,7 +184,7 @@ namespace SpdReaderWriterDll {
             object mask = Convert.ChangeType(GenerateBitmask<T>(count), typeof(T));
 
             // Calculate shift position for the input
-            int shift = (int)(position - count + 1);
+            int shift = position - count + 1;
 
             // Bitwise AND shifted input and mask
             object result = null;
@@ -227,14 +227,14 @@ namespace SpdReaderWriterDll {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input data</param>
         /// <returns>Number of bits in input data</returns>
-        public static uint CountBits<T>(T input) {
+        public static int CountBits<T>(T input) {
 
             if (!IsNumeric(input)) {
                 throw new InvalidDataException(nameof(input));
             }
 
             try {
-                return (uint)(Marshal.SizeOf(input) * 8);
+                return Marshal.SizeOf(input) * 8;
             }
             catch {
                 return 0;
@@ -242,12 +242,26 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Counts number of bytes in input type 
+        /// </summary>
+        /// <param name="input">Input type</param>
+        /// <returns>Number of bits in input type</returns>
+        public static int CountBytes(Type input) {
+
+            if (input == typeof(bool)) {
+                return 1;
+            }
+
+            return Marshal.SizeOf(input);
+        }
+
+        /// <summary>
         /// Generates bitmask
         /// </summary>
         /// <param name="count">Number of bits</param>
         /// <returns>Bitmask with a number of bits specified in <paramref name="count"/> parameter</returns>
-        public static T GenerateBitmask<T>(uint count) {
-            return (T)Convert.ChangeType((Math.Pow(2, count) - 1), typeof(T));
+        public static T GenerateBitmask<T>(int count) {
+            return (T)Convert.ChangeType(Math.Pow(2, count) - 1, typeof(T));
         }
 
         /// <summary>
@@ -397,6 +411,22 @@ namespace SpdReaderWriterDll {
         }
 
         /// <summary>
+        /// Converts byte array to hex string
+        /// </summary>
+        /// <param name="input">Input byte array</param>
+        /// <returns>Space separated hexadecimal string</returns>
+        public static string BytesToHexString(byte[] input) {
+
+            StringBuilder hex = new StringBuilder(input.Length * 2);
+
+            foreach (byte b in input) {
+                hex.Append($"{b:X2}");
+            }
+
+            return hex.ToString();
+        }
+
+        /// <summary>
         /// Compresses any data or decompresses Gzip data
         /// </summary>
         /// <param name="input">Input data</param>
@@ -497,7 +527,6 @@ namespace SpdReaderWriterDll {
 
             StringBuilder sbOutput = new StringBuilder();
 
-            // Process ASCII printable characters only
             for (int i = 0; i < input.Length; i++) {
                 char c = (char)Convert.ChangeType(input[i], typeof(char));
                 sbOutput.Append(c.ToString());

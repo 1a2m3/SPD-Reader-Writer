@@ -12,7 +12,7 @@
 using System;
 using System.IO;
 
-namespace SpdReaderWriterDll {
+namespace SpdReaderWriterCore {
 
     /// <summary>
     /// I/O port class
