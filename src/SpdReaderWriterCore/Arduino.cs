@@ -18,6 +18,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace SpdReaderWriterCore {
 
@@ -689,7 +690,7 @@ namespace SpdReaderWriterCore {
 
             string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
 
-            foreach (string portName in ports) {
+            Parallel.ForEach(ports, portName => {
                 using (Arduino device = new Arduino(settings, portName)) {
                     try {
                         if (device.Connect()) {
@@ -697,10 +698,10 @@ namespace SpdReaderWriterCore {
                         }
                     }
                     catch {
-                        continue;
+                        return;
                     }
                 }
-            }
+            });
 
             return result.ToArray();
         }
