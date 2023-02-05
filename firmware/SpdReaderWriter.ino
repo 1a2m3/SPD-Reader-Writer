@@ -16,159 +16,166 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define VERSION 20221110 // Version number (YYYYMMDD)
+#define FW_VER 20230202  // Firmware version number (YYYYMMDD)
 
-// RSWP RAM support bitmasks
-#define DDR5 (1 << 5) // Offline mode control
-#define DDR4 (1 << 4) // VHV control
-#define DDR3 (1 << 3) // VHV+SA1 controls
+// RAM RSWP support bitmasks
+#define DDR5 _BV(5)  // Offline mode
+#define DDR4 _BV(4)  // VHV control
+#define DDR3 _BV(3)  // VHV+SA1 controls
 
 // SPD5 hub registers
-#define MEMREG 0b11111 // SPD5 internal register bitmask
 #define MR0  0x00  // Device Type; Most Significant Byte
 #define MR1  0x01  // Device Type; Least Significant Byte
-#define MR2  0x02  // Device Revision
-#define MR3  0x03  // Vendor ID Byte 0
-#define MR4  0x04  // Vendor ID Byte 1
-#define MR5  0x05  // Device Capability
 #define MR6  0x06  // Device Write Recovery Time Capability
 #define MR11 0x0B  // I2C Legacy Mode Device Configuration
 #define MR12 0x0C  // Write Protection For NVM Blocks [7:0]
 #define MR13 0x0D  // Write Protection for NVM Blocks [15:8]
 #define MR14 0x0E  // Device Configuration - Host and Local Interface IO
-#define MR15 0x0F  // Device Configuration - Local Interface Pull-up Resistors
 #define MR18 0x12  // Device Configuration
-#define MR19 0x13  // Clear Register MR51 Temperature Status Command
 #define MR20 0x14  // Clear Register MR52 Error Status Command
 #define MR48 0x30  // Device Status
-#define MR51 0x33  // TS Temperature Status
 #define MR52 0x34  // Hub, Thermal and NVM Error Status
 
-// EEPROM page commands
-#define SPA0 0x6C  // Set EE Page Address to 0 (offsets  00h to  FFh) (  0-255) (DDR4)
-#define SPA1 0x6E  // Set EE Page Address to 1 (offsets 100h to 1FFh) (256-511) (DDR4)
-#define RPA  0x6D  // Read EE Page Address                                      (DDR4)
+#define PMIC 0b1001 << 3  // PMIC local device type ID
+
+// SPD5 hub device type data
+#define SPD5_NO 0x5108  // SPD5 Hub Device
+#define SPD5_TS 0x5118  // SPD5 Hub Device w/ Temp Sensor
+
+// DDR4 EEPROM page commands
+#define SPA0 0x6C  // Set Page Address 0
+#define SPA1 0x6E  // Set Page Address 1
+#define RPA  0x6D  // Read Page Address
 
 // EEPROM RSWP commands
-#define RPS0 0x63  // Read SWP0 status         (offsets  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2)
-#define RPS1 0x69  // Read SWP1 status         (offsets  80h to  FFh) (128-255) (DDR4)
-#define RPS2 0x6B  // Read SWP2 status         (offsets 100h to 17Fh) (256-383) (DDR4)
-#define RPS3 0x61  // Read SWP3 status         (offsets 180h to 1FFh) (384-511) (DDR4)
+#define RPS0 0x63  // Read SWP0 status      (offsets   0-127) (DDR4/DDR3/DDR2)
+#define RPS1 0x69  // Read SWP1 status      (offsets 128-255) (DDR4)
+#define RPS2 0x6B  // Read SWP2 status      (offsets 256-383) (DDR4)
+#define RPS3 0x61  // Read SWP3 status      (offsets 384-511) (DDR4)
 
-#define SWP0 0x62  // Set RSWP for block 0     (offsets  00h to  7Fh) (  0-127) (DDR4/DDR3/DDR2) *
-#define SWP1 0x68  // Set RSWP for block 1     (offsets  80h to  FFh) (128-255) (DDR4)
-#define SWP2 0x6A  // Set RSWP for block 2     (offsets 100h to 17Fh) (256-383) (DDR4)
-#define SWP3 0x60  // Set RSWP for block 3     (offsets 180h to 1FFh) (384-511) (DDR4)           *
+#define SWP0 0x62  // Set RSWP for block 0  (offsets   0-127) (DDR4/DDR3/DDR2) *
+#define SWP1 0x68  // Set RSWP for block 1  (offsets 128-255) (DDR4)
+#define SWP2 0x6A  // Set RSWP for block 2  (offsets 256-383) (DDR4)
+#define SWP3 0x60  // Set RSWP for block 3  (offsets 384-511) (DDR4)           *
 
-#define CWP  0x66  // Clear RSWP                                                (DDR4/DDR3/DDR2) *
+#define CWP  0x66  // Clear RSWP                              (DDR4/DDR3/DDR2) *
 
 // EEPROM PSWP commands
-#define PWPB 0b0110  // PSWP Device Type Identifier Control Code (bits 7-4)     (DDR3/DDR2)
-
-// EEPROM temperature sensor register commands
-#define TSRB 0b0011 // Device select code to access Temperature Sensor registers (bits 7-4)
-#define TS00 0x00   // Capability Register [RO]
-#define TS01 0x01   // Configuration Register [R/W]
-#define TS02 0x02   // High Limit Register [R/W]
-#define TS03 0x03   // Low Limit Register [R/W]
-#define TS04 0x04   // Critical Limit Register [R/W]
-#define TS05 0x05   // Temperature Data Register [RO]
-#define TS06 0x06   // Manufacturer ID Register [RO]
-#define TS07 0x07   // Device ID/Revision Register [RO]
+#define PWPB 0b0110  // PSWP Device Type Identifier Control Code (bits 7-4) (DDR3/DDR2)
 
 // EEPROM data
 #define DNC 0x00  // "Do not care" byte
 
 // Device commands
-#define READBYTE     'r' // Read
-#define WRITEBYTE    'w' // Write byte
-#define WRITEPAGE    'g' // Write page
-#define SCANBUS      's' // Scan I2C bus
-#define I2CCLOCK     'c' // I2C bus clock control
-#define PROBEADDRESS 'a' // Address test
-#define PINCONTROL   'p' // Pin control
-#define RSWP         'b' // Reversible write protection control
-#define PSWP         'l' // Permanent write protection control
-#define NAME         'n' // Name control
-#define GETVERSION   'v' // Get FW version
-#define TESTCOMM     't' // Test communication
-#define RSWPREPORT   'f' // Initial supported RSWP capabilities
-#define RETESTRSWP   'e' // Reevaluate supported RSWP capabilities
-#define DDR4DETECT   '4' // DDR4 detection test
-#define DDR5DETECT   '5' // DDR5 detection test
-#define FACTORYRESET '-' // Factory reset device settings
+#define READBYTE     'r'  // Read
+#define WRITEBYTE    'w'  // Write byte
+#define WRITEPAGE    'g'  // Write page
+#define SCANBUS      's'  // Scan I2C bus
+#define I2CCLOCK     'c'  // I2C bus clock control
+#define PROBEADDRESS 'a'  // Address test
+#define PINCONTROL   'p'  // Pin control
+#define PINRESET     'd'  // Reset pin states to defaults
+#define RSWP         'b'  // Reversible write protection control
+#define PSWP         'l'  // Permanent write protection control
+#define OVERWRITE    'o'  // Offset write protection test
+#define NAME         'n'  // Name control
+#define VERSION      'v'  // Get FW version
+#define TEST         't'  // Test communication
+#define RSWPREPORT   'f'  // RSWP capabilities
+#define DDR4DETECT   '4'  // DDR4 presense test
+#define DDR5DETECT   '5'  // DDR5 presense test
+#define SPD5HUBREG   'h'  // Access SPD5 Hub registers
+#define SIZE         'z'  // Get EEPROM size
+#define FACTORYRESET '-'  // Factory reset device settings
 
-// Device pin names (SpdReaderWriterDll.Pin.Name class)
-#define OFFLINE_MODE_SWITCH (uint8_t) 0 // Pin to toggle SPD5 offline mode
-#define SA1_SWITCH          (uint8_t) 1 // Pin to toggle SA1 state
-#define HIGH_VOLTAGE_SWITCH (uint8_t) 9 // Pin to toggle VHV on SA0 pin
+// Command parameters
+#define ENABLE  0x01
+#define SET     0x01
+#define DISABLE 0x00
+#define RESET   0x00
+#define GET     '?'  // Suffix added to commands to return current state
 
-// Pin states
-#define ON             HIGH
-#define OFF            LOW
-#define ENABLE  (byte) 0x01
-#define SET     (byte) 0x01
-#define DISABLE (byte) 0x00
-#define RESET   (byte) 0x00
-#define GET     (char) '?'  // Suffix added to commands to return current state
+// Device pin name parameters
+#define HV_SWITCH  0  // Pin to toggle VHV on SA0 pin
+#define SA1_SWITCH 1  // Pin to toggle SA1 state
 
 // Device responses
-#define SUCCESS   (byte) 0x01
-#define ENABLED   (byte) 0x01
-#define ACK       (byte) 0x01
-#define ZERO      (byte) 0x00
-#define DISABLED  (byte) 0x00
-#define NACK      (byte) 0xFF
-#define ERROR     (byte) 0xFF
-#define WELCOME   (char) '!'
-#define UNKNOWN   (char) '?'
-#define ALERT     (char) '@'
-#define SLAVEINC  (char) '+'
-#define SLAVEDEC  (char) '-'
-#define CLOCKINC  (char) '/'
-#define CLOCKDEC  (char) '\\'
+#define RESPONSE '&'
+#define ALERT    '@'
+#define UNKNOWN  '?'
+
+// Templates
+#define A1_MASK 0b11001100  // ScanBus() bitmask response when SA1 is high: 82-83, 86-87
+
+// Device alerts
+#define SLAVEINC '+'
+#define SLAVEDEC '-'
+#define CLOCKINC '/'
+#define CLOCKDEC '\\'
 
 // Device name settings
 #define NAMELENGTH 16
 char deviceName[NAMELENGTH];
 
 // Device settings
-#define DEVICESETTINGS 0x20 // EEPROM location to store device settings
-#define CLOCKMODE      0    // Bit position for I2C clock settings
+#define DEVICESETTINGS 0x20  // EEPROM location to store device settings
+#define CLOCKMODE      0     // Bit position for I2C clock settings
 #define FASTMODE       true
 #define STDMODE        false
 
-// Global variables
-uint32_t i2cClock         = 100000L;           // Initial I2C clock
-uint8_t rswpSupport       = 0;                 // Bitmask representing RAM RSWP support
-uint8_t eepromPageAddress = 0;                 // Initial EEPROM page address
-uint8_t slaveCountCurrent = 0;                 // Current number of slave addresses on I2C bus
-uint8_t slaveCountLast    = 0;                 // Last number of slave addresses on I2C bus
-bool i2cClockCurrent; // Current I2C clock mode
-bool i2cClockLast; // Last I2C clock mode
+// I2C clock frequencies
+int32_t clock[] = { 100000, 400000 };
 
-// Configuration pins
-const int pins[] = { OFF_EN, SA1_EN, HV_EN };
+// Global variables
+uint32_t i2cClock = clock[0];  // Initial I2C clock
+uint8_t eepromPageAddress;     // Initial EEPROM page address
+uint8_t slaveCountCurrent;     // Current number of slave addresses on I2C bus
+uint8_t slaveCountLast;        // Last number of slave addresses on I2C bus
+bool i2cClockCurrent;          // Current I2C clock mode
+bool i2cClockLast;             // Last I2C clock mode
+bool cmdExecuting;             // Indicates an input command is being executed
+uint8_t responseBuffer[32];    // Response body buffer
+uint8_t responseLength;        // Output response body length and index
+
+// Pin data struct
+typedef struct {
+  const int name;
+  bool defaultState;
+  uint8_t mode;
+} pinData;
+
+// Configuration pins array
+pinData ConfigPin[] = {
+  { HV_EN, false, OUTPUT }, // HV control
+  { HV_FB, NULL, INPUT },   // HV feedback
+  { SA1_EN, true, OUTPUT }, // SA1 control
+};
+
+size_t pinCount = sizeof(ConfigPin) / sizeof(ConfigPin[0]);
 
 void setup() {
 
-  // Config pin controls
-  for (uint8_t i = 0; i <= sizeof(pins[0]); i++) {
-    pinMode(pins[i], OUTPUT);
+  // Set up config pins
+  for (uint8_t i = 0; i < pinCount; i++) {
+    pinMode(ConfigPin[i].name, ConfigPin[i].mode);
   }
 
-  // HV controls
-  pinMode(HV_EN, OUTPUT);
-  pinMode(HV_FB, INPUT);
+  resetPinsInternal();
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
 
   // Set I2C timeout to 0.01 sec.
-  Wire.setWireTimeout(10000L, true);
+  Wire.setWireTimeout(10000, true);
 
-  // Perform initial device RSWP support test
-  rswpSupport = rswpSupportTest();
+  // Setup I2C clock
+  Wire.setClock(clock[getI2cClockMode()]);
+  i2cClockCurrent = clock[getI2cClockMode()];
+  i2cClockLast = i2cClockCurrent;
+
+  // Scan I2C bus
+  slaveCountCurrent = getQuantity();
+  slaveCountLast = slaveCountCurrent;
 
   // Reset EEPROM page address
   setPageAddress(0);
@@ -180,36 +187,41 @@ void setup() {
   // Wait for serial port connection or initialization
   while (!PORT) {}
 
-  // Check saved i2c clock and set mode accordingly
-  if (getI2cClockMode()) {
-    i2cClock = 400000;
-  }
-  Wire.setClock(i2cClock);
+  // Check hardware
+  #ifndef __AVR__
+  PORT.write(UNKNOWN);
+  while (true) {}
+  #endif
 
-  // Send a welcome byte when the device is ready
-  cmdTest();
+  // Send a true response when the device is ready
+  Respond(true);
+  OutputResponse();
 }
 
 void loop() {
-  // Wait for input data
-  while (!PORT.available()) {
-    // Monitor i2c bus
-    i2cMonitor();
-  }
-  // Process input commands and data
-  parseCommand();
 
-  // Clear port buffer
-  PORT.flush();
+  resetPinsInternal();
+
+  // Wait for input data
+  if (PORT.available()) {
+    parseCommand();
+  }
+
+  // Monitor I2C bus
+  i2cMonitor();
 }
 
 // Process input commands and data
 void parseCommand() {
+
   if (!PORT.available()) {
+    cmdExecuting = false;
     return;
   }
 
-  switch ((char) PORT.read()) {
+  cmdExecuting = true;
+
+  switch ((char)PORT.read()) {
 
     // Read byte
     case READBYTE:
@@ -226,17 +238,17 @@ void parseCommand() {
       cmdWritePage();
       break;
 
-    // Scan i2c bus for addresses
+    // Scan I2C bus for addresses
     case SCANBUS:
       cmdScanBus();
       break;
 
-    // Probe if i2c address is valid
+    // Probe if I2C address is present
     case PROBEADDRESS:
       cmdProbeBusAddress();
       break;
 
-    // i2c bus settings
+    // I2C bus settings
     case I2CCLOCK:
       cmdI2CClock();
       break;
@@ -244,6 +256,10 @@ void parseCommand() {
     // Control digital pins
     case PINCONTROL:
       cmdPinControl();
+      break;
+
+    case PINRESET:
+      cmdPinReset();
       break;
 
     // RSWP controls
@@ -256,24 +272,23 @@ void parseCommand() {
       cmdPSWP();
       break;
 
+    case OVERWRITE:
+      cmdOverWrite();
+      break;
+
     // Get Firmware version
-    case GETVERSION:
+    case VERSION:
       cmdVersion();
       break;
 
     // Device Communication Test
-    case TESTCOMM:
+    case TEST:
       cmdTest();
       break;
 
-    // Report supported RAM RSWP capabilities
+    // Report supported RSWP capabilities
     case RSWPREPORT:
-      cmdRswpReport();
-      break;
-
-    // Re-evaluate device's RSWP capabilities
-    case RETESTRSWP:
-      cmdRetestRswp();
+      cmdRswpRespond();
       break;
 
     // DDR4 detection test
@@ -286,6 +301,15 @@ void parseCommand() {
       cmdDdr5Detect();
       break;
 
+    // DDR5 Hub register
+    case SPD5HUBREG:
+      cmdSpd5Hub();
+      break;
+
+    case SIZE:
+      cmdSize();
+      break;
+
     // Device name controls
     case NAME:
       cmdName();
@@ -296,14 +320,68 @@ void parseCommand() {
       cmdFactoryReset();
       break;
   }
+
+  // Output response
+  OutputResponse();
+
+  cmdExecuting = false;
 }
+
+
+/*  -=  Response handlers  =-  */
+
+// Put single byte into response
+void Respond(uint8_t inputData) {
+  responseBuffer[responseLength] = inputData;
+  responseLength++;
+}
+
+// Put byte array into response
+void Respond(uint8_t* inputData, size_t length) {
+  for (uint8_t i = 0; i < length; i++) {
+    Respond(inputData[i]);
+  }
+}
+
+// Put string into response
+void Respond(String inputData) {
+  for (uint8_t i = 0; i < inputData.length(); i++) {
+    Respond(inputData[i]);
+  }
+}
+
+// Output response header, size, contents, and checksum
+void OutputResponse() {
+  if (responseLength > 0) {
+
+    // Calculate checksum
+    uint8_t checkSum = 0;
+    for (uint8_t i = 0; i < responseLength; i++) {
+      checkSum += responseBuffer[i];
+    }
+
+    PORT.write(RESPONSE);
+    PORT.write(responseLength);
+    PORT.write(responseBuffer, responseLength);
+    PORT.write(checkSum);
+
+    // Wait for output to complete
+    PORT.flush();
+
+    // Reset response data buffer index
+    responseLength = 0;
+
+    // Clear response array
+    memset(responseBuffer, 0x00, sizeof(responseBuffer));
+  }
+}
+
 
 /*  -=  Command handlers  =-  */
 
 void cmdRead() {
-
-  // Data buffer
-  byte buffer[4];
+  // Input buffer
+  uint8_t buffer[4] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // EEPROM address
@@ -311,38 +389,34 @@ void cmdRead() {
   // Offset address
   uint16_t offset = buffer[1] << 8 | buffer[2];
   // Byte count
-  uint8_t length = buffer[3];
+  uint8_t length  = buffer[3];
 
-  // Data buffer
-  byte data[length];
+  // Output buffer
+  uint8_t data[length];
   // Fill the data buffer
   readByte(address, offset, length, data);
 
-  for (int i = 0; i < length; i++) {
-    PORT.write(data[i]);
-  }
+  Respond(data, sizeof(data));
 }
 
 void cmdWrite() {
-
-  // Data buffer
-  byte buffer[4];
+  // Input buffer
+  uint8_t buffer[4] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // EEPROM address
   uint8_t address = buffer[0];
   // Offset address
   uint16_t offset = buffer[1] << 8 | buffer[2];
-  // Byte value
-  byte data = buffer[3];
+  // Input byte value
+  uint8_t data    = buffer[3];
 
-  PORT.write(writeByte(address, offset, data) ? SUCCESS : ERROR);
+  Respond(writeByte(address, offset, data));
 }
 
 void cmdWritePage() {
-
-  // Data buffer
-  byte buffer[4];
+  // Input buffer
+  uint8_t buffer[4] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // EEPROM address
@@ -350,94 +424,162 @@ void cmdWritePage() {
   // Offset address
   uint16_t offset = buffer[1] << 8 | buffer[2];
   // Bytes count
-  uint8_t length = buffer[3];
+  uint8_t length  = buffer[3];
 
+  // Validate input length
   if (length == 0) {
-    PORT.write(ERROR);
+    Respond(0);
     return;
   }
 
-  // Data buffer
-  byte data[length];
+  // Input data buffer
+  uint8_t data[length];
   PORT.readBytes(data, sizeof(data));
 
-  // Maximum page size is 16 bytes
   if (length > 16) {
-    PORT.write(ERROR);
+    Respond(false);
     return;
   }
 
-  PORT.write(writePage(address, offset, length, data) ? SUCCESS : ERROR);
+  Respond(writePage(address, offset, length, data));
 }
 
 void cmdScanBus() {
-  PORT.write(scanBus());
+  Respond(scanBus());
 }
 
 void cmdTest() {
-#ifdef __AVR__
-  PORT.write(WELCOME);
-#else
-  PORT.write(UNKNOWN);
-#endif
+  Respond(true);
 }
 
-void cmdRswpReport() {
-  PORT.write(rswpSupport);
-}
-
-void cmdRetestRswp() {
-  // Slow down I2C bus clock for accurate results
-  if (getI2cClockMode()) {
-    Wire.setClock(100000);
-  }
-
-  byte result = rswpSupportTest();
-
-  // Restore I2C bus clock
-  Wire.setClock(getI2cClockMode() ? 400000 : 100000);
-
-  PORT.write(result);
+void cmdRswpRespond() {
+  Respond(rswpSupportTest());
 }
 
 void cmdDdr4Detect() {
-  // Data buffer for i2c address
-  byte buffer[1];
+  // Input buffer
+  uint8_t buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
-  uint8_t address = buffer[0]; // i2c address
-  PORT.write(ddr4Detect(address) ? SUCCESS : ERROR);
+  uint8_t address = buffer[0];  // I2C address
+  Respond(ddr4Detect(address));
 }
 
 void cmdDdr5Detect() {
-  // Data buffer for i2c address
-  byte buffer[1];
+  // Input buffer
+  uint8_t buffer[1];
   PORT.readBytes(buffer, sizeof(buffer));
 
-  uint8_t address = buffer[0]; // i2c address
-  PORT.write(ddr5Detect(address) ? SUCCESS : ERROR);
+  uint8_t address = buffer[0];  // I2C address
+  Respond(ddr5Detect(address));
+}
+
+void cmdSpd5Hub() {
+  // Input buffer
+  uint8_t buffer[3];
+  PORT.readBytes(buffer, sizeof(buffer));
+
+  uint8_t address = buffer[0];  // I2C address
+  uint8_t memReg  = buffer[1];  // register
+  uint8_t command = buffer[2];  // command
+
+  if (!ddr5Detect(address)) {
+    Respond(false);
+  }
+
+  // Write to register
+  if (command == SET) {
+    // Data buffer
+    uint8_t data[1];  // Byte value
+    PORT.readBytes(data, sizeof(data));
+    Respond(writeReg(address, memReg, data[0]));
+  }
+  // Read from register
+  else if (command == GET) {
+    Respond(readReg(address, memReg));
+  }
+  // Unrecognized command
+  else {
+    Respond(false);
+  }
+}
+
+void cmdSize() {
+  // Input buffer
+  uint8_t buffer[1];
+  PORT.readBytes(buffer, sizeof(buffer));
+
+  uint8_t address = buffer[0];  // I2C address
+
+  if (!validateAddress(address) || !probeBusAddress(address)) {
+    Respond(false);
+    return;
+  }
+
+  uint16_t size = 0;  // 0
+
+  bool ddr5 = ddr5Detect(address);
+
+  if (ddr5) {
+    size = 1024;  // 3
+  }
+  else {
+    if (getQuantity() == 1) {
+      if (ddr4Detect()) {
+        size = 512;  // 2
+      }
+      else {
+        size = 256;  // 1
+      }
+    }
+    else if (getQuantity() > 1) {
+      if (!ddr4Detect()) {
+        size = 256;  // 1
+      }
+    }
+  }
+
+  if (!size) {
+    // Read byte 0x02
+    uint8_t keyByte[1] = { 0 };
+    readByte(address, 0x02, 1, keyByte);
+    if (0x0C <= keyByte[0] && keyByte[0] <= 0x11) {
+      // DDR4, DDR4E, LPDDR3, LPDDR4, and LPDDR4X
+      size = 512;  // 2
+    }
+  }
+
+  // Return bit position matching SpdReaderWriterDll.Spd.DataLength.Length array index
+  for (uint8_t i = 0; i <= 3; i++) {
+    if(bitRead(highByte(size), i)) {
+      Respond(i + 1);
+      return;
+    }
+  }
+
+  Respond(0);
 }
 
 void cmdVersion() {
-  PORT.print(VERSION);
+
+  uint8_t verLength = sizeof(FW_VER);
+  uint8_t data[verLength];
+
+  for (int8_t i = verLength; i > 0; i--) {
+    data[i - 1] = FW_VER >> (8 * (i - 1));
+  }
+
+  Respond(data, verLength);
 }
 
 void cmdName() {
-
   // Data buffer for command byte
-  byte buffer[1];
+  uint8_t buffer[1] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // Get name
   if (buffer[0] == GET) {
-    String deviceName = getName();
-    PORT.print(deviceName);
-    // Pad the response with spaces
-    if (deviceName.length() < NAMELENGTH) {
-      for (int i = deviceName.length(); i < NAMELENGTH; i++) {
-        PORT.write(" ");
-      }
-    }
+    Respond(getName());
   }
   // Set name
   else if (buffer[0] > 0 && buffer[0] <= NAMELENGTH) {
@@ -446,227 +588,291 @@ void cmdName() {
     // read name and put it into buffer
     PORT.readBytes(name, buffer[0]);
     // set last byte to \0 where the string ends
-    name[buffer[0]] = ZERO;
+    name[buffer[0]] = 0;
 
-    PORT.write(setName(name) ? SUCCESS : ERROR);
+    Respond(setName(name));
   }
   // Invalid command
   else {
-    PORT.write(UNKNOWN);
+    Respond(false);
   }
 }
 
 void cmdProbeBusAddress() {
-
   // Data buffer for address
-  byte buffer[1];
+  uint8_t buffer[1] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
-  uint8_t address = buffer[0]; // i2c address
-  PORT.write(probeBusAddress(address) ? SUCCESS : ERROR);
+  uint8_t address = buffer[0];  // I2C address
+  Respond(probeBusAddress(address));
 }
 
 void cmdI2CClock() {
-
   // Data buffer for clock mode
-  byte buffer[1];
+  uint8_t buffer[1] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // Set I2C clock
   if (buffer[0] == FASTMODE || buffer[0] == STDMODE) {
     setI2cClockMode(buffer[0]);
-    PORT.write(getI2cClockMode() == buffer[0] ? SUCCESS : ERROR);
+    Respond(getI2cClockMode() == buffer[0]);
   }
   // Get current I2C clock
   else if (buffer[0] == GET) {
-    PORT.write(getI2cClockMode());
+    Respond(getI2cClockMode());
   }
   // Unrecognized command
   else {
-    PORT.write(UNKNOWN);
+    Respond(false);
   }
 }
 
 void cmdFactoryReset() {
-  PORT.write(factoryReset() ? SUCCESS : ERROR);
+  Respond(factoryReset());
 }
 
 void cmdRSWP() {
-
   // Data buffer
-  byte buffer[2];
+  uint8_t buffer[3] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
+  // I2C address
+  uint8_t address = buffer[0];
   // Block number
-  uint8_t block = buffer[0];
+  uint8_t block   = buffer[1];
   // Block state
-  char state = buffer[1];
+  char state      = buffer[2];
 
   // enable RSWP
   if (state == ENABLE) {
-    PORT.write(setRswp(block) ? SUCCESS : ERROR);
+    Respond(setRswp(address, block));
   }
   // clear RSWP (all blocks)
   else if (state == DISABLE) {
-    PORT.write(clearRswp() ? SUCCESS : ERROR);
+    Respond(clearRswp(address));
   }
   // get RSWP status
   else if (state == GET) {
-    PORT.write(getRswp(block) ? ENABLED : DISABLED);
+    Respond(getRswp(address, block));
   }
   // unrecognized RSWP command
   else {
-    PORT.write(UNKNOWN);
+    Respond(false);
   }
 }
 
 void cmdPSWP() {
-
   // Data buffer
-  byte buffer[2];
+  uint8_t buffer[2] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // EEPROM address
   uint8_t address = buffer[0];
   // PSWP state
-  char state = buffer[1];
+  char state      = buffer[1];
 
   // enable PSWP
   if (state == ENABLE) {
-    PORT.write(setPswp(address) ? SUCCESS : ERROR);
+    Respond(setPswp(address));
   }
   // read PSWP
   else if (state == GET) {
-    PORT.write(getPswp(address) ? ENABLED : DISABLED);
+    Respond(getPswp(address));
   }
   // unknown state
   else {
-    PORT.write(UNKNOWN);
+    Respond(false);
   }
 }
 
-void cmdPinControl() {
-
+void cmdOverWrite() {
   // Data buffer
-  byte buffer[2];
+  uint8_t buffer[3] = { 0 };
+  PORT.readBytes(buffer, sizeof(buffer));
+
+  // EEPROM address
+  uint8_t address = buffer[0];
+  // Offset address
+  uint16_t offset = buffer[1] << 8 | buffer[2];
+
+  uint8_t data[1];
+  Respond(readByte(address, offset, 1, data) && writeByte(address, offset, data[0]));
+}
+
+void cmdPinControl() {
+  // Data buffer
+  uint8_t buffer[2] = { 0 };
   PORT.readBytes(buffer, sizeof(buffer));
 
   // Pin number
   uint8_t pin = buffer[0];
   // Pin state
-  char state = buffer[1];
+  char state  = buffer[1];
 
-  // DDR5 Offline mode controls
-  if (pin == OFFLINE_MODE_SWITCH) {
-    // toggle Offline mode state
-    if (state == ENABLE || state == DISABLE) {
-      PORT.write(ddr5SetOfflineMode(state) ? SUCCESS : ERROR);
-    }
-    // get Offline mode state
-    else if (state == GET) {
-      PORT.write(ddr5GetOfflineMode() ? ON : OFF);
-    }
-    // Unknown state
-    else {
-      PORT.write(ERROR);
-    }
-  }
   // SA1 controls
-  else if (pin == SA1_SWITCH) {
+  if (pin == HV_SWITCH) {
     // Toggle SA1 state
     if (state == ENABLE || state == DISABLE) {
-      PORT.write(setConfigPin(SA1_EN, state) ? SUCCESS : ERROR);
+      Respond(setConfigPin(SA1_EN, state));
     }
     // Get SA1 state
     else if (state == GET) {
-      PORT.write(getConfigPin(SA1_EN));
+      Respond(getConfigPin(SA1_EN));
     }
     // Unknown state
     else {
-      PORT.write(UNKNOWN);
+      Respond(false);
     }
   }
   // VHV 9V controls
-  else if (pin == HIGH_VOLTAGE_SWITCH) {
+  else if (pin == SA1_SWITCH) {
     // Toggle HV state
     if (state == ENABLE || state == DISABLE) {
-      PORT.write(setHighVoltage(state) ? SUCCESS : ERROR);
+      Respond(setHighVoltage(state));
     }
     // Get HV state
     else if (state == GET) {
-      PORT.write(getHighVoltage() ? ON : OFF);
+      Respond(getHighVoltage());
     }
     // Unknown state
     else {
-      PORT.write(ERROR);
+      Respond(0);
     }
   }
   // Unknown pin
   else {
-    PORT.write(UNKNOWN);
+    Respond(false);
   }
+}
+
+void cmdPinReset() {
+  Respond(resetPins());
 }
 
 /*  -=  Read/Write functions  =-  */
 
-// Reads bytes into data buffer
-void readByte(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *data) {
+// Reads bytes from EEPROM into data buffer
+bool readByte(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
 
-  if ((deviceAddress >= 80 || deviceAddress <= 87)) {
-    adjustPageAddress(deviceAddress, offset);
+  uint16_t _offset = offset;
+
+  if (ddr5Detect(address)) {
+    _offset |= 0x80;
   }
 
-  Wire.beginTransmission(deviceAddress);
-  Wire.write((uint8_t)(offset));
-  Wire.endTransmission();
-  Wire.requestFrom(deviceAddress, length);
+  adjustPageAddress(address, offset);
 
-  if (Wire.available() < length) {
-    for (uint8_t i = 0; i < length; i++) {
-      data[i] = ERROR;
-    }
-    return;
+  Wire.beginTransmission(address);
+  Wire.write((uint8_t)(_offset));
+
+  if (Wire.endTransmission(false) != 0) {
+    return false;
   }
+
+  Wire.requestFrom(address, length);
+
+  while (Wire.available() < length) {}
 
   // Fill data buffer
   for (uint8_t i = 0; i < length; i++) {
     while (!Wire.available()) {}
     data[i] = Wire.read();
+    Wire.flush();
   }
+
+  return true;
 }
 
-// Writes a byte
-bool writeByte(uint8_t deviceAddress, uint16_t offset, byte data) {
+// Writes a single byte to EEPROM
+bool writeByte(uint8_t address, uint16_t offset, uint8_t data) {
 
-  if (deviceAddress >= 80 || deviceAddress <= 87) {
-    adjustPageAddress(deviceAddress, offset);
+  uint8_t input[1] = { data };
+  return writePage(address, offset, 1, input);
+}
+
+// Writes a page (multiple bytes) to EEPROM
+bool writePage(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
+
+  // Check offset and length to avoid page or block boundary overlapping
+  if ((offset % 16 + length) > 16) {
+    return false;
   }
 
-  Wire.beginTransmission(deviceAddress);
-  Wire.write((uint8_t)(offset));
-  Wire.write(data);
+  // Check if the block is write protected
+  if (ddr5Detect(address) && ddr5GetOfflineMode()) {
+    uint8_t block = offset / 64;
+    if (getRswp(address, block)) {
+      return false;
+    }
+  }
+
+  uint16_t _offset = offset;
+
+  adjustPageAddress(address, offset);
+
+  if (ddr5Detect(address)) {
+    _offset |= 0x80;
+
+    // Wait for write completion
+    while (bitRead(readReg(address, MR48), 3)) {}
+  }
+
+  Wire.beginTransmission(address);
+  Wire.write((uint8_t)(_offset));
+  Wire.write(data, length);
   uint8_t status = Wire.endTransmission();
 
   delay(10);
 
-  return status == 0;  // TODO: writing to PSWP-protected area returns true
+  return status == 0;
 }
 
-// Writes a page
-bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *data) {
+// Reads data from SPD5 hub register
+uint8_t readReg(uint8_t address, uint8_t memReg) {
 
-  if (deviceAddress >= 80 || deviceAddress <= 87) {
-    adjustPageAddress(deviceAddress, offset);
+  if (bitRead(memReg, 7)) {
+    return false;
   }
 
-  Wire.beginTransmission(deviceAddress);
-  Wire.write((uint8_t)(offset));
-  for (uint8_t i = 0; i < length; i++) {
-    Wire.write(data[i]);
-  }
-  uint8_t status = Wire.endTransmission();
+  Wire.beginTransmission(address);
+  Wire.write(memReg & 0x7F);
+  uint8_t status = Wire.endTransmission(false);
 
-  delay(10);
+  if (status != 0) {
+    return false;
+  }
+
+  Wire.requestFrom(address, (uint8_t)1);
+
+  // Fill data buffer
+  while (!Wire.available()) {}
+
+  uint8_t output = Wire.read();
+  Wire.flush();
+
+  return output;
+}
+
+// Writes data to SPD5 hub register
+bool writeReg(uint8_t address, uint8_t memReg, uint8_t value) {
+
+  if (!ddr5Detect(address) || bitRead(memReg, 7)) {
+    return false;
+  }
+
+  if (!(MR11 <= memReg && memReg <= MR13)) {
+    return false;
+  }
+
+  Wire.beginTransmission(address);
+  Wire.write(memReg & 0x7F);
+  Wire.write(value);
+
+  // Writing to MR12/MR13 registers must be followed by Stop operation to allow SPD hub to update
+  uint8_t status = Wire.endTransmission(memReg == MR12 || memReg == MR13);
+
+  // The SPD5 Hub device does not incur any delay to switch from one page to another page
+  delay(memReg == MR11 ? 0 : 10);
 
   return status == 0;
 }
@@ -675,59 +881,99 @@ bool writePage(uint8_t deviceAddress, uint16_t offset, uint8_t length, byte *dat
 /*  -=  RSWP functions  =-  */
 
 // Sets reversible write protection on specified block
-bool setRswp(uint8_t block) {
+bool setRswp(uint8_t address, uint8_t block) {
 
-  byte commands[] = { SWP0, SWP1, SWP2, SWP3 };
-  byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
+  if (block > 15) {
+    return false;
+  }
 
-  bool ddr4 = ddr4Detect();
-  bool result;
+  // DDR5 RSWP
+  if (ddr5Detect(address)) {
+    // Select register
+    uint8_t memReg = MR12 + bitRead(block, 3);
+    // Existing RSWP value
+    uint8_t currentValue = readReg(address, memReg);
+    // Updated RSWP value
+    uint8_t updatedValue = 1 << (block & 0b111);
 
-  if (setHighVoltage(ON)) {
-    setConfigPin(SA1_EN, OFF); // Required for pre-DDR4
-    if (block > 0 && !ddr4) {
+    return writeReg(address, memReg, currentValue | updatedValue);
+  }
+
+  // DDR4 & older RSWP
+  uint8_t commands[] = { SWP0, SWP1, SWP2, SWP3 };
+  uint8_t cmd = commands[(0 < block && block <= 3) ? block : 0];
+
+  bool result = false;
+
+  if (setHighVoltage(true)) {
+    if (block == 0) {
+      setConfigPin(SA1_EN, false);  // Required for pre-DDR4
+    }
+    if (block > 0 && !ddr4Detect()) {
       result = false;
     }
     else {
       result = probeDeviceTypeId(cmd);
     }
-    resetPins();
-
-    return result;
+    resetPinsInternal();
   }
 
-  return false;
+  return result;
 }
 
 // Reads reversible write protection status
-bool getRswp(uint8_t block) {
+bool getRswp(uint8_t address, uint8_t block) {
 
-  byte commands[] = { RPS0, RPS1, RPS2, RPS3 };
-  byte cmd = (block > 0 || block <= 3) ? commands[block] : commands[0];
+  if (ddr5Detect(address)) {
+    if (block > 15) {
+      return false;
+    }
+
+    return readReg(address, MR12 + bitRead(block, 3)) & (1 << (block & 0b111));
+  }
+
+  uint8_t commands[] = { RPS0, RPS1, RPS2, RPS3 };
+  uint8_t cmd = (0 < block && block <= 3) ? commands[block] : commands[0];
 
   // Jedec EE1002(A), TSE2002av compliance
   if (block == 0 && !ddr4Detect()) {
-    setHighVoltage(ON);
+    setHighVoltage(true);
   }
 
-  bool status = probeDeviceTypeId(cmd); // true/ack = not protected
+  bool status = probeDeviceTypeId(cmd);  // true/ack = not protected
 
-  resetPins();
+  resetPinsInternal();
 
-  return !status; // true = protected or rswp not supported; false = unprotected
+  return !status;  // true = protected or rswp not supported; false = unprotected
 }
 
 // Clears reversible software write protection
-bool clearRswp() {
+bool clearRswp(uint8_t address) {
 
-  if (!ddr4Detect()) {
-    // Required for pre-DDR4
-    setConfigPin(SA1_EN, ON);
+  if (ddr5Detect(address)) {
+
+    uint8_t ddr5CwpCmd[2] = { 0 };
+
+    if (!ddr5GetOfflineMode()) {
+      return false;
+    }
+
+    Wire.beginTransmission(address);
+    Wire.write(MR12);
+    Wire.write(ddr5CwpCmd, sizeof(ddr5CwpCmd));
+    uint8_t status = Wire.endTransmission();
+
+    return status == 0 && readReg(address, MR12) == 0 && readReg(address, MR13) == 0;
   }
 
-  if (setHighVoltage(ON)) {
+  if (!ddr4Detect(address)) {
+    // Required for pre-DDR4
+    setConfigPin(SA1_EN, true);
+  }
+
+  if (setHighVoltage(true)) {
     bool result = probeDeviceTypeId(CWP);
-    resetPins();
+    resetPinsInternal();
 
     return result;
   }
@@ -736,36 +982,35 @@ bool clearRswp() {
 }
 
 // Test RSWP support capabilities
-byte rswpSupportTest() {
-
-  // Reset supported RAM value
-  rswpSupport = 0;
+uint8_t rswpSupportTest() {
 
   // Reset config pins and HV state
-  resetPins();
+  resetPinsInternal();
 
-  // Scan i2c bus
+  // Scan I2C bus
   if (!scanBus()) {
-    // No I2C devices
-    return ZERO;
+    return 0;
   }
 
+  // Supported RAM value
+  uint8_t rswpSupport = 0;
+
   // RSWP DDR5 test
-  if (ddr5SetOfflineMode(ON)) {
+  if (ddr5GetOfflineMode()) {
     rswpSupport |= DDR5;
   }
 
   // RSWP VHV test
-  if (setHighVoltage(ON)) {
+  if (setHighVoltage(true)) {
     rswpSupport |= DDR4;
 
     // RSWP SA1 test
-    if ((setConfigPin(SA1_EN, ON) && setConfigPin(SA1_EN, OFF))) {
+    if ((setConfigPin(SA1_EN, true) && setConfigPin(SA1_EN, false))) {
       rswpSupport |= DDR3;
     }
   }
 
-  resetPins();
+  resetPinsInternal();
 
   return rswpSupport;
 }
@@ -777,29 +1022,35 @@ byte rswpSupportTest() {
 bool setHighVoltage(bool state) {
 
   digitalWrite(HV_EN, state);
-  delay(25);
 
-  // Return operation result
-  return getHighVoltage() == state;
+  uint64_t timeout = millis() + 25;
+
+  while (millis() < timeout) {
+    if (getHighVoltage() == state) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 // Returns HV status by reading HV_FB
 bool getHighVoltage() {
-  return getConfigPin(HV_EN) && getConfigPin(HV_FB);
+  return getConfigPin(HV_FB);
 }
 
 
 /*  -=  PSWP functions  =-  */
 
 // Sets permanent write protection on supported EEPROMs
-bool setPswp(uint8_t deviceAddress) {
+bool setPswp(uint8_t address) {
 
-  if (ddr4Detect(deviceAddress) || ddr5Detect(deviceAddress)) {
+  if (ddr4Detect(address) || ddr5Detect(address)) {
     return false;
   }
 
   // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
-  uint8_t cmd = (deviceAddress & 0b111) | (PWPB << 3);
+  uint8_t cmd = (address & 0b111) | (PWPB << 3);
 
   Wire.beginTransmission(cmd);
   // Write 2 DNC bytes to force LSB to set to 0
@@ -809,15 +1060,15 @@ bool setPswp(uint8_t deviceAddress) {
 
   return status == 0;
 
-  //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
+  //uint8_t cmd = (address & 0b111) << 1 | (PWPB << 4);
   //return probeDeviceTypeId(cmd << 1);
 }
 
 // Read permanent write protection status
-bool getPswp(uint8_t deviceAddress) {
+bool getPswp(uint8_t address) {
 
   // Keep address bits (SA0-SA2) intact and change bits 7-4 to '0110'
-  uint8_t cmd = (deviceAddress & 0b111) | (PWPB << 3);
+  uint8_t cmd = (address & 0b111) | (PWPB << 3);
 
   Wire.beginTransmission(cmd);
   // Write 1 DNC byte to force LSB to set to 1
@@ -826,7 +1077,7 @@ bool getPswp(uint8_t deviceAddress) {
 
   return status == 0;  // returns true if PSWP is not set
 
-  //uint8_t cmd = (deviceAddress & 0b111) << 1 | (PWPB << 4);
+  //uint8_t cmd = (address & 0b111) << 1 | (PWPB << 4);
   //return probeDeviceTypeId(cmd << 1 | 1);
 }
 
@@ -840,7 +1091,7 @@ uint8_t getPageAddress(bool lowLevel = false) {
     return eepromPageAddress;
   }
 
-  uint8_t status = ERROR;
+  int8_t status = -1;
 
   // Send start condition
   TWCR = _BV(TWEN) | _BV(TWINT) | _BV(TWEA) | _BV(TWSTA);
@@ -884,48 +1135,45 @@ uint8_t getPageAddress(bool lowLevel = false) {
 }
 
 // Sets page address to access lower or upper 256 bytes of DDR4 SPD
-bool setPageAddress(uint8_t pageNumber) {
-
-  if (pageNumber < 2) {
-    probeDeviceTypeId((pageNumber == 0) ? SPA0 : SPA1);
-    eepromPageAddress = pageNumber;
-    return true;
-  }
-  return false;
+void setPageAddress(uint8_t pageNumber) {
+  probeDeviceTypeId((pageNumber == 0) ? SPA0 : SPA1);
+  eepromPageAddress = pageNumber;
 }
 
 // Adjusts page address according to byte offset specified
 void adjustPageAddress(uint8_t address, uint16_t offset) {
 
-  uint8_t page;
-
-  // Assume DDR4 is present
-  if (offset <= 256) {
-    page = offset >> 8;  // DDR4 page
-    if (getPageAddress() != page) {
-      setPageAddress(page);
-    }
+  if (!validateAddress(address) || offset >= 1024) {
+    return;
   }
+
+  int8_t page;
 
   // Check if DDR5 is present and adjust page number and addressing mode
   if (ddr5Detect(address)) {
-    // Enable 1-byte addresing mode
-    setLegacyModeAddress(address, false);
-
-    // Write page address to MR11[2:0]
     page = offset >> 7;  // DDR5 page
 
-    writeByte((MEMREG & address), (uint8_t)(MR11), (byte)(page));
-    // TODO: TBT
+    if (readReg(address, MR11) == page) {
+      return;
+    }
+
+    // Write page address to MR11[2:0]
+    Wire.beginTransmission(address);
+    Wire.write(MR11);
+    Wire.write(page);
+    Wire.endTransmission(true);  // Repeated start required to read DDR5 SPD5HUB EEPROM
+
+    return;
   }
-}
 
-// I2C Legacy Mode Device Configuration
-void setLegacyModeAddress(uint8_t address, bool twoByteAddressing) {
-
-  writeByte((MEMREG & address), (uint8_t)(MR11), (byte)(twoByteAddressing ? (1 << 3) : 0));
-
-  // TODO: TBT
+  // Assume DDR4 is present
+  if (offset < 512) {
+    page = bitRead(offset, 8);  // DDR4 page
+    if (getPageAddress() != page) {
+      setPageAddress(page);
+      eepromPageAddress = page;
+    }
+  }
 }
 
 
@@ -937,7 +1185,7 @@ bool setName(String name) {
   for (uint8_t i = 0; i < name.length(); i++) {
     EEPROM.update(i, name[i]);
   }
-  EEPROM.update(name.length(), ZERO);
+  EEPROM.update(name.length(), 0);
 
   return name == getName();
 }
@@ -951,20 +1199,20 @@ String getName() {
     deviceNameChar[i] = EEPROM.read(i);
   }
   // set last byte to zero
-  deviceNameChar[NAMELENGTH] = ZERO;
+  deviceNameChar[NAMELENGTH] = 0;
 
   return deviceNameChar;
 }
 
 // Read device settings
-bool getSettings(byte name) {
+bool getSettings(uint8_t name) {
   return bitRead(EEPROM.read(DEVICESETTINGS), name);
 }
 
 // Save device settings
-bool saveSettings(byte name, byte value) {
+bool saveSettings(uint8_t name, uint8_t value) {
 
-  byte currentSettings = EEPROM.read(DEVICESETTINGS);
+  uint8_t currentSettings = EEPROM.read(DEVICESETTINGS);
   EEPROM.update(DEVICESETTINGS, bitWrite(currentSettings, name, value));
 
   return getSettings(name) == value;
@@ -976,7 +1224,7 @@ bool saveSettings(byte name, byte value) {
 // Set I2C bus clock mode
 bool setI2cClockMode(bool mode) {
   saveSettings(CLOCKMODE, mode ? FASTMODE : STDMODE);
-  Wire.setClock(mode ? 400000 : 100000);
+  Wire.setClock(clock[mode]);
 
   return getI2cClockMode() == mode;
 }
@@ -987,41 +1235,87 @@ bool getI2cClockMode() {
 }
 
 // Scans I2C bus range 80-87
-byte scanBus() {
+uint8_t scanBus() {
+  return scanBus(80, 87);
+}
 
-  byte response = ZERO;
+// Scans I2C bus specified range
+uint8_t scanBus(uint8_t startAddress, uint8_t endAddress) {
 
-  for (uint8_t i = 0; i <= 7; i++) {
-    if (probeBusAddress(i + 80)) {
-      response |= ((byte)1 << i);
+  uint8_t totalAddresses = endAddress - startAddress;
+
+  if (totalAddresses > 7) {
+    return 0;
+  }
+
+  uint8_t response = 0;
+
+  for (uint8_t i = 0; i <= totalAddresses; i++) {
+    if (probeBusAddress(i + startAddress)) {
+      response |= 1 << i;
     }
   }
 
   return response;
 }
 
+// Gets the number of devices on I2C bus
+uint8_t getQuantity() {
+  return bitCount(scanBus());
+}
+
+// Gets the number of bits in bitmask
+uint8_t bitCount(uint8_t bitMask) {
+  if (bitMask == 0) {
+    return 0;
+  }
+
+  uint8_t quantity = 0;
+
+  for (uint8_t i = 0; i <= 7; i++) {
+    if (bitRead(bitMask, i)) {
+      quantity++;
+    }
+  }
+
+  return quantity;
+}
+
 // I2C monitor
 void i2cMonitor() {
 
-  slaveCountCurrent = scanBus();
-
-  if (slaveCountCurrent != slaveCountLast) {
-    PORT.write(ALERT);
-    PORT.write(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC);
-    PORT.flush();
+  if (cmdExecuting) {
+    return;
   }
 
-  slaveCountLast = slaveCountCurrent;
+  bool i2cPause = false;
 
+  // Slave address monitor
+  slaveCountCurrent = getQuantity();
+
+  if (slaveCountCurrent != slaveCountLast) {
+    uint8_t buffer[] = { ALERT, (uint8_t)(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC) };
+    PORT.write(buffer, sizeof(buffer));
+    slaveCountLast = slaveCountCurrent;
+    i2cPause = true;
+  }
+
+  // I2C clock monitor
   i2cClockCurrent = getI2cClockMode();
 
   if (i2cClockCurrent != i2cClockLast) {
-    PORT.write(ALERT);
-    PORT.write(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC);
-    PORT.flush();
+    uint8_t buffer[] = { ALERT, (uint8_t)(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC) };
+    PORT.write(buffer, sizeof(buffer));
+    i2cClockLast = i2cClockCurrent;
   }
 
-  i2cClockLast = i2cClockCurrent;
+  // Hot plugged DDR5 isn't detected without this pause,
+  // because PMIC behind SPD5 hub stays invisible to probeBusAddress()
+  if (i2cPause) {
+    delay(10);
+  }
+
+  PORT.flush();
 }
 
 // Control config pins
@@ -1029,10 +1323,16 @@ bool setConfigPin(uint8_t pin, bool state) {
   digitalWrite(pin, state);
 
   if (pin == SA1_EN) {
-    delay(5);
-    // validate SA1 state against address bitmask when SA1 is high: 82-83, 86-87
-    byte _a1 = 0b11001100;
-    return scanBus() & (state ? _a1 : ~_a1);
+
+    uint64_t timeout = millis() + 10;
+
+    while (millis() < timeout) {
+      if (scanBus() & (state ? A1_MASK : ~A1_MASK)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   return getConfigPin(pin) == state;
@@ -1040,38 +1340,32 @@ bool setConfigPin(uint8_t pin, bool state) {
 
 // Get config pin state
 bool getConfigPin(uint8_t pin) {
-  byte _a1 = 0b11001100; // addresses bitmask when SA1 is high: 82-83, 86-87
-  return digitalRead(pin) && (pin == SA1_EN ? scanBus() & _a1 : true);
+  return pin == SA1_EN ? scanBus() & A1_MASK : digitalRead(pin);
 }
 
-// Reset config pins
-void resetPins() {
-  for (uint8_t i = 0; i <= sizeof(pins[0]); i++) {
-    setConfigPin(pins[i], OFF);
+// Reset config pins w/ feedback
+bool resetPins() {
+  return setHighVoltage(false) && setConfigPin(SA1_EN, false);
+}
+
+// Reset config pins w/o feedback
+void resetPinsInternal() {
+  for (uint8_t i = 0; i < pinCount; i++) {
+    if (ConfigPin[i].mode == OUTPUT) {
+      digitalWrite(ConfigPin[i].name, ConfigPin[i].defaultState);
+    }
   }
 }
 
-// Toggle DDR5 offline mode
-bool ddr5SetOfflineMode(bool state) {
-  setConfigPin(OFF_EN, state);
-  if (state) {
-    // Set SDR-DDR4 to address 82-83 to avoid conflicts
-    setConfigPin(SA1_EN, state);
-  }
-
-  return ddr5GetOfflineMode() == state;
-}
-
+// Get DDR5 offline mode
 bool ddr5GetOfflineMode() {
-
-  // TODO: read MR48:2
-  return getConfigPin(OFF_EN) && false;
+  return ddr5Detect(80) && bitRead(readReg(80, MR48), 2);
 }
 
 // Tests if device address is present on I2C bus
 bool probeBusAddress(uint8_t address) {
   Wire.beginTransmission(address);
-  return Wire.endTransmission() == 0;
+  return Wire.endTransmission(false) == 0;
 }
 
 // Tests if device select code returns ACK (true), or NACK (false)
@@ -1080,7 +1374,7 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
   uint8_t status = 0;
 
   // Check the LSB of DSC, if it is 0 (write), then we need to write DNC address + DNC data
-  bool writeBit = (deviceSelectCode & 1) == 0;
+  bool writeBit = !bitRead(deviceSelectCode, 0);
 
   // Wire library uses 7 bit address, so we strip the LSB from the DSC by bitshifting right by 1
   uint8_t cmd = deviceSelectCode >> 1;
@@ -1096,45 +1390,52 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
     return status == 0;
   }
 
-  return Wire.requestFrom(cmd, (uint8_t)1) > 0; // true when ACK is received after control byte
+  return Wire.requestFrom(cmd, (uint8_t)1) > 0;  // true when ACK is received after control byte
 }
 
 // DDR4 detection test (address)
 bool ddr4Detect(uint8_t address) {
-  if (address == 0) {
+  if (!address) {
     return ddr4Detect();
   }
 
-  return probeBusAddress(address) && ddr4Detect();
+  return probeBusAddress(address) && ddr4Detect() && !ddr5Detect(address);
 }
 
 // DDR4 detection test (generic)
 bool ddr4Detect() {
   // Only SPA0 is tested, RPA returns NACK after SPA1 regardless of RAM type
-  return setPageAddress(0) && getPageAddress(true) == 0;
+  setPageAddress(0);
+  return getQuantity() > 0 && getPageAddress(true) == 0;
 }
 
-// DDR5 detection test
+// DDR5 detection test (address)
 bool ddr5Detect(uint8_t address) {
 
-  if (!probeBusAddress(address) || !scanBus()) {
+  if (!validateAddress(address) || !probeBusAddress(address)) {
     return false;
   }
 
-  bool result = false;
+  if (probeBusAddress((address & 0b111) | PMIC) && readReg(address, MR0) == highByte(SPD5_TS)) {
+    uint8_t mr1 = readReg(address, MR1);
+    return mr1 == lowByte(SPD5_TS) || mr1 == lowByte(SPD5_NO);
+  }
 
-  // TODO: return true if MR0 is 0x51 or 0x52
+  return false;
+}
 
-  return result;
+// Validates EEPROM address
+bool validateAddress(uint8_t address) {
+  return address >> 3 == 0b1010;
 }
 
 // Restores device's default settings
 bool factoryReset() {
   for (uint8_t i = 0; i <= 32; i++) {
-    EEPROM.update(i, ZERO);
+    EEPROM.update(i, 0);
   }
   for (uint8_t i = 0; i <= 32; i++) {
-    if (EEPROM.read(i) != ZERO) {
+    if (EEPROM.read(i) != 0) {
       return false;
     }
   }
