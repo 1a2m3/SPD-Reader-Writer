@@ -203,6 +203,8 @@ namespace SpdReaderWriterCore {
 #endif
                                 Priority = ThreadPriority.BelowNormal,
                             }.Start();
+
+                            _connectionEstablished.Set();
                         }
                     }
                     catch {
@@ -250,6 +252,8 @@ namespace SpdReaderWriterCore {
                 if (IsConnected) {
                     _sp.Close();
                 }
+
+                _connectionEstablished.Reset();
 
                 if (_sp != null) {
                     _sp.DataReceived  -= DataReceivedHandler;
@@ -943,7 +947,8 @@ namespace SpdReaderWriterCore {
 
                         // Put data into response data packet
                         _response.RawBytes = _inputBuffer;
-                        
+                        _dataReady.Set();
+
                         break;
                 }
 
@@ -985,13 +990,14 @@ namespace SpdReaderWriterCore {
         /// Connection monitor
         /// </summary>
         private void ConnectionMonitor() {
-            Thread.Sleep(2000);
 
-            while (IsConnected) {
-                Thread.Sleep(50);
+            if (_connectionEstablished.WaitOne(5000)) {
+                while (IsConnected) {
+                    Thread.Sleep(50);
+                }
+                OnConnectionLost(EventArgs.Empty);
             }
 
-            OnConnectionLost(EventArgs.Empty);
             Dispose();
         }
 
@@ -1165,7 +1171,7 @@ namespace SpdReaderWriterCore {
                     _bytesSent += command.Length;
 
                     // Wait for data
-                    if (!DataReady.WaitOne(PortSettings.Timeout * 1000)) {
+                    if (!_dataReady.WaitOne(PortSettings.Timeout * 1000)) {
                         throw new TimeoutException($"{PortName} response timeout");
                     }
 
@@ -1187,7 +1193,7 @@ namespace SpdReaderWriterCore {
                 }
                 finally {
                     _response = new PacketData();
-                    DataReady.Reset();
+                    _dataReady.Reset();
                 }
             }
         }
@@ -1240,7 +1246,12 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Data ready event
         /// </summary>
-        private static readonly AutoResetEvent DataReady = new AutoResetEvent(false);
+        private readonly AutoResetEvent _dataReady = new AutoResetEvent(false);
+
+        /// <summary>
+        /// Connection established event
+        /// </summary>
+        private readonly AutoResetEvent _connectionEstablished = new AutoResetEvent(false);
 
         /// <summary>
         /// Device commands
@@ -1399,8 +1410,6 @@ namespace SpdReaderWriterCore {
                     }
 
                     _rawBytes = value;
-
-                    DataReady.Set();
                 }
             }
 
