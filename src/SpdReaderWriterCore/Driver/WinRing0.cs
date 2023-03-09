@@ -544,10 +544,6 @@ namespace SpdReaderWriterCore.Driver {
 
             for (ushort bus = 0; bus <= gPciNumberOfBus; bus++) {
 
-                if (ReadPciConfigWord(PciBusDevFunc(bus, 0x00, 0x00), 0x00) != vendorId) {
-                    continue;
-                }
-
                 for (byte dev = 0; dev < gPciNumberOfDevice; dev++) {
 
                     if (ReadPciConfigWord(PciBusDevFunc(bus, dev, 0), 0x00) == ushort.MaxValue) {
