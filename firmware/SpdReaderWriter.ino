@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20230202  // Firmware version number (YYYYMMDD)
+#define FW_VER 20230405  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -95,10 +95,6 @@
 #define RESET   0x00
 #define GET     '?'  // Suffix added to commands to return current state
 
-// Device pin name parameters
-#define HV_SWITCH  0  // Pin to toggle VHV on SA0 pin
-#define SA1_SWITCH 1  // Pin to toggle SA1 state
-
 // Device responses
 #define RESPONSE '&'
 #define ALERT    '@'
@@ -137,18 +133,25 @@ bool cmdExecuting;             // Indicates an input command is being executed
 uint8_t responseBuffer[32];    // Response body buffer
 uint8_t responseLength;        // Output response body length and index
 
+// Config pin enum
+enum pinNum {
+  HV_SWITCH,  // Pin to toggle VHV on SA0 pin
+  SA1_SWITCH  // Pin to toggle SA1 state
+};
+
 // Pin data struct
 typedef struct {
   const int name;
+  pinNum number;
   bool defaultState;
   uint8_t mode;
 } pinData;
 
 // Configuration pins array
 pinData ConfigPin[] = {
-  { HV_EN, false, OUTPUT }, // HV control
-  { HV_FB, NULL, INPUT },   // HV feedback
-  { SA1_EN, true, OUTPUT }, // SA1 control
+  { HV_EN, HV_SWITCH, false, OUTPUT },  // HV control
+  { SA1_EN, SA1_SWITCH, true, OUTPUT }, // SA1 control
+  { HV_FB, (pinNum)NULL, NULL, INPUT }, // HV feedback
 };
 
 size_t pinCount = sizeof(ConfigPin) / sizeof(ConfigPin[0]);
@@ -160,7 +163,7 @@ void setup() {
     pinMode(ConfigPin[i].name, ConfigPin[i].mode);
   }
 
-  resetPinsInternal();
+  resetPins();
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
@@ -710,7 +713,7 @@ void cmdPinControl() {
   char state  = buffer[1];
 
   // SA1 controls
-  if (pin == HV_SWITCH) {
+  if (pin == SA1_SWITCH) {
     // Toggle SA1 state
     if (state == ENABLE || state == DISABLE) {
       Respond(setConfigPin(SA1_EN, state));
@@ -725,7 +728,7 @@ void cmdPinControl() {
     }
   }
   // VHV 9V controls
-  else if (pin == SA1_SWITCH) {
+  else if (pin == HV_SWITCH) {
     // Toggle HV state
     if (state == ENABLE || state == DISABLE) {
       Respond(setHighVoltage(state));
@@ -915,7 +918,7 @@ bool setRswp(uint8_t address, uint8_t block) {
     else {
       result = probeDeviceTypeId(cmd);
     }
-    resetPinsInternal();
+    resetPins();
   }
 
   return result;
@@ -942,7 +945,7 @@ bool getRswp(uint8_t address, uint8_t block) {
 
   bool status = probeDeviceTypeId(cmd);  // true/ack = not protected
 
-  resetPinsInternal();
+  resetPins();
 
   return !status;  // true = protected or rswp not supported; false = unprotected
 }
@@ -973,7 +976,7 @@ bool clearRswp(uint8_t address) {
 
   if (setHighVoltage(true)) {
     bool result = probeDeviceTypeId(CWP);
-    resetPinsInternal();
+    resetPins();
 
     return result;
   }
@@ -985,7 +988,7 @@ bool clearRswp(uint8_t address) {
 uint8_t rswpSupportTest() {
 
   // Reset config pins and HV state
-  resetPinsInternal();
+  resetPins();
 
   // Scan I2C bus
   if (!scanBus()) {
@@ -1010,7 +1013,7 @@ uint8_t rswpSupportTest() {
     }
   }
 
-  resetPinsInternal();
+  resetPins();
 
   return rswpSupport;
 }
@@ -1291,13 +1294,15 @@ void i2cMonitor() {
   bool i2cPause = false;
 
   // Slave address monitor
-  slaveCountCurrent = getQuantity();
+  if (!digitalRead(HV_EN) && !digitalRead(HV_FB)) {
+    slaveCountCurrent = getQuantity();
 
-  if (slaveCountCurrent != slaveCountLast) {
-    uint8_t buffer[] = { ALERT, (uint8_t)(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC) };
-    PORT.write(buffer, sizeof(buffer));
-    slaveCountLast = slaveCountCurrent;
-    i2cPause = true;
+    if (slaveCountCurrent != slaveCountLast) {
+      uint8_t buffer[] = { ALERT, (uint8_t)(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC) };
+      PORT.write(buffer, sizeof(buffer));
+      slaveCountLast = slaveCountCurrent;
+      i2cPause = true;
+    }
   }
 
   // I2C clock monitor
@@ -1345,7 +1350,8 @@ bool getConfigPin(uint8_t pin) {
 
 // Reset config pins w/ feedback
 bool resetPins() {
-  return setHighVoltage(false) && setConfigPin(SA1_EN, false);
+  return setHighVoltage(ConfigPin[HV_SWITCH].defaultState) &&
+         setConfigPin(ConfigPin[SA1_SWITCH].name, ConfigPin[SA1_SWITCH].defaultState);
 }
 
 // Reset config pins w/o feedback
