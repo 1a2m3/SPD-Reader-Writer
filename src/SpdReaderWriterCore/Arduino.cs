@@ -290,8 +290,8 @@ namespace SpdReaderWriterCore {
                 try {
                     return ExecuteCommand<byte>(Command.RSWPREPORT);
                 }
-                catch {
-                    throw new Exception($"Unable to get {PortName} supported RAM");
+                catch (Exception e) {
+                    throw new Exception($"Unable to get {PortName} supported RAM ({e.Message})");
                 }
             }
         }
@@ -472,7 +472,7 @@ namespace SpdReaderWriterCore {
         /// <param name="pin">Pin name</param>
         /// <param name="state">Pin state</param>
         /// <returns><see langword="true"/> if the config pin has been set</returns>
-        public bool SetConfigPin(byte pin, bool state) {
+        public bool SetConfigPin(Pin.Name pin, bool state) {
             lock (_portLock) {
                 try {
                     return ExecuteCommand<bool>(Command.PINCONTROL, pin, state);
@@ -487,7 +487,7 @@ namespace SpdReaderWriterCore {
         /// Get specified configuration pin state
         /// </summary>
         /// <returns><see langword="true"/> if pin is high, or <see langword="false"/> when pin is low</returns>
-        public bool GetConfigPin(byte pin) {
+        public bool GetConfigPin(Pin.Name pin) {
             lock (_portLock) {
                 try {
                     return ExecuteCommand<bool>(Command.PINCONTROL, pin, Command.GET);
@@ -660,7 +660,7 @@ namespace SpdReaderWriterCore {
                     }
 
                     // Prepare a byte array containing cmd byte + name length + name
-                    byte[] command = { Command.NAME, (byte)newName.Length };
+                    byte[] command = { (byte)Command.NAME, (byte)newName.Length };
 
                     return ExecuteCommand<bool>(Data.MergeArray(command, Encoding.ASCII.GetBytes(newName)));
                 }
@@ -967,11 +967,11 @@ namespace SpdReaderWriterCore {
                 Notification = message
             });
 
-            if (message == Alert.SLAVEDEC || 
+            // Update capabilities properties
+            if (message == Alert.SLAVEDEC ||
                 message == Alert.SLAVEINC) {
-                // Update capabilities properties
                 _addresses       = Scan();
-                _rswpTypeSupport = GetRswpSupport();
+                _rswpTypeSupport = _addresses.Length > 0 ? GetRswpSupport() : 0;
             }
         }
 
@@ -1020,7 +1020,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Response data type</typeparam>
         /// <param name="command">Command to be executed on the device</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command) => ExecuteCommand<T>(new[] { command });
+        public T ExecuteCommand<T>(object command) => ExecuteCommand<T>(new[] { command });
 
         /// <summary>
         /// Executes a command with one parameter on the device
@@ -1029,16 +1029,7 @@ namespace SpdReaderWriterCore {
         /// <param name="command">Command to be executed on the device</param>
         /// <param name="p1">Command parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1) => ExecuteCommand<T>(new[] { command, p1 });
-
-        /// <summary>
-        /// Executes a command with one parameter on the device
-        /// </summary>
-        /// <typeparam name="T">Response data type</typeparam>
-        /// <param name="command">Command to be executed on the device</param>
-        /// <param name="p1">Command parameter</param>
-        /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, bool p1) => ExecuteCommand<T>(new[] { command, Data.BoolToNum<byte>(p1) });
+        public T ExecuteCommand<T>(object command, object p1) => ExecuteCommand<T>(new[] { command, p1 });
 
         /// <summary>
         /// Executes a command with two parameters on the device
@@ -1048,17 +1039,7 @@ namespace SpdReaderWriterCore {
         /// <param name="p1">First parameter</param>
         /// <param name="p2">Second parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, byte p2) => ExecuteCommand<T>(new[] { command, p1, p2 });
-
-        /// <summary>
-        /// Executes a command with two parameters on the device
-        /// </summary>
-        /// <typeparam name="T">Response data type</typeparam>
-        /// <param name="command">Command to be executed on the device</param>
-        /// <param name="p1">First parameter</param>
-        /// <param name="p2">Second parameter</param>
-        /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, bool p2) => ExecuteCommand<T>(new[] { command, p1, Data.BoolToNum<byte>(p2) });
+        public T ExecuteCommand<T>(object command, object p1, object p2) => ExecuteCommand<T>(new[] { command, p1, p2 });
 
         /// <summary>
         /// Executes a command with three parameters on the device
@@ -1069,18 +1050,7 @@ namespace SpdReaderWriterCore {
         /// <param name="p2">Second parameter</param>
         /// <param name="p3">Third parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, byte p2, byte p3) => ExecuteCommand<T>(new[] { command, p1, p2, p3 });
-
-        /// <summary>
-        /// Executes a command with three parameters on the device
-        /// </summary>
-        /// <typeparam name="T">Response data type</typeparam>
-        /// <param name="command">Command to be executed on the device</param>
-        /// <param name="p1">First parameter</param>
-        /// <param name="p2">Second parameter</param>
-        /// <param name="p3">Third parameter</param>
-        /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, byte p2, bool p3) => ExecuteCommand<T>(new[] { command, p1, p2, Data.BoolToNum<byte>(p3) });
+        public T ExecuteCommand<T>(object command, object p1, object p2, object p3) => ExecuteCommand<T>(new[] { command, p1, p2, p3 });
 
         /// <summary>
         /// Executes a command with four parameters on the device
@@ -1092,7 +1062,7 @@ namespace SpdReaderWriterCore {
         /// <param name="p3">Third parameter</param>
         /// <param name="p4">Fourth parameter</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte command, byte p1, byte p2, byte p3, byte p4) => ExecuteCommand<T>(new[] { command, p1, p2, p3, p4 });
+        public T ExecuteCommand<T>(object command, object p1, object p2, object p3, object p4) => ExecuteCommand<T>(new[] { command, p1, p2, p3, p4 });
 
         /// <summary>
         /// Executes a multi byte command on the device
@@ -1100,7 +1070,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Response data type</typeparam>
         /// <param name="command">Command and parameters to be executed on the device</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(byte[] command) {
+        public T ExecuteCommand<T>(object[] command) {
 
             byte[] response = ExecuteCommand(command);
 
@@ -1149,7 +1119,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="command">Bytes to be sent to the device</param>
         /// <returns>A byte array received from the device in response</returns>
-        private byte[] ExecuteCommand(byte[] command) {
+        private byte[] ExecuteCommand(object[] command) {
             if (command.Length == 0) {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
@@ -1164,7 +1134,7 @@ namespace SpdReaderWriterCore {
                     ClearBuffer();
 
                     // Send the command to device
-                    _sp.BaseStream.Write(command, 0, command.Length);
+                    _sp.BaseStream.Write(Data.ConvertObjectArray<byte>(command), 0, command.Length);
                     _sp.BaseStream.Flush();
 
                     // Update stats
@@ -1188,8 +1158,8 @@ namespace SpdReaderWriterCore {
                     // Return response body
                     return _response.Body;
                 }
-                catch {
-                    throw new IOException($"{PortName} failed to execute command {Data.BytesToHexString(command)}");
+                catch (Exception e) {
+                    throw new IOException($"{PortName} failed to execute command 0x{Data.BytesToHexString(Data.ConvertObjectArray<byte>(command))} ({e.Message})");
                 }
                 finally {
                     _response = new PacketData();
@@ -1236,12 +1206,12 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock
         /// </summary>
-        private readonly object _portLock = new object();
+        private static object _portLock = new object();
 
         /// <summary>
         /// Lock object to prevent simultaneous <see cref="DataReceivedHandler"/> calls
         /// </summary>
-        private readonly object _receiveLock = new object();
+        private static object _receiveLock = new object();
 
         /// <summary>
         /// Data ready event
@@ -1260,77 +1230,77 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Read byte
             /// </summary>
-            public const byte READBYTE     = (byte)'r';
+            public const char READBYTE     = 'r';
 
             /// <summary>
             /// Write byte
             /// </summary>
-            public const byte WRITEBYTE    = (byte)'w';
+            public const char WRITEBYTE    = 'w';
 
             /// <summary>
             /// Write page
             /// </summary>
-            public const byte WRITEPAGE    = (byte)'g';
+            public const char WRITEPAGE    = 'g';
 
             /// <summary>
             /// Scan I2C bus
             /// </summary>
-            public const byte SCANBUS      = (byte)'s';
+            public const char SCANBUS      = 's';
 
             /// <summary>
             /// I2C clock control
             /// </summary>
-            public const byte I2CCLOCK     = (byte)'c';
+            public const char I2CCLOCK     = 'c';
 
             /// <summary>
             /// Probe I2C address
             /// </summary>
-            public const byte PROBEADDRESS = (byte)'a';
+            public const char PROBEADDRESS = 'a';
 
             /// <summary>
             /// Config pin state control
             /// </summary>
-            public const byte PINCONTROL   = (byte)'p';
+            public const char PINCONTROL   = 'p';
 
             /// <summary>
             /// Reset config pins state to defaults
             /// </summary>
-            public const byte PINRESET     = (byte)'d';
+            public const char PINRESET     = 'd';
 
             /// <summary>
             /// RSWP control
             /// </summary>
-            public const byte RSWP         = (byte)'b';
+            public const char RSWP         = 'b';
 
             /// <summary>
             /// PSWP control
             /// </summary>
-            public const byte PSWP         = (byte)'l';
+            public const char PSWP         = 'l';
 
             /// <summary>
             /// Offset write protection test
             /// </summary>
-            public const byte OVERWRITE    = (byte)'o';
+            public const char OVERWRITE    = 'o';
 
             /// <summary>
             /// Get Firmware version
             /// </summary>
-            public const byte VERSION      = (byte)'v';
+            public const char VERSION      = 'v';
 
             /// <summary>
             /// Device Communication Test
             /// </summary>
-            public const byte TEST         = (byte)'t';
+            public const char TEST         = 't';
 
             /// <summary>
             /// Report current RSWP RAM support
             /// </summary>
-            public const byte RSWPREPORT   = (byte)'f';
+            public const char RSWPREPORT   = 'f';
 
             /// <summary>
             /// Device name controls
             /// </summary>
-            public const byte NAME         = (byte)'n';
+            public const char NAME         = 'n';
 
             /// <summary>
             /// Maximum name length
@@ -1340,57 +1310,57 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// DDR4 detection
             /// </summary>
-            public const byte DDR4DETECT   = (byte)'4';
+            public const char DDR4DETECT   = '4';
 
             /// <summary>
             /// DDR5 detection
             /// </summary>
-            public const byte DDR5DETECT   = (byte)'5';
+            public const char DDR5DETECT   = '5';
 
             /// <summary>
             /// Access SPD5 Hub register space
             /// </summary>
-            public const byte SPD5HUBREG   = (byte)'h';
+            public const char SPD5HUBREG   = 'h';
 
             /// <summary>
             /// Get EEPROM size
             /// </summary>
-            public const byte SIZE         = (byte)'z';
+            public const char SIZE         = 'z';
 
             /// <summary>
             /// Restore device settings to default
             /// </summary>
-            public const byte FACTORYRESET = (byte)'-';
+            public const char FACTORYRESET = '-';
 
             /// <summary>
             /// Command modifier used to modify variable value
             /// </summary>
-            public const byte SET          = 1;
+            public const bool SET          = true;
 
             /// <summary>
             /// Suffix added to get current state
             /// </summary>
-            public const byte GET          = (byte)'?';
+            public const char GET          = '?';
         }
 
         /// <summary>
         /// Class describing configuration pins
         /// </summary>
         public struct Pin {
-            /// <summary>
-            /// Struct describing config pin names
-            /// </summary>
-            public struct Name {
 
+            /// <summary>
+            /// Config pin names
+            /// </summary>
+            public enum Name : byte {
                 /// <summary>
                 /// High voltage (9V) control pin
                 /// </summary>
-                public const byte HV_SWITCH  = 0;
+                HV_SWITCH,
 
                 /// <summary>
                 /// Slave address 1 (SA1) control pin
                 /// </summary>
-                public const byte SA1_SWITCH = 1;
+                SA1_SWITCH
             }
         }
 
