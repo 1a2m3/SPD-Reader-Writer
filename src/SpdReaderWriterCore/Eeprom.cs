@@ -206,6 +206,16 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Performs write protection test on the specified EEPROM offset
+        /// </summary>
+        /// <param name="smbus">SMBus controller instance</param>
+        /// <param name="offset">Byte position</param>
+        /// <returns><see langword="true"/> if byte at <paramref name="offset"/> is writable</returns>
+        public static bool Overwrite(Smbus smbus, ushort offset) {
+            return Write(smbus, offset, Read(smbus, offset));
+        }
+
+        /// <summary>
         /// Read software write protection status
         /// </summary>
         /// <param name="smbus">SMBus controller instance</param>
@@ -380,7 +390,7 @@ namespace SpdReaderWriterCore {
 
             // Prepare command
             byte[] command = {
-                Arduino.Command.WRITEPAGE,
+                (byte)Arduino.Command.WRITEPAGE,
                 arduino.I2CAddress,
                 (byte)(offset >> 8), // MSB
                 (byte)offset,        // LSB
