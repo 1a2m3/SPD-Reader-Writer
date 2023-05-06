@@ -69,7 +69,7 @@ namespace SpdReaderWriterCore {
         public static byte GetParity(object input, Parity parityType) {
 
             int bitCount = CountBits(input);
-            ulong value   = Convert.ToUInt64(input) & GenerateBitmask<ulong>(bitCount);
+            ulong value  = Convert.ToUInt64(input) & GenerateBitmask<ulong>(bitCount);
 
             byte result = 0;
 
@@ -123,10 +123,13 @@ namespace SpdReaderWriterCore {
                 throw new ArgumentOutOfRangeException(nameof(position));
             }
 
+            int mask = 1 << position;
+            ulong inputData = Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T)));
+            
             return (T)Convert.ChangeType(
                 value
-                    ? Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) | (uint)(1 << position)
-                    : Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T))) & (ulong)~(1 << position)
+                    ? inputData | (uint)mask
+                    : inputData & (ulong)~mask
                 , typeof(T));
         }
 
@@ -892,22 +895,22 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Reverses array elements
         /// </summary>
-        /// <param name="array">Input array</param>
+        /// <param name="input">Input array</param>
         /// <returns>Reversed array</returns>
-        public static T[] ReverseArray<T>(T[] array) {
+        public static T[] ReverseArray<T>(T[] input) {
 
-            if (array == null) {
-                throw new ArgumentNullException(nameof(array));
+            if (input == null) {
+                throw new ArgumentNullException(nameof(input));
             }
 
-            if (array.Length == 0) {
-                return array;
+            if (input.Length == 0) {
+                return input;
             }
 
-            T[] newArray = new T[array.Length];
+            T[] newArray = new T[input.Length];
 
-            for (int i = 0; i < array.Length; i++) {
-                newArray[i] = array[array.Length - 1 - i];
+            for (int i = 0; i < input.Length; i++) {
+                newArray[i] = input[input.Length - 1 - i];
             }
 
             return newArray;
@@ -916,30 +919,51 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Checks if input array contains specified element
         /// </summary>
-        /// <param name="array">Input array</param>
+        /// <param name="input">Input array</param>
         /// <param name="item">Element to look for</param>
-        /// <returns><see langword="true"/> if <paramref name="array"/> contains <paramref name="item"/></returns>
-        public static bool ArrayContains<T>(T[] array, T item) {
+        /// <returns><see langword="true"/> if <paramref name="input"/> contains <paramref name="item"/></returns>
+        public static bool ArrayContains<T>(T[] input, T item) {
 
-            if (array == null) {
-                throw new NullReferenceException(nameof(array));
+            if (input == null) {
+                throw new NullReferenceException(nameof(input));
             }
 
             if (item == null) {
                 throw new NullReferenceException(nameof(item));
             }
 
-            if (array.Length == 0) {
+            if (input.Length == 0) {
                 return false;
             }
 
-            foreach (T member in array) {
+            foreach (T member in input) {
                 if (member.Equals(item)) {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Converts object array to data type array
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="input">Input array</param>
+        /// <returns>Data type array</returns>
+        public static T[] ConvertObjectArray<T>(object[] input) {
+
+            if (input == null) {
+                throw new NullReferenceException(nameof(input));
+            }
+
+            Queue<T> outputQueue = new Queue<T>();
+
+            foreach (object item in input) {
+                outputQueue.Enqueue((T)Convert.ChangeType(item, typeof(T)));
+            }
+
+            return outputQueue.ToArray();
         }
 
         /// <summary>
