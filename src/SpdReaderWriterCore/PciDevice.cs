@@ -23,7 +23,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// PCI Base Class codes
         /// </summary>
-        public struct BaseClass {
+        public struct BaseClassInfo {
             public const byte Bridge                  = 0x06;
             public const byte Serial                  = 0x0C;
         }
@@ -31,7 +31,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// PCI sub class codes
         /// </summary>
-        public struct SubClass {
+        public struct SubClassInfo {
             public const byte Isa                     = 0x01;
             public const byte Smbus                   = 0x05;
         }
@@ -44,8 +44,10 @@ namespace SpdReaderWriterCore {
             public const byte DeviceId                = 0x02;
             public const byte Status                  = 0x06;
             public const byte RevisionId              = 0x08;
-            public const byte SubType                 = 0x0A;
-            public const byte BaseType                = 0x0B;
+            public const byte ProgIf                  = 0x09;
+            public const byte SubClass                = 0x0A;
+            public const byte BaseClass               = 0x0B;
+            public const byte HeaderType              = 0x0E;
             public static readonly byte[] BaseAddress = { 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24 };
             public const byte SubsystemId             = 0x2E;
             public const byte SubsystemVendorId       = 0x2C;
@@ -98,13 +100,7 @@ namespace SpdReaderWriterCore {
         /// <returns>PCI device location matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public static uint FindDeviceById(ushort vendorId, ushort deviceId) {
             try {
-                uint[] pciDevice = Smbus.Driver.FindPciDeviceByIdArray(vendorId, deviceId, 1);
-
-                if (pciDevice.Length > 0 && pciDevice[0] != uint.MaxValue) {
-                    return pciDevice[0];
-                }
-
-                return ushort.MaxValue;
+                return Smbus.Driver.FindPciDeviceById(vendorId, deviceId);
             }
             catch {
                 throw new IOException("PCI device not found");
@@ -130,12 +126,7 @@ namespace SpdReaderWriterCore {
         /// <returns>PCI device location matching Device Class</returns>
         public static uint FindDeviceByClass(byte baseClass, byte subClass, byte programIf) {
             try {
-                uint[] pciDevice = Smbus.Driver.FindPciDeviceByClassArray(baseClass, subClass, programIf, 1);
-                if (pciDevice.Length > 0 && pciDevice[0] != uint.MaxValue) {
-                    return pciDevice[0];
-                }
-
-                return uint.MaxValue;
+                return Smbus.Driver.FindPciDeviceByClass(baseClass, subClass, programIf);
             }
             catch {
                 throw new IOException("PCI device not found");
@@ -156,6 +147,21 @@ namespace SpdReaderWriterCore {
         /// PCI device's Revision ID
         /// </summary>
         public ushort RevisionId => Read<byte>(RegisterOffset.RevisionId);
+
+        /// <summary>
+        /// PCI device's BaseClass
+        /// </summary>
+        public byte BaseClass => Read<byte>(RegisterOffset.BaseClass);
+
+        /// <summary>
+        /// PCI device's SubClass
+        /// </summary>
+        public byte SubClass => Read<byte>(RegisterOffset.SubClass);
+
+        /// <summary>
+        /// PCI device's program interface
+        /// </summary>
+        public byte ProgIf => Read<byte>(RegisterOffset.ProgIf);
 
         /// <summary>
         /// Reads data from PCI device memory space
