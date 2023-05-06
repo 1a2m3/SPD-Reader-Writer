@@ -346,6 +346,21 @@ namespace SpdReaderWriterCore {
             C422 = 0xA2D3, // Same as X299
             #endregion
 
+            // DDR4 & DDR5
+
+            #region LGA1700
+            B660  = 0x7A86,
+            H610  = 0x7A87,
+            H670  = 0x7A85,
+            Q670  = 0x7A83,
+            W680  = 0x7A88,
+            Z690  = 0x7A84,
+            HM670 = 0x7A8C,
+            WM690 = 0x7A8D,
+            B760  = 0x7A06,
+            Z790  = 0x7A04,
+            #endregion
+
             // AMD
             FCH     = 0x790B, // AM4/ZEN
             Hudson2 = 0x780B, // FM1/FM2(+)
