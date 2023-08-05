@@ -230,10 +230,10 @@ namespace SpdReaderWriterCore {
                 EepromCommand.RPS3,
             };
 
-            block = block > 3 ? (byte)0 : block;
-
             try {
-                return !smbus.ReadByte(smbus, (byte)(rswpCmd[block] >> 1));
+                return smbus.IsDdr5Present
+                    ? Data.GetBit(smbus.ReadByte(smbus, smbus.I2CAddress, (ushort)(Spd5Register.MR12 + Data.BoolToNum<byte>(block >= 8))), block)
+                    : !smbus.ReadByte(smbus, (byte)(rswpCmd[block > 3 ? (byte)0 : block] >> 1));
             }
             catch {
                 return true;
