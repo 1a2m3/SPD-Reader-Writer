@@ -350,7 +350,16 @@ namespace SpdReaderWriterCore {
         /// <param name="input">Input data</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is a number</returns>
         public static bool IsNumeric<T>(T input) {
-            switch (Type.GetTypeCode(input.GetType())) {
+            return IsNumeric(Type.GetTypeCode(input.GetType()));
+        }
+
+        /// <summary>
+        /// Determines whether an input data type code is a numeric type
+        /// </summary>
+        /// <param name="input">Input data type code</param>
+        /// <returns><see langword="true"/> if <paramref name="input"/> is a numeric type</returns>
+        public static bool IsNumeric(TypeCode input) {
+            switch (input){
                 case TypeCode.Byte:
                 case TypeCode.SByte:
                 case TypeCode.Int16:
