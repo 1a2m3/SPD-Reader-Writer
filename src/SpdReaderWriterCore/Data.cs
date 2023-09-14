@@ -971,7 +971,7 @@ namespace SpdReaderWriterCore {
                 throw new NullReferenceException(nameof(input));
             }
 
-            Queue<object> arrayQueue = new Queue<object>();
+            Queue<object> arrayQueue = new Queue<object>(); // Queue for nested arrays
             Queue<T> outputQueue     = new Queue<T>();
 
             void AddItem(object item) {
@@ -983,17 +983,15 @@ namespace SpdReaderWriterCore {
                 }
             }
 
-            do {
-                foreach (object item in (Array)input) {
+            foreach (object item in (Array)input) {
+                AddItem(item);
+            }
+
+            while (arrayQueue.Count > 0) {
+                foreach (object item in (IEnumerable<T>)arrayQueue.Dequeue()) {
                     AddItem(item);
                 }
-
-                if (arrayQueue.Count > 0) {
-                    foreach (object item in (IEnumerable<T>)arrayQueue.Dequeue()) {
-                        AddItem(item);
-                    }
-                }
-            } while (arrayQueue.Count > 0);
+            }
 
             return outputQueue.ToArray();
         }
