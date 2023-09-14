@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Data;
 using System.IO;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
@@ -876,6 +877,10 @@ namespace SpdReaderWriterCore {
                 throw new NullReferenceException(nameof(a2));
             }
 
+            if (a1.GetType() != a2.GetType()) {
+                throw new DataException();
+            }
+
             if (a1.Length == 0) {
                 return a2;
             }
@@ -951,17 +956,35 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input array</param>
         /// <returns>Data type array</returns>
-        public static T[] ConvertObjectArray<T>(object[] input) {
+        public static T[] ConvertObjectArray<T>(object input) {
 
             if (input == null) {
                 throw new NullReferenceException(nameof(input));
             }
 
-            Queue<T> outputQueue = new Queue<T>();
+            Queue<object> arrayQueue = new Queue<object>();
+            Queue<T> outputQueue     = new Queue<T>();
 
-            foreach (object item in input) {
-                outputQueue.Enqueue((T)Convert.ChangeType(item, typeof(T)));
+            void AddItem(object item) {
+                if (item.GetType().IsArray) {
+                    arrayQueue.Enqueue(item);
+                }
+                else {
+                    outputQueue.Enqueue((T)Convert.ChangeType(item, typeof(T)));
+                }
             }
+
+            do {
+                foreach (object item in (Array)input) {
+                    AddItem(item);
+                }
+
+                if (arrayQueue.Count > 0) {
+                    foreach (object item in (IEnumerable<T>)arrayQueue.Dequeue()) {
+                        AddItem(item);
+                    }
+                }
+            } while (arrayQueue.Count > 0);
 
             return outputQueue.ToArray();
         }
