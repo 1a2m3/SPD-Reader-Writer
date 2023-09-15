@@ -15,6 +15,7 @@ using System.Data;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -779,7 +780,14 @@ namespace SpdReaderWriterCore {
         public bool WriteSpd5Hub(byte register, byte value) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand<bool>(Command.SPD5HUBREG, I2CAddress, register, Command.SET, value);
+                    bool result = ExecuteCommand<bool>(Command.SPD5HUBREG, I2CAddress, register, Command.SET, value);
+
+                    if (register == Eeprom.Spd5Register.MR12 ||
+                        register == Eeprom.Spd5Register.MR13) {
+                        return result && ReadSpd5Hub(register) == value;
+                    }
+
+                    return result;
                 }
                 catch {
                     throw new Exception($"Unable to read SPD5 hub on {PortName}");
@@ -1072,46 +1080,37 @@ namespace SpdReaderWriterCore {
         /// <returns>Data type value</returns>
         public T ExecuteCommand<T>(object[] command) {
 
-            byte[] response = ExecuteCommand(command);
+            byte[] response = ExecuteCommand(Data.ConvertObjectArray<byte>(command));
 
             if (typeof(T).IsArray) {
                 return (T)Convert.ChangeType(response, typeof(T));
             }
 
-            if (typeof(T) == typeof(bool)) {
-                return (T)Convert.ChangeType(response[0] == Response.TRUE, typeof(T));
+            Type t = typeof(T);
+            TypeCode typeCode = Type.GetTypeCode(t);
+
+            if (Data.IsNumeric(typeCode)) {
+                response = Data.SubArray(response, 0, (uint)Marshal.SizeOf(t));
             }
 
-            if (typeof(T) == typeof(short)) {
-                return (T)Convert.ChangeType(BitConverter.ToInt16(Data.SubArray(response, 0, 2), 0), TypeCode.Int16);
+            switch (typeCode) {
+                case TypeCode.String:
+                    return (T)Convert.ChangeType(Data.BytesToString(response), t);
+                case TypeCode.UInt64:
+                case TypeCode.Int64:
+                    return (T)Convert.ChangeType(BitConverter.ToInt64(response, 0), typeCode);
+                case TypeCode.UInt32:
+                case TypeCode.Int32:
+                    return (T)Convert.ChangeType(BitConverter.ToInt32(response, 0), typeCode);
+                case TypeCode.UInt16:
+                case TypeCode.Int16:
+                    return (T)Convert.ChangeType(BitConverter.ToInt16(response, 0), typeCode);
+                case TypeCode.Boolean:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                default:
+                    return (T)Convert.ChangeType(response[0], t);
             }
-
-            if (typeof(T) == typeof(ushort)) {
-                return (T)Convert.ChangeType(BitConverter.ToUInt16(Data.SubArray(response, 0, 2), 0), TypeCode.UInt16);
-            }
-
-            if (typeof(T) == typeof(int)) {
-                return (T)Convert.ChangeType(BitConverter.ToInt32(Data.SubArray(response, 0, 4), 0), TypeCode.Int32);
-            }
-
-            if (typeof(T) == typeof(uint)) {
-                return (T)Convert.ChangeType(BitConverter.ToUInt32(Data.SubArray(response, 0, 4), 0), TypeCode.UInt32);
-            }
-
-            if (typeof(T) == typeof(long)) {
-                return (T)Convert.ChangeType(BitConverter.ToInt64(Data.SubArray(response, 0, 8), 0), TypeCode.Int64);
-            }
-
-            if (typeof(T) == typeof(ulong)) {
-                return (T)Convert.ChangeType(BitConverter.ToUInt64(Data.SubArray(response, 0, 8), 0), TypeCode.UInt64);
-            }
-
-            if (typeof(T) == typeof(string)) {
-                return (T)Convert.ChangeType(Data.BytesToString(response), typeof(T));
-            }
-
-            // Byte or SByte
-            return (T)Convert.ChangeType(response[0], typeof(T));
         }
 
         /// <summary>
@@ -1119,7 +1118,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="command">Bytes to be sent to the device</param>
         /// <returns>A byte array received from the device in response</returns>
-        private byte[] ExecuteCommand(object[] command) {
+        private byte[] ExecuteCommand(byte[] command) {
             if (command.Length == 0) {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
@@ -1134,7 +1133,7 @@ namespace SpdReaderWriterCore {
                     ClearBuffer();
 
                     // Send the command to device
-                    _sp.BaseStream.Write(Data.ConvertObjectArray<byte>(command), 0, command.Length);
+                    _sp.BaseStream.Write(command, 0, command.Length);
                     _sp.BaseStream.Flush();
 
                     // Update stats
@@ -1159,7 +1158,7 @@ namespace SpdReaderWriterCore {
                     return _response.Body;
                 }
                 catch (Exception e) {
-                    throw new IOException($"{PortName} failed to execute command 0x{Data.BytesToHexString(Data.ConvertObjectArray<byte>(command))} ({e.Message})");
+                    throw new IOException($"{PortName} failed to execute command 0x{Data.BytesToHexString(command)} ({e.Message})");
                 }
                 finally {
                     _response = new PacketData();
