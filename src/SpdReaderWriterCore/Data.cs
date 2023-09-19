@@ -126,7 +126,7 @@ namespace SpdReaderWriterCore {
 
             int mask = 1 << position;
             ulong inputData = Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T)));
-            
+
             return (T)Convert.ChangeType(
                 value
                     ? inputData | (uint)mask
@@ -359,7 +359,7 @@ namespace SpdReaderWriterCore {
         /// <param name="input">Input data type code</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is a numeric type</returns>
         public static bool IsNumeric(TypeCode input) {
-            switch (input){
+            switch (input) {
                 case TypeCode.Byte:
                 case TypeCode.SByte:
                 case TypeCode.Int16:
@@ -565,31 +565,67 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Converts byte to a Binary Coded Decimal (BCD)
+        /// Converts input to a Binary Coded Decimal (BCD)
         /// </summary>
-        /// <param name="input">Input byte</param>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="input">Input data</param>
         /// <returns>Binary Coded Decimal</returns>
-        /// <example><value>0x38</value> is converted to <value>38</value></example>
-        public static byte ByteToBinaryCodedDecimal(byte input) {
-            return (byte)((input & 0x0F) + ((input >> 4) & 0x0F) * 10);
+        /// <example><value>0x138</value> is converted to <value>138</value></example>
+        public static T ByteToBinaryCodedDecimal<T>(T input) {
+
+            if (!IsNumeric(input)) {
+                throw new InvalidDataException(nameof(input));
+            }
+
+            int dataSize = Marshal.SizeOf(typeof(T));
+
+            ulong output = default;
+
+            for (int i = 0; i < dataSize; i++) {
+                output += (ulong)((byte)((byte)((ulong)Convert.ChangeType(input, Type.GetTypeCode(typeof(ulong))) >> (4 * i)) & 0xF) * Math.Pow(10, i));
+            }
+
+            return (T)Convert.ChangeType(output, Type.GetTypeCode(typeof(T)));
         }
 
         /// <summary>
         /// Converts Binary Coded Decimal (BCD) to a byte
         /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Binary Coded Decimal</param>
         /// <returns>Binary Coded Decimal Byte</returns>
-        /// <example><value>14</value> is converted to <value>0x14</value></example>
-        public static byte BinaryCodedDecimalToByte(byte input) {
+        /// <example><value>314</value> is converted to <value>0x314</value></example>
+        public static T BinaryCodedDecimalToByte<T>(T input) {
 
-            if (input > 99) {
+            if (!IsNumeric(input)) {
+                throw new InvalidDataException(nameof(input));
+            }
+
+            ulong number = (ulong)Convert.ChangeType(input, Type.GetTypeCode(typeof(ulong)));
+
+            if (number > 0x9999_9999_9999_9999) {
                 throw new ArgumentOutOfRangeException(nameof(input));
             }
 
-            byte tens = (byte)(input / 10);
-            byte ones = (byte)(input - tens * 10);
+            int digits = 0;
 
-            return (byte)((ones & 0x0F) | (tens << 4));
+            while (number / (ulong)Math.Pow(10, digits) > 0) {
+                digits++;
+            }
+
+            ulong output = default;
+
+            for (int i = digits; i >= 0; i--) {
+
+                uint divisor = (uint)Math.Pow(10, i);
+
+                uint quotient = (uint)(number / divisor);
+                number -= quotient * divisor;
+
+                output |= quotient << i * 4;
+            }
+
+            return (T)Convert.ChangeType(output, typeof(T));
         }
 
         /// <summary>
@@ -618,7 +654,6 @@ namespace SpdReaderWriterCore {
                     i -= step;
                 } while (i >= stop);
             }
-            
 
             return numbers.ToArray();
         }
@@ -776,6 +811,10 @@ namespace SpdReaderWriterCore {
             }
 
             if (typeof(T1) != typeof(T2)) {
+                return false;
+            }
+
+            if (a1.Length != a2.Length) {
                 return false;
             }
 
