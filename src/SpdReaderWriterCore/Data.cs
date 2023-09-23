@@ -15,6 +15,7 @@ using System.ComponentModel;
 using System.Data;
 using System.IO;
 using System.IO.Compression;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -112,7 +113,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Input data type</typeparam>
         /// <param name="input">Input data to set bit in</param>
         /// <param name="position">Bit position to set</param>
-        /// <param name="value">Boolean bit value, set <see langref="true"/> for <value>1</value>, or <see langword="false"/> for <value>0</value></param>
+        /// <param name="value">Boolean bit value, set <see langword="true"/> for <value>1</value>, or <see langword="false"/> for <value>0</value></param>
         /// <returns>Updated data value</returns>
         public static T SetBit<T>(T input, int position, bool value) {
 
@@ -222,7 +223,7 @@ namespace SpdReaderWriterCore {
                 return (T)Convert.ChangeType(result, typeof(T));
             }
 
-            throw new InvalidDataException(nameof(T));
+            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
         }
 
         /// <summary>
@@ -340,7 +341,9 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public enum Direction {
             Greater = +1,
-            Lower   = -1
+            Lower   = -1,
+            Up      = +1,
+            Down    = -1,
         }
 
         /// <summary>
@@ -375,6 +378,70 @@ namespace SpdReaderWriterCore {
                 default:
                     return false;
             }
+        }
+
+        /// <summary>
+        /// Gets input data size in bytes
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="input">Input data</param>
+        /// <returns>Input data size in bytes</returns>
+        public static DataSize GetDataSize<T>(T input) => 
+            input == null 
+                ? DataSize.Null 
+                : GetDataSize(Type.GetTypeCode(input.GetType()));
+
+        /// <summary>
+        /// Gets input data size in bytes
+        /// </summary>
+        /// <param name="type">Type</param>
+        /// <returns>Input data size in bytes</returns>
+        public static DataSize GetDataSize(Type type) =>
+            type == null 
+                ? DataSize.Null 
+                : GetDataSize(Type.GetTypeCode(type));
+
+        /// <summary>
+        /// Gets input data size in bytes
+        /// </summary>
+        /// <param name="t">Type code</param>
+        /// <returns>Input data size in bytes</returns>
+        public static DataSize GetDataSize(TypeCode t) {
+
+            if (!Enum.IsDefined(typeof(TypeCode), t))
+                return DataSize.Null;
+
+            switch (t) {
+                case TypeCode.UInt64:
+                case TypeCode.Int64:
+                    return DataSize.Qword;
+                case TypeCode.UInt32:
+                case TypeCode.Int32:
+                    return DataSize.Dword;
+                case TypeCode.UInt16:
+                case TypeCode.Int16:
+                    return DataSize.Word;
+                case TypeCode.Boolean:
+                case TypeCode.SByte:
+                case TypeCode.Byte:
+                case TypeCode.Char:
+                    return DataSize.Byte;
+                case TypeCode.Empty:
+                    return DataSize.Null;
+                default:
+                    return (DataSize)Marshal.SizeOf(t);
+            }
+        }
+
+        /// <summary>
+        /// Data size
+        /// </summary>
+        public enum DataSize {
+            Qword = 8,
+            Dword = 4,
+            Word  = 2,
+            Byte  = 1,
+            Null  = 0,
         }
 
         /// <summary>
@@ -578,11 +645,10 @@ namespace SpdReaderWriterCore {
             }
 
             int dataSize = Marshal.SizeOf(typeof(T));
-
             ulong output = default;
 
             for (int i = 0; i < dataSize; i++) {
-                output += (ulong)((byte)((byte)((ulong)Convert.ChangeType(input, Type.GetTypeCode(typeof(ulong))) >> (4 * i)) & 0xF) * Math.Pow(10, i));
+                output += (ulong)((((ulong)Convert.ChangeType(input, Type.GetTypeCode(typeof(ulong))) >> (4 * i)) & 0xF) * Math.Pow(10, i));
             }
 
             return (T)Convert.ChangeType(output, Type.GetTypeCode(typeof(T)));
@@ -616,12 +682,9 @@ namespace SpdReaderWriterCore {
             ulong output = default;
 
             for (int i = digits; i >= 0; i--) {
-
-                uint divisor = (uint)Math.Pow(10, i);
-
-                uint quotient = (uint)(number / divisor);
+                ulong divisor = (ulong)Math.Pow(10, i);
+                ulong quotient = number / divisor;
                 number -= quotient * divisor;
-
                 output |= quotient << i * 4;
             }
 
