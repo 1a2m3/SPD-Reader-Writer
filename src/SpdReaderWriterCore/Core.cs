@@ -13,5 +13,16 @@ namespace SpdReaderWriterCore {
     /// <summary>
     /// Core class
     /// </summary>
-    public class Core { }
+    public class Core {
+
+        /// <summary>
+        /// Executing assembly path
+        /// </summary>
+        public static string ParentPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+        /// <summary>
+        /// Executing assembly name
+        /// </summary>
+        public string AssemblyName = Assembly.GetExecutingAssembly().FullName;
+    }
 }
