@@ -233,7 +233,7 @@ namespace SpdReaderWriterCore {
             try {
                 return smbus.IsDdr5Present
                     ? Data.GetBit(smbus.ReadByte(smbus, smbus.I2CAddress, (ushort)(Spd5Register.MR12 + Data.BoolToNum<byte>(block >= 8))), block)
-                    : !smbus.ReadByte(smbus, (byte)(rswpCmd[block > 3 ? (byte)0 : block] >> 1));
+                    : !smbus.ReadByte(smbus, (byte)(rswpCmd[block > 3 ? 0 : block] >> 1));
             }
             catch {
                 return true;
@@ -256,7 +256,7 @@ namespace SpdReaderWriterCore {
 
             if (smbus.IsDdr5Present) {
 
-                byte memReg       = (byte)(Spd5Register.MR12 + Data.BoolToNum<byte>(Data.GetBit(block, 3)));
+                byte memReg       = (byte)(Spd5Register.MR12 + Data.BoolToNum<byte>(Data.GetBit(block, 3))); // (block >= 8)
                 byte currentValue = smbus.ReadByte(smbus, smbus.I2CAddress, memReg); // Existing RSWP value
                 byte updatedValue = Data.SetBit(currentValue, block & 0b111, true); // Updated RSWP value
 
@@ -280,12 +280,12 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if RSWP has been disabled</returns>
         public static bool ClearRswp(Smbus smbus) {
 
-            if (smbus.IsDdr5Present) {
-                return smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR12, 0x00) &&
-                       smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR13, 0x00);
-            }
-
-            return smbus.WriteByte(smbus, EepromCommand.CWP >> 1);
+            return smbus.IsDdr5Present
+                ? smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR12, 0x00) &&
+                  smbus.WriteByte(smbus, smbus.I2CAddress, Spd5Register.MR13, 0x00) &&
+                  smbus.ReadByte(smbus, smbus.I2CAddress, Spd5Register.MR12) == 0x00 &&
+                  smbus.ReadByte(smbus, smbus.I2CAddress, Spd5Register.MR13) == 0x00
+                : smbus.WriteByte(smbus, EepromCommand.CWP >> 1);
         }
 
         /// <summary>
