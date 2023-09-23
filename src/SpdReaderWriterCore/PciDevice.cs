@@ -10,8 +10,10 @@
 */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
-using SpdReaderWriterCore.Driver;
+using System.Reflection;
+using System.Text;
 
 namespace SpdReaderWriterCore {
 
@@ -21,67 +23,58 @@ namespace SpdReaderWriterCore {
     public class PciDevice {
 
         /// <summary>
-        /// PCI Base Class codes
-        /// </summary>
-        public struct BaseClassInfo {
-            public const byte Bridge                  = 0x06;
-            public const byte Serial                  = 0x0C;
-        }
-
-        /// <summary>
-        /// PCI sub class codes
-        /// </summary>
-        public struct SubClassInfo {
-            public const byte Isa                     = 0x01;
-            public const byte Smbus                   = 0x05;
-        }
-
-        /// <summary>
-        /// PCI registers
-        /// </summary>
-        public struct RegisterOffset {
-            public const byte VendorId                = 0x00;
-            public const byte DeviceId                = 0x02;
-            public const byte Status                  = 0x06;
-            public const byte RevisionId              = 0x08;
-            public const byte ProgIf                  = 0x09;
-            public const byte SubClass                = 0x0A;
-            public const byte BaseClass               = 0x0B;
-            public const byte HeaderType              = 0x0E;
-            public static readonly byte[] BaseAddress = { 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24 };
-            public const byte SubsystemId             = 0x2E;
-            public const byte SubsystemVendorId       = 0x2C;
-        }
-
-        /// <summary>
         /// Initializes default PciDevice instance
         /// </summary>
         public PciDevice() {
-            PciInfo.BusNumber      = 0;
-            PciInfo.DeviceNumber   = 0;
-            PciInfo.FunctionNumber = 0;
-        }
-
-        /// <summary>
-        /// Initializes PciDevice instance based on its memory address location
-        /// </summary>
-        /// <param name="memoryAddress">PCI device memory location</param>
-        public PciDevice(uint memoryAddress) {
-            PciInfo.BusNumber      = WinRing0.PciGetBus(memoryAddress);
-            PciInfo.DeviceNumber   = WinRing0.PciGetDev(memoryAddress);
-            PciInfo.FunctionNumber = WinRing0.PciGetFunc(memoryAddress);
+            Location.Bus      = 0;
+            Location.Device   = 0;
+            Location.Function = 0;
         }
 
         /// <summary>
         /// Initializes PciDevice instance based on its PCI location
         /// </summary>
-        /// <param name="busNumber">PCI bus number</param>
-        /// <param name="deviceNumber">PCI device number</param>
-        /// <param name="functionNumber">PCI function number</param>
-        public PciDevice(byte busNumber, byte deviceNumber, byte functionNumber) {
-            PciInfo.BusNumber      = busNumber;
-            PciInfo.DeviceNumber   = deviceNumber;
-            PciInfo.FunctionNumber = functionNumber;
+        /// <param name="bus">PCI bus number</param>
+        /// <param name="device">PCI device number</param>
+        /// <param name="function">PCI function number</param>
+        public PciDevice(byte bus, byte device, byte function) {
+            Location.Bus      = bus;
+            Location.Device   = device;
+            Location.Function = function;
+        }
+
+        /// <summary>
+        /// Invalid PCI device instance
+        /// </summary>
+        public static PciDevice InvalidDevice => new PciDevice(byte.MaxValue, byte.MaxValue, byte.MaxValue);
+
+        /// <summary>
+        /// PCI device location info
+        /// </summary>
+        public LocationInfo Location;
+
+        /// <summary>
+        /// PCI device bus number
+        /// </summary>
+        public byte Bus {
+            get => Location.Bus;
+            set => Location.Bus = value;
+        }
+
+        /// <summary>
+        /// PCI device device number
+        /// </summary>
+        public byte Device {
+            get => Location.Device;
+            set => Location.Device = value;
+        }
+
+        /// <summary>
+        /// PCI device function number
+        /// </summary>
+        public byte Function {
+            get => Location.Function;
+            set => Location.Function = value;
         }
 
         /// <summary>
@@ -89,22 +82,226 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>Readable PCI device instance location</returns>
         public override string ToString() {
-            return $"PCI {PciInfo.BusNumber:D}/{PciInfo.DeviceNumber:D}/{PciInfo.FunctionNumber:D}";
+            return $"{Location.Bus:D}/{Location.Device:D}/{Location.Function:D}";
         }
 
         /// <summary>
-        /// Finds PCI device by Vendor and Device IDs
+        /// PCI device's vendor ID
+        /// </summary>
+        public ushort VendorId => Read<ushort>(Register.VendorId);
+
+        /// <summary>
+        /// PCI device's device ID
+        /// </summary>
+        public ushort DeviceId => Read<ushort>(Register.DeviceId);
+
+        /// <summary>
+        /// PCI device's Revision ID
+        /// </summary>
+        public ushort RevisionId => Read<byte>(Register.RevisionId);
+
+        /// <summary>
+        /// PCI device's BaseClass
+        /// </summary>
+        public byte BaseClass => Read<byte>(Register.BaseClass);
+
+        /// <summary>
+        /// PCI device's SubClass
+        /// </summary>
+        public byte SubClass => Read<byte>(Register.SubClass);
+
+        /// <summary>
+        /// PCI device's program interface
+        /// </summary>
+        public byte ProgramInterface => Read<byte>(Register.ProgramInterface);
+
+        /// <summary>
+        /// Reads data from PCI device configuration space
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <returns>Data value at <paramref name="offset"/> location</returns>
+        public T Read<T>(ushort offset) {
+            Read(offset, out T output);
+            return output;
+        }
+
+        /// <summary>
+        /// Reads data from PCI device configuration space
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <param name="output">Register value</param>
+        /// <returns><see langword="true"/> if the function succeeds</returns>
+        public bool Read<T>(ushort offset, out T output) => 
+            KernelDriver.ReadPciConfigEx(Bus, Device, Function, offset, out output);
+
+        /// <summary>
+        /// Write data to PCI device configuration space
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <param name="value">Data value</param>
+        /// <returns><see langword="true"/> if the function succeeds</returns>
+        public bool Write<T>(ushort offset, T value) {
+
+            object input  = value;
+            
+            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
+                return KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, (byte)input);
+            }
+
+            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
+                return KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, (ushort)input);
+            }
+
+            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
+                return KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, (uint)input);
+            }
+
+            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+        }
+
+        /// <summary>
+        /// Finds PCI device matching Vendor ID and Device ID
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
-        /// <returns>PCI device location matching <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static uint FindDeviceById(ushort vendorId, ushort deviceId) {
-            try {
-                return Smbus.Driver.FindPciDeviceById(vendorId, deviceId);
+        /// <returns>PCI Device Address matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciDevice FindDeviceById(ushort vendorId, ushort deviceId) {
+            return FindDeviceById(vendorId, deviceId, 0);
+        }
+
+        /// <summary>
+        /// Finds PCI device matching Vendor ID and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <param name="index">Device index to find</param>
+        /// <returns>PCI Device Address matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciDevice FindDeviceById(ushort vendorId, ushort deviceId, ushort index) {
+
+            if (index > _maxPciBus * _maxPciDevice * _maxPciFunction) {
+                throw new ArgumentOutOfRangeException();
             }
-            catch {
-                throw new IOException("PCI device not found");
+
+            if (vendorId == ushort.MinValue || vendorId == ushort.MaxValue) {
+                return InvalidDevice;
             }
+
+            PciDevice[] device = FindPciDeviceById(vendorId, deviceId);
+
+            return device.Length >= index + 1 ? device[index] : InvalidDevice;
+        }
+
+        /// <summary>
+        /// Finds PCI devices matching Vendor ID and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciDevice[] FindPciDeviceById(ushort vendorId, ushort deviceId) {
+            return FindPciDeviceById(vendorId, deviceId, (ushort)(_maxPciBus * _maxPciDevice * _maxPciFunction));
+        }
+
+        /// <summary>
+        /// Finds PCI devices matching Vendor ID and Device ID
+        /// </summary>
+        /// <param name="vendorId">Vendor ID</param>
+        /// <param name="deviceId">Device ID</param>
+        /// <param name="maxCount">Maximum number of devices to find</param>
+        /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciDevice[] FindPciDeviceById(ushort vendorId, ushort deviceId, ushort maxCount) {
+
+            if (maxCount > _maxPciBus * _maxPciDevice * _maxPciFunction || maxCount == 0) {
+                throw new ArgumentOutOfRangeException();
+            }
+
+            uint count = 0;
+
+            if (vendorId == default || deviceId == default) {
+                return new PciDevice[0];
+            }
+
+            Queue<PciDevice> result = new Queue<PciDevice>();
+            PciDevice pciDevice = new PciDevice();
+
+            for (short bus = 0; bus <= _maxPciBus; bus++) {
+                for (byte dev = 0; dev < _maxPciDevice; dev++) {
+
+                    if (dev == _maxPciDevice) {
+                        dev = 0;
+                        bus++;
+                        continue;
+                    }
+
+                    pciDevice.Bus = (byte)bus;
+                    pciDevice.Device = dev;
+
+                    ushort devId = pciDevice.DeviceId;
+
+                    if (devId == ushort.MinValue || devId == ushort.MaxValue) {
+                        continue;
+                    }
+
+                    for (byte func = 0; func < _maxPciFunction; func++) {
+
+                        if (func == _maxPciFunction) {
+                            func = 0;
+                            dev++;
+                            continue;
+                        }
+
+                        pciDevice.Function = func;
+
+                        if (pciDevice.VendorId != vendorId && pciDevice.DeviceId != deviceId) {
+                            continue;
+                        }
+
+                        if (pciDevice.Read<uint>(0) != (uint)(vendorId | (deviceId << 16))) {
+                            continue;
+                        }
+
+                        result.Enqueue(pciDevice);
+
+                        if (++count == maxCount) {
+                            return result.ToArray();
+                        }
+                    }
+                }
+            }
+
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// Finds PCI device by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <returns>PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        public static PciDevice FindPciDeviceByClass(byte baseClass, byte subClass, byte programIf) {
+            return FindPciDeviceByClass(baseClass, subClass, programIf, 0);
+        }
+
+        /// <summary>
+        /// Finds PCI device by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <param name="index">Device index to find</param>
+        /// <returns>PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        public static PciDevice FindPciDeviceByClass(byte baseClass, byte subClass, byte programIf, ushort index) {
+
+            if (index > _maxPciBus * _maxPciDevice * _maxPciFunction) {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            PciDevice[] device = FindDeviceByClass(baseClass, subClass, programIf);
+
+            return device.Length >= index + 1 ? device[index] : InvalidDevice;
         }
 
         /// <summary>
@@ -112,8 +309,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
-        /// <returns>PCI device location matching Device Class</returns>
-        public static uint FindDeviceByClass(byte baseClass, byte subClass) {
+        /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
+        public static PciDevice[] FindDeviceByClass(byte baseClass, byte subClass) {
             return FindDeviceByClass(baseClass, subClass, 0);
         }
 
@@ -123,112 +320,153 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
-        /// <returns>PCI device location matching Device Class</returns>
-        public static uint FindDeviceByClass(byte baseClass, byte subClass, byte programIf) {
-            try {
-                return Smbus.Driver.FindPciDeviceByClass(baseClass, subClass, programIf);
+        /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        public static PciDevice[] FindDeviceByClass(byte baseClass, byte subClass, byte programIf) {
+            return FindDeviceByClass(baseClass, subClass, programIf, (ushort)(_maxPciBus * _maxPciDevice * _maxPciFunction));
+        }
+
+        /// <summary>
+        /// Finds PCI devices by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <param name="programIf">Program Interface</param>
+        /// <param name="maxCount">Maximum number of devices to find</param>
+        /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        public static PciDevice[] FindDeviceByClass(byte baseClass, byte subClass, byte programIf, ushort maxCount) {
+
+            if (maxCount > _maxPciBus * _maxPciDevice * _maxPciFunction) {
+                throw new ArgumentOutOfRangeException(nameof(maxCount));
             }
-            catch {
-                throw new IOException("PCI device not found");
+
+            if (maxCount == 0) {
+                return new PciDevice[0];
+            }
+
+            uint count = 0;
+
+            Queue<PciDevice> result = new Queue<PciDevice>();
+
+            for (short bus = 0; bus <= _maxPciBus; bus++) {
+                for (byte dev = 0; dev < _maxPciDevice; dev++) {
+
+                    ushort devId = KernelDriver.ReadPciConfig<ushort>((byte)bus, dev, 0, 0x00);
+
+                    if (devId == ushort.MinValue || devId == ushort.MaxValue) {
+                        continue;
+                    }
+
+                    for (byte func = 0; func < _maxPciFunction; func++) {
+
+                        if ((KernelDriver.ReadPciConfig<uint>((byte)bus, dev, func, 0x08) & 0xFFFFFF00) !=
+                            (uint)(baseClass << 24 | subClass << 16 | programIf << 8)) {
+                            continue;
+                        }
+
+                        result.Enqueue(new PciDevice((byte)bus, dev, func));
+
+                        if (++count == maxCount) {
+                            return result.ToArray();
+                        }
+                    }
+                }
+            }
+
+            return result.ToArray();
+        }
+
+        /// <summary>
+        /// Sets the maximum PCI bus index to scan by <see cref="FindPciDeviceById(ushort,ushort,ushort)"/>
+        /// and <see cref="FindPciDeviceByClass(byte,byte,byte,ushort)"/>
+        /// </summary>
+        /// <param name="max">Maximum PCI bus index to scan</param>
+        public static void SetPciMaxBusIndex(byte max) {
+            _maxPciBus = max;
+        }
+
+        /// <summary>
+        /// PCI device location
+        /// </summary>
+        public struct LocationInfo {
+            public byte Bus;
+            public byte Device;
+            public byte Function;
+        }
+
+        /// <summary>
+        /// PCI Device info
+        /// </summary>
+        public struct DeviceInfo {
+            public VendorId VendorId;
+            public DeviceId DeviceId;
+
+            public BaseClassType BaseClass;
+            public SubClassType SubClass;
+
+            public override string ToString() {
+
+                StringBuilder sb = new StringBuilder();
+
+                sb.Append(Enum.IsDefined(typeof(VendorId), VendorId) 
+                    ? VendorId.ToString() 
+                    : $"0x{VendorId:X4}".ToString());
+
+                sb.Append(" ");
+
+                sb.Append(Enum.IsDefined(typeof(DeviceId), DeviceId)
+                    ? DeviceId.ToString()
+                    : $"0x{DeviceId:X4}".ToString());
+
+                return sb.ToString();
             }
         }
 
         /// <summary>
-        /// PCI device's vendor ID
+        /// PCI Base Class codes
         /// </summary>
-        public ushort VendorId => Read<ushort>(RegisterOffset.VendorId);
-
-        /// <summary>
-        /// PCI device's ID
-        /// </summary>
-        public ushort DeviceId => Read<ushort>(RegisterOffset.DeviceId);
-
-        /// <summary>
-        /// PCI device's Revision ID
-        /// </summary>
-        public ushort RevisionId => Read<byte>(RegisterOffset.RevisionId);
-
-        /// <summary>
-        /// PCI device's BaseClass
-        /// </summary>
-        public byte BaseClass => Read<byte>(RegisterOffset.BaseClass);
-
-        /// <summary>
-        /// PCI device's SubClass
-        /// </summary>
-        public byte SubClass => Read<byte>(RegisterOffset.SubClass);
-
-        /// <summary>
-        /// PCI device's program interface
-        /// </summary>
-        public byte ProgIf => Read<byte>(RegisterOffset.ProgIf);
-
-        /// <summary>
-        /// Reads data from PCI device memory space
-        /// </summary>
-        /// <typeparam name="T">Data type</typeparam>
-        /// <param name="offset">Register offset</param>
-        /// <returns>Data value at <paramref name="offset"/> location</returns>
-        public T Read<T>(uint offset) {
-
-            object output = null;
-            uint location = PciInfo.DeviceMemoryLocation;
-
-            if (typeof(T) == typeof(byte)) {
-                output = Smbus.Driver.ReadPciConfigByte(location, offset);
-            }
-            else if (typeof(T) == typeof(ushort)) {
-                output = Smbus.Driver.ReadPciConfigWord(location, offset);
-            }
-            else if (typeof(T) == typeof(uint)) {
-                output = Smbus.Driver.ReadPciConfigDword(location, offset);
-            }
-
-            if (output != null) {
-                return (T)Convert.ChangeType(output, typeof(T));
-            }
-
-            throw new InvalidDataException(nameof(T));
+        public struct BaseClassType {
+            public const byte Bridge = 0x06;
+            public const byte Serial = 0x0C;
         }
 
         /// <summary>
-        /// Write data to PCI device memory space
+        /// PCI sub class codes
         /// </summary>
-        /// <typeparam name="T">Data type</typeparam>
-        /// <param name="offset">Register offset</param>
-        /// <param name="value">Data value</param>
-        /// <returns><see lang="true"/> if the function succeeds</returns>
-        public bool Write<T>(uint offset, T value) {
-
-            object input  = Convert.ChangeType(value, typeof(T));
-            uint location = PciInfo.DeviceMemoryLocation;
-
-            if (typeof(T) == typeof(byte)) {
-                return Smbus.Driver.WritePciConfigByteEx(location, offset, (byte)input);
-            }
-
-            if (typeof(T) == typeof(ushort)) {
-                return Smbus.Driver.WritePciConfigWordEx(location, offset, (ushort)input);
-            }
-
-            if (typeof(T) == typeof(uint)) {
-                return Smbus.Driver.WritePciConfigDwordEx(location, offset, (uint)input);
-            }
-
-            throw new InvalidDataException(nameof(T));
+        public struct SubClassType {
+            public const byte Isa   = 0x01;
+            public const byte Smbus = 0x05;
         }
 
         /// <summary>
-        /// PCI device information
+        /// PCI registers
         /// </summary>
-        private struct PciInfo {
-            // PCI device info
-            public static uint BusNumber;
-            public static uint DeviceNumber;
-            public static uint FunctionNumber;
-
-            // PCI device memory location
-            public static uint DeviceMemoryLocation => WinRing0.PciBusDevFunc(BusNumber, DeviceNumber, FunctionNumber);
+        public struct Register {
+            public const byte VendorId          = 0x00;
+            public const byte DeviceId          = 0x02;
+            public const byte Status            = 0x06;
+            public const byte RevisionId        = 0x08;
+            public const byte ProgramInterface  = 0x09;
+            public const byte SubClass          = 0x0A;
+            public const byte BaseClass         = 0x0B;
+            public const byte HeaderType        = 0x0E;
+            public static byte[] BaseAddress    = { 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24 };
+            public const byte SubsystemId       = 0x2E;
+            public const byte SubsystemVendorId = 0x2C;
         }
+
+        /// <summary>
+        /// Maximum number of PCI buses assigned by <see cref="SetPciMaxBusIndex"/>
+        /// </summary>
+        private static byte _maxPciBus = 255;
+
+        /// <summary>
+        /// Maximum number of PCI devices per bus
+        /// </summary>
+        private static readonly byte _maxPciDevice = 32;
+
+        /// <summary>
+        /// Maximum number of PCI functions per device
+        /// </summary>
+        private static readonly byte _maxPciFunction = 8;
     }
 }
