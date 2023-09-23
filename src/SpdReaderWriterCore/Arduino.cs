@@ -1093,21 +1093,21 @@ namespace SpdReaderWriterCore {
                 response = Data.SubArray(response, 0, (uint)Marshal.SizeOf(t));
             }
 
-            switch (typeCode) {
-                case TypeCode.String:
-                    return (T)Convert.ChangeType(Data.BytesToString(response), t);
-                case TypeCode.UInt64:
-                case TypeCode.Int64:
-                    return (T)Convert.ChangeType(BitConverter.ToInt64(response, 0), typeCode);
-                case TypeCode.UInt32:
-                case TypeCode.Int32:
-                    return (T)Convert.ChangeType(BitConverter.ToInt32(response, 0), typeCode);
-                case TypeCode.UInt16:
-                case TypeCode.Int16:
+            if (typeCode == TypeCode.String) {
+                return (T)Convert.ChangeType(Data.BytesToString(response), t);
+            }
+
+            switch (Data.GetDataSize(t)) {
+                case Data.DataSize.Byte:
+                    return (T)Convert.ChangeType(response[0], t);
+                case Data.DataSize.Word:
                     return (T)Convert.ChangeType(BitConverter.ToInt16(response, 0), typeCode);
-                case TypeCode.Boolean:
-                case TypeCode.SByte:
-                case TypeCode.Byte:
+                case Data.DataSize.Dword:
+                    return (T)Convert.ChangeType(BitConverter.ToInt32(response, 0), typeCode);
+                case Data.DataSize.Qword:
+                    return (T)Convert.ChangeType(BitConverter.ToInt64(response, 0), typeCode);
+                case Data.DataSize.Null:
+                    return (T)Convert.ChangeType(null, t);
                 default:
                     return (T)Convert.ChangeType(response[0], t);
             }
