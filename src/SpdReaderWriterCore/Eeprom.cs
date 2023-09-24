@@ -212,7 +212,9 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Byte position</param>
         /// <returns><see langword="true"/> if byte at <paramref name="offset"/> is writable</returns>
         public static bool Overwrite(Smbus smbus, ushort offset) {
-            return Write(smbus, offset, Read(smbus, offset));
+            byte o = Read(smbus, offset);
+            return Write(smbus, offset, (byte)(o ^ 0xFF)) && 
+                   Write(smbus, offset, o);
         }
 
         /// <summary>
@@ -233,7 +235,7 @@ namespace SpdReaderWriterCore {
             try {
                 return smbus.IsDdr5Present
                     ? Data.GetBit(smbus.ReadByte(smbus, smbus.I2CAddress, (ushort)(Spd5Register.MR12 + Data.BoolToNum<byte>(block >= 8))), block)
-                    : !smbus.ReadByte(smbus, (byte)(rswpCmd[block > 3 ? 0 : block] >> 1));
+                    : !Overwrite(smbus, (ushort)((block > 3 ? 0 : block) * 128));
             }
             catch {
                 return true;
