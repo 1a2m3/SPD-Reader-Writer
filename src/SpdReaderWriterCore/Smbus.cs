@@ -15,8 +15,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Management;
-using SpdReaderWriterCore.Driver;
+using static SpdReaderWriterCore.PciDevice;
 
 namespace SpdReaderWriterCore {
 
@@ -32,7 +31,7 @@ namespace SpdReaderWriterCore {
             get {
                 byte[] v = new byte[4];
                 if (KernelDriver.IsReady) {
-                    CpuZ.GetDriverVersion(ref v[0], ref v[1], ref v[2], ref v[3]);
+                    KernelDriver.GetDriverVersion(out v[0], out v[1], out v[2], out v[3]);
                 }
 
                 return $"{v[0]}.{v[1]}.{v[2]}.{v[3]}";
@@ -42,7 +41,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Smbus Device Info
         /// </summary>
-        public PciDevice.DeviceInfo Info { get; private set; }
+        public DeviceInfo Info { get; private set; }
 
         /// <summary>
         /// SMBus bus number
@@ -142,7 +141,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>Human readable SMBus name in a form of platform vendor name and chipset model name</returns>
         public override string ToString() {
-            return $"{Info.VenId} {Info.DevId}";
+            return $"{Info.VendorId} {Info.DeviceId}";
         }
 
         /// <summary>
@@ -305,11 +304,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         private Platform PlatformType {
             get {
-                if (IsSkylakeX(Info.DevId)) {
+                if (IsSkylakeX(Info.DeviceId)) {
                     return Platform.SkylakeX;
                 }
 
-                if (CheckChipsetSupport(Info.DevId)) {
+                if (CheckChipsetSupport(Info.DeviceId)) {
                     return Platform.Default;
                 }
 
@@ -320,22 +319,22 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Platform type
         /// </summary>
-        private enum Platform : byte {
+        private enum Platform : sbyte {
 
             /// <summary>
             /// Unknown or unsupported platform type
             /// </summary>
-            Unknown,
+            Unknown = -1,
 
             /// <summary>
             /// Intel ICH/PCH, AMD FCH, and Nvidia MCP platforms
             /// </summary>
-            Default,
+            Default = 0,
 
             /// <summary>
             /// Skylake X (incl. Refresh) and Cascade Lake X platforms
             /// </summary>
-            SkylakeX,
+            SkylakeX = 1,
         }
 
         /// <summary>
@@ -343,30 +342,29 @@ namespace SpdReaderWriterCore {
         /// </summary>
         private void Initialize() {
             try {
-
                 KernelDriver.Start();
 
                 if (!KernelDriver.IsReady) {
-                    throw new Exception($"{nameof(Driver)} initialization failure.");
+                    throw new Exception($"{KernelDriver.DriverInfo.FileName} is not ready.");
                 }
             }
             catch (Exception e) {
-                throw new Exception($"{nameof(Driver)} initialization failure: {e.Message}");
+                throw new Exception($"{KernelDriver.DriverInfo.ServiceName} initialization failure ({e.Message})");
             }
 
             Info = GetDeviceInfo();
 
             // Find default SMBus controller(s)
-            PciDevice[] smbusPciDevice = PciDevice.FindDeviceByClassArray(PciDevice.BaseClassType.Serial, PciDevice.SubClassType.Smbus, 0);
+            PciDevice[] smbusPciDevice = FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus, 0);
 
             if (smbusPciDevice.Length == 1) {
                 pciDevice = smbusPciDevice[0];
             }
             else if (smbusPciDevice.Length > 1) {
                 foreach (PciDevice smbusPciLocation in smbusPciDevice) {
-                    if (smbusPciLocation.VendorId  == (ushort)Info.VenId && //&& Enum.IsDefined(typeof(DeviceId), new PciDevice(smbusPciLocation).DeviceId)
-                        smbusPciLocation.BaseClass == PciDevice.BaseClassType.Serial &&
-                        smbusPciLocation.SubClass  == PciDevice.SubClassType.Smbus) {
+                    if (smbusPciLocation.VendorId  == Info.VendorId && 
+                        smbusPciLocation.BaseClass == BaseClassType.Serial &&
+                        smbusPciLocation.SubClass  == SubClassType.Smbus) {
                         pciDevice = smbusPciLocation;
                         break;
                     }
@@ -376,19 +374,18 @@ namespace SpdReaderWriterCore {
                 return;
             }
 
-            switch (Info.VenId) {
+            switch (Info.VendorId) {
                 // Skylake-X
                 case VendorId.Intel when PlatformType == Platform.SkylakeX:
                     // Locate CPU SMBus controller
-                    pciDevice = PciDevice.FindDeviceById((ushort)Info.VenId, (ushort)SkylakeXDeviceId.CpuImcSmbus);
+                    pciDevice = FindDeviceById(Info.VendorId, (DeviceId)SkylakeXDeviceId.CpuImcSmbus);
                     break;
                 // ICH/PCH
                 case VendorId.Intel:
                 case VendorId.Nvidia:
                     if (PlatformType == Platform.Default) {
-
                         // Read IO port address and info
-                        ushort ioPortAddress = pciDevice.Read<ushort>(PciDevice.Register.BaseAddress[4]);
+                        ushort ioPortAddress = pciDevice.Read<ushort>(Register.BaseAddress[4]);
 
                         // Check SPD write disable bit
                         SpdWriteDisabled = Data.GetBit(pciDevice.Read<byte>(0x40), 4);
@@ -405,8 +402,8 @@ namespace SpdReaderWriterCore {
 
                 case VendorId.AMD:
                     // AMD AM4, AM1, FM1, FM2(+)
-                    if ((pciDevice.DeviceId == (ushort)DeviceId.FCH && pciDevice.RevisionId >= 0x49) ||
-                        (pciDevice.DeviceId == (ushort)DeviceId.Hudson2 && pciDevice.RevisionId >= 0x41)) {
+                    if ((pciDevice.DeviceId == DeviceId.FCH && pciDevice.RevisionId >= 0x49) ||
+                        (pciDevice.DeviceId == DeviceId.Hudson2 && pciDevice.RevisionId >= 0x41)) {
 
                         // PMIO registers accessible via IO ports
                         const ushort SB800_PIIX4_SMB_IDX = 0xCD6;
@@ -456,30 +453,30 @@ namespace SpdReaderWriterCore {
         /// Get platform information
         /// </summary>
         /// <returns>Platform and chipset Device/Vendor ID</returns>
-        private PciDevice.DeviceInfo GetDeviceInfo() {
+        private DeviceInfo GetDeviceInfo() {
 
-            PciDevice.DeviceInfo result  = new PciDevice.DeviceInfo();
+            DeviceInfo result  = new DeviceInfo();
             PciDevice platform = new PciDevice();
 
-            result.VenId = (VendorId)platform.VendorId;
+            result.VendorId = platform.VendorId;
 
-            switch (result.VenId) {
+            switch (result.VendorId) {
                 case VendorId.Intel:
                     // Find ISA bridge to get chipset ID
                     try {
-                        PciDevice isa = PciDevice.FindDeviceByClass(PciDevice.BaseClassType.Bridge, PciDevice.SubClassType.Isa);
-                        result.DevId = (DeviceId)isa.DeviceId;
+                        PciDevice isa = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa, 0)[0];
+                        result.DeviceId = isa.DeviceId;
                     }
                     catch {
-                        result.DevId = default;
+                        result.DeviceId = default;
                     }
 
                     break;
 
                 case VendorId.AMD:
                 case VendorId.Nvidia:
-                    PciDevice smbus = PciDevice.FindDeviceByClass(PciDevice.BaseClassType.Serial, PciDevice.SubClassType.Smbus);
-                    result.DevId = (DeviceId)smbus.DeviceId;
+                    PciDevice smbus = FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus, 0)[0];
+                    result.DeviceId = smbus.DeviceId;
                     break;
             }
 
@@ -743,7 +740,7 @@ namespace SpdReaderWriterCore {
                                 offset : (byte)(SkylakeXSmbusRegister.Output + smbusData.BusNumber * 4));
                         }
                     }
-                    else if (PlatformType == Platform.Default && Info.VenId == VendorId.Nvidia) {
+                    else if (PlatformType == Platform.Default && Info.VendorId == VendorId.Nvidia) {
 
                         if (smbusData.BusNumber > 0) {
                             return false;
@@ -823,16 +820,16 @@ namespace SpdReaderWriterCore {
                             smbusData.Output = ioPort.Read<byte>(NvidiaSmbusRegister.Data);
                         }
                     }
-                    else if (PlatformType == Platform.Default && Info.VenId != VendorId.Nvidia) {
+                    else if (PlatformType == Platform.Default && Info.VendorId != VendorId.Nvidia) {
                         // These platforms don't support multiple SMbuses
-                        if (smbusData.BusNumber > 0 && Info.VenId == VendorId.Intel) {
+                        if (smbusData.BusNumber > 0 && Info.VendorId == VendorId.Intel) {
                             return false;
                         }
 
                         // Alternative AMD SMBus
                         byte portOffset = 0;
 
-                        if (Info.VenId == VendorId.AMD) {
+                        if (Info.VendorId == VendorId.AMD) {
                             portOffset = (byte)(BusNumber * 20);
                         }
 
@@ -938,7 +935,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Smbus lock to prevent SMBus access from multiple threads simultaneously
         /// </summary>
-        private object _smbusLock = new object();
+        private static object _smbusLock = new object();
 
         /// <summary>
         /// SMBus Host Control Register data
@@ -1059,7 +1056,7 @@ namespace SpdReaderWriterCore {
                 return SmbStatus.Ready;
             }
 
-            if (Info.VenId == VendorId.Nvidia) {
+            if (Info.VendorId == VendorId.Nvidia) {
                 status = ioPort.Read<byte>(NvidiaSmbusRegister.Status);
 
                 switch (status) {
