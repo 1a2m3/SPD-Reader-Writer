@@ -114,12 +114,6 @@ namespace SpdReaderWriterCore {
         UM77 = 0x1E58,
         #endregion
 
-        #region LGA2011
-        //X79 = 0x1D40, // LPC Controller
-        //X79 = 0x1D41, // LPC Controller
-        //X79 = 0x1D22, // SMBus Host Controller
-        #endregion
-
         // DDR4
 
         #region LGA1151
@@ -173,12 +167,6 @@ namespace SpdReaderWriterCore {
         W580 = 0x438F,
         Z490 = 0x0685,
         Z590 = 0x4385,
-        #endregion
-
-        #region LGA2011-3
-        //X99  = 0x8D47, // CPU SMBus x2 (0 = 8086h:2F68h, 1 = 8086h:2FA8h)
-        //C610 = 0x8D44, // Same as X99
-        //X99  = 0x8D22, // X99/C610 chipset SMBus controller
         #endregion
 
         #region LGA2066
