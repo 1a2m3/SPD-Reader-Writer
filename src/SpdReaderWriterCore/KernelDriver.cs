@@ -15,6 +15,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
+using System.Threading;
 using Microsoft.Win32.SafeHandles;
 using SpdReaderWriterCore.Driver;
 using static SpdReaderWriterCore.NativeFunctions;
@@ -77,8 +78,6 @@ namespace SpdReaderWriterCore {
                 if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(nameof(ReadMemoryWordDelegateEx)); }
                 if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegate)); }
                 if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegateEx)); }
-
-                Initialize();
             }
         }
 
@@ -468,9 +467,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns></returns>
         public static bool Start() {
-
             DriverInfo = DefaultDriver;
-            return IsReady;
+            return Initialize();
         }
 
         /// <summary>
@@ -478,7 +476,6 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns></returns>
         public static bool Stop() {
-
             Dispose();
             return !IsRunning;
         }
@@ -493,16 +490,16 @@ namespace SpdReaderWriterCore {
                 _disposeOnExit = false;
             }
             else {
-                if (!InstallDriver()) {
+                if (!(IsInstalled || InstallDriver())) {
                     throw new Exception($"Unable to install {DriverInfo.ServiceName} service");
                 }
 
-                if (!StartDriver()) {
+                if (!(IsRunning || StartDriver())) {
                     throw new Exception($"Unable to start {DriverInfo.ServiceName} service");
                 }
             }
 
-            return true;
+            return IsInstalled && IsRunning;
         }
 
         /// <summary>
@@ -510,17 +507,15 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public static void Dispose() {
 
-            CloseDriverHandle();
+            _driverHandle.Close();
 
             if (_disposeOnExit) {
                 StopDriver();
                 RemoveDriver(deleteFile: false);
             }
 
-            _driverHandle = null;
-
             CloseServiceHandle(_serviceHandle);
-            CloseServiceHandle(ManagerPtr);
+            CloseServiceHandle(ManagerHandle);
         }
 
         /// <summary>
@@ -559,12 +554,12 @@ namespace SpdReaderWriterCore {
                 return false;
             }
 
-            if (ManagerPtr == IntPtr.Zero) {
+            if (ManagerHandle == IntPtr.Zero) {
                 return false;
             }
 
             _serviceHandle = CreateService(
-                hSCManager       : ManagerPtr,
+                hSCManager       : ManagerHandle,
                 lpServiceName    : DriverInfo.ServiceName,
                 lpDisplayName    : DriverInfo.ServiceName,
                 dwDesiredAccess  : ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
@@ -588,11 +583,11 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver is successfully deleted</returns>
         private static bool RemoveDriver() {
 
-            if (ManagerPtr == IntPtr.Zero) {
+            if (ManagerHandle == IntPtr.Zero) {
                 return false;
             }
 
-            _serviceHandle = OpenService(ManagerPtr, DriverInfo.ServiceName, ServiceRights.ServiceAllAccess);
+            _serviceHandle = OpenService(ManagerHandle, DriverInfo.ServiceName, ServiceRights.ServiceAllAccess);
 
             if (_serviceHandle == IntPtr.Zero) {
                 return false;
@@ -641,17 +636,19 @@ namespace SpdReaderWriterCore {
             }
 
             try {
-                if (Service.Status == ServiceControllerStatus.Running) {
+                _service = new ServiceController(DriverInfo.ServiceName);
+
+                if (_service.Status == ServiceControllerStatus.Running) {
                     return true;
                 }
 
-                Service.Start();
-                Service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(Timeout));
-                return Service.Status == ServiceControllerStatus.Running;
+                _service.Start();
+                _service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(Timeout));
+                return _service.Status == ServiceControllerStatus.Running;
             }
             catch {
                 try {
-                    return Service.Status == ServiceControllerStatus.Running;
+                    return _service.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -665,72 +662,33 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver is successfully stopped</returns>
         private static bool StopDriver() {
 
-            try {
-                if (Service.Status != ServiceControllerStatus.Stopped) {
+            _service = new ServiceController(DriverInfo.ServiceName);
 
-                    Service.Stop();
-
-                    // Wait for Stopped or StopPending
-                    _sw.Restart();
-
-                    while (_sw.ElapsedMilliseconds < Timeout) {
-
-                        Service.Refresh();
-
-                        if (Service.Status == ServiceControllerStatus.Stopped ||
-                            Service.Status == ServiceControllerStatus.StopPending) {
-                            return true;
-                        }
-                    }
-                }
-
-                return Service.Status == ServiceControllerStatus.Stopped ||
-                       Service.Status == ServiceControllerStatus.StopPending;
+            if (_service.Status != ServiceControllerStatus.Stopped) {
+                _service.Stop();
             }
-            catch {
-                try {
-                    return Service.Status == ServiceControllerStatus.Stopped ||
-                           Service.Status == ServiceControllerStatus.StopPending;
-                }
-                catch {
-                    return true;
-                }
-            }
-            finally {
-                _sw.Stop();
-            }
-        }
 
-        /// <summary>
-        /// Checks if the driver is installed
-        /// </summary>
-        /// <returns><see langword="true"/> if the driver is installed</returns>
-        private static bool CheckDriver() {
+            _service.Refresh();
 
-            try {
-                return Service?.ServiceType == ServiceType.KernelDriver && 
-                       Service?.DisplayName == DriverInfo.ServiceName;
-            }
-            catch {
-                return false;
-            }
+            return _service.Status == ServiceControllerStatus.Stopped ||
+                   _service.Status == ServiceControllerStatus.StopPending;
         }
 
         /// <summary>
         /// Opens driver handle
         /// </summary>
         /// <returns><see langword="true"/> if driver handle is successfully opened</returns>
-        private static bool OpenDriverHandle() {
+        private static bool OpenDriverHandle(out IntPtr handle) {
 
             int status = 0;
-            IntPtr driverHandle = IntPtr.Zero;
+            handle = IntPtr.Zero;
 
             _sw.Restart();
 
             while (_sw.ElapsedMilliseconds < Timeout) {
-                driverHandle = Kernel32.CreateFile(
+                handle = Kernel32.CreateFile(
                     lpFileName            : DriverInfo.DeviceName,
-                    dwDesiredAccess       : FileAccess.Read,
+                    dwDesiredAccess       : Kernel32.FileAccess.GenericRead,
                     dwShareMode           : FileShare.Read,
                     lpSecurityAttributes  : IntPtr.Zero,
                     dwCreationDisposition : FileMode.Open,
@@ -738,23 +696,16 @@ namespace SpdReaderWriterCore {
 
                 status = Marshal.GetLastWin32Error();
 
-                if (status == SystemError.ErrorSuccess) {
-                    _sw.Stop();
-                    break;
+                if (status != SystemError.ErrorSuccess) {
+                    Thread.Sleep(1);
+                    continue;
                 }
+
+                _sw.Stop();
+                break;
             }
 
-            if (status != SystemError.ErrorSuccess) {
-                return false;
-            }
-
-            _driverHandle = new SafeFileHandle(driverHandle, true);
-
-            if (_driverHandle.IsInvalid) {
-                CloseDriverHandle();
-            }
-
-            return !_driverHandle.IsInvalid && !_driverHandle.IsClosed;
+            return status == SystemError.ErrorSuccess;
         }
 
         /// <summary>
@@ -762,57 +713,43 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if driver handle is successfully closed</returns>
         private static bool CloseDriverHandle() {
-            if (IsHandleOpen && !IsHandleLocked) {
-                _driverHandle.Close();
-                _driverHandle.Dispose();
-            }
-
-            return !IsHandleOpen && !IsHandleLocked;
-        }
-
-        /// <summary>
-        /// Locks driver handle, preventing it from being closed with <see cref="CloseDriverHandle"/>
-        /// </summary>
-        public static void LockDriverHandle() {
-            _handleLock = true;
-        }
-
-        /// <summary>
-        /// Releases driver handle lock, allowing it to be closed with <see cref="CloseDriverHandle"/>
-        /// </summary>
-        public static void UnlockDriverHandle() {
-            _handleLock = false;
+            
+            _driverHandle.Close();
+            return !IsHandleOpen;
         }
 
         /// <summary>
         /// Describes driver installation state
         /// </summary>
-        public static bool IsInstalled => CheckDriver();
+        public static bool IsInstalled {
+            get {
+                foreach (ServiceController device in ServiceController.GetDevices()) {
+                    if (device.ServiceName == DriverInfo.ServiceName &&
+                        device.ServiceType == ServiceType.KernelDriver) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
 
         /// <summary>
         /// Describes driver running state
         /// </summary>
         public static bool IsRunning {
             get {
-                try {
-                    Service?.Refresh();
-                    return IsInstalled && Service?.Status == ServiceControllerStatus.Running;
+                foreach (ServiceController device in ServiceController.GetDevices()) {
+                    if (device.ServiceName == DriverInfo.ServiceName && 
+                        device.ServiceType == ServiceType.KernelDriver &&
+                        device.Status == ServiceControllerStatus.Running) {
+                        return true;
+                    }
                 }
-                catch {
-                    return false;
-                }
+
+                return false;
             }
         }
-
-        /// <summary>
-        /// Describes driver handle lock state
-        /// </summary>
-        public static bool IsHandleLocked => _handleLock;
-
-        /// <summary>
-        /// Describes driver ready state
-        /// </summary>
-        public static bool IsReady => IsInstalled && IsRunning;
 
         /// <summary>
         /// Describes driver handle open state
@@ -840,15 +777,19 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the operation succeeds</returns>
         public static bool DeviceIoControl<T>(uint ioControlCode, object inputData, ref T outputData) {
 
-            if (!IsReady) {
-                return false;
-            }
-
             uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             object outputBuffer = outputData;
 
-            if (!(IsHandleOpen || OpenDriverHandle())) {
+            if (!OpenDriverHandle(out IntPtr deviceHandle)) {
                 throw new Exception($"Unable to open {DriverInfo.ServiceName} handle");
+            }
+
+            if (_driverHandle == null || _driverHandle.IsClosed || _driverHandle.IsInvalid) {
+                _driverHandle = new SafeFileHandle(deviceHandle, true);
+            }
+
+            if (_driverHandle.IsInvalid) {
+                return false;
             }
 
             bool result = Kernel32.DeviceIoControl(
@@ -861,7 +802,9 @@ namespace SpdReaderWriterCore {
                 lpBytesReturned : out uint returnedLength,
                 lpOverlapped    : IntPtr.Zero);
 
-            outputData = (T)outputBuffer;
+            if (result) {
+                outputData = (T)outputBuffer;
+            }
 
             CloseDriverHandle();
 
@@ -891,26 +834,12 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Service controller for the driver
         /// </summary>
-        private static ServiceController Service {
-            get {
-                if (DriverInfo.ServiceName != null &&
-                    _service == null) {
-                    _service = new ServiceController(DriverInfo.ServiceName);
-                }
-
-                return _service;
-            }
-        }
-
-        /// <summary>
-        /// Service controller for the driver
-        /// </summary>
         private static ServiceController _service;
 
         /// <summary>
         /// Service control manager
         /// </summary>
-        private static IntPtr ManagerPtr => OpenSCManager(dwAccess: ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
+        private static IntPtr ManagerHandle => OpenSCManager(dwAccess: ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
 
         /// <summary>
         /// Service object
@@ -921,10 +850,5 @@ namespace SpdReaderWriterCore {
         /// IO device driver handle
         /// </summary>
         private static SafeFileHandle _driverHandle;
-
-        /// <summary>
-        /// Driver handle lock flag
-        /// </summary>
-        private static bool _handleLock;
     }
 }
