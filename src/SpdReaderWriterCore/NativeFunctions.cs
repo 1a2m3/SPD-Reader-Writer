@@ -11,7 +11,9 @@
 
 using System;
 using System.IO;
+using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
+using System.Security;
 using System.ServiceProcess;
 using Microsoft.Win32.SafeHandles;
 
@@ -44,6 +46,18 @@ namespace SpdReaderWriterCore {
                 [MarshalAs(UnmanagedType.U4)] FileMode dwCreationDisposition,
                 [MarshalAs(UnmanagedType.U4)] FileAttributes dwFlagsAndAttributes,
                 [Optional] IntPtr hTemplateFile);
+
+
+            /// <summary>
+            /// Closes an open object handle.
+            /// </summary>
+            /// <param name="hObject">A valid handle to an open object.</param>
+            /// <returns>If the function succeeds, the return value is nonzero (<see langword="true"/>).</returns>
+            [DllImport("kernel32.dll", SetLastError = true)]
+            [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
+            [SuppressUnmanagedCodeSecurity]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            public static extern bool CloseHandle(IntPtr hObject);
 
             /// <summary>
             /// Sends a control code directly to a specified device driver, causing the corresponding device to perform the corresponding operation.
