@@ -488,15 +488,15 @@ namespace SpdReaderWriterCore {
 
             if (IsInstalled && IsRunning) {
                 _disposeOnExit = false;
+                return true;
             }
-            else {
-                if (!(IsInstalled || InstallDriver())) {
-                    throw new Exception($"Unable to install {DriverInfo.ServiceName} service");
-                }
 
-                if (!(IsRunning || StartDriver())) {
-                    throw new Exception($"Unable to start {DriverInfo.ServiceName} service");
-                }
+            if (!(IsInstalled || InstallDriver())) {
+                throw new Exception($"Unable to install {DriverInfo.ServiceName} service");
+            }
+
+            if (!(IsRunning || StartDriver())) {
+                throw new Exception($"Unable to start {DriverInfo.ServiceName} service");
             }
 
             return IsInstalled && IsRunning;
@@ -723,14 +723,16 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public static bool IsInstalled {
             get {
-                foreach (ServiceController device in ServiceController.GetDevices()) {
-                    if (device.ServiceName == DriverInfo.ServiceName &&
-                        device.ServiceType == ServiceType.KernelDriver) {
-                        return true;
+                try {
+                    if (_service == null) {
+                        _service = new ServiceController(DriverInfo.ServiceName);
                     }
+                    _service.Refresh();
+                    return _service.ServiceType == ServiceType.KernelDriver;
                 }
-
-                return false;
+                catch {
+                    return false;
+                }
             }
         }
 
@@ -739,15 +741,16 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public static bool IsRunning {
             get {
-                foreach (ServiceController device in ServiceController.GetDevices()) {
-                    if (device.ServiceName == DriverInfo.ServiceName && 
-                        device.ServiceType == ServiceType.KernelDriver &&
-                        device.Status == ServiceControllerStatus.Running) {
-                        return true;
+                try {
+                    if (_service == null) {
+                        _service = new ServiceController(DriverInfo.ServiceName);
                     }
+                    _service.Refresh();
+                    return _service.Status == ServiceControllerStatus.Running;
                 }
-
-                return false;
+                catch {
+                    return false;
+                }
             }
         }
 
@@ -779,12 +782,23 @@ namespace SpdReaderWriterCore {
 
             uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
             object outputBuffer = outputData;
+            IntPtr deviceHandle = default;
 
-            if (!OpenDriverHandle(out IntPtr deviceHandle)) {
+            _sw.Restart();
+
+            while (_sw.ElapsedMilliseconds < Timeout && !OpenDriverHandle(out deviceHandle)) {
+                KeepAlive();
+            }
+
+            _sw.Stop();
+
+            if (_sw.ElapsedMilliseconds >= Timeout) {
                 throw new Exception($"Unable to open {DriverInfo.ServiceName} handle");
             }
 
-            if (_driverHandle == null || _driverHandle.IsClosed || _driverHandle.IsInvalid) {
+            if (_driverHandle == null ||
+                _driverHandle.IsClosed ||
+                _driverHandle.IsInvalid) {
                 _driverHandle = new SafeFileHandle(deviceHandle, true);
             }
 
@@ -809,6 +823,19 @@ namespace SpdReaderWriterCore {
             CloseDriverHandle();
 
             return result;
+        }
+
+        /// <summary>
+        /// Ensures the driver keeps running
+        /// </summary>
+        private static void KeepAlive() {
+            if (!IsInstalled) {
+                InstallDriver();
+            }
+
+            if (!IsRunning) {
+                StartDriver();
+            }
         }
 
         /// <summary>
