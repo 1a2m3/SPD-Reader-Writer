@@ -386,9 +386,9 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input data</param>
         /// <returns>Input data size in bytes</returns>
-        public static DataSize GetDataSize<T>(T input) => 
-            input == null 
-                ? DataSize.Null 
+        public static DataSize GetDataSize<T>(T input) =>
+            input == null
+                ? DataSize.Null
                 : GetDataSize(Type.GetTypeCode(input.GetType()));
 
         /// <summary>
