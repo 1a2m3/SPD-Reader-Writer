@@ -345,10 +345,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         private void Initialize() {
             try {
-                KernelDriver.Start();
-
-                if (!KernelDriver.IsRunning) {
-                    throw new Exception($"{KernelDriver.DriverInfo.FileName} is not ready.");
+                if (!KernelDriver.Start()) {
+                    throw new Exception($"{KernelDriver.DriverInfo.ServiceName} did not start.");
                 }
             }
             catch (Exception e) {
