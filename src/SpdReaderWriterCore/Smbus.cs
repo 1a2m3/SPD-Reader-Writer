@@ -417,7 +417,6 @@ namespace SpdReaderWriterCore {
                         KernelDriver.WriteIoPort(SB800_PIIX4_SMB_IDX, (byte)(smb_en + 1));
                         byte smba_en_hi = KernelDriver.ReadIoPort<byte>(SB800_PIIX4_SMB_DAT);
 
-
                         if (smba_en_hi == byte.MaxValue || smba_en_lo == byte.MaxValue) {
                             //const uint SB800_PIIX4_FCH_PM_ADDR = 0xFED80300;
                             //const byte SB800_PIIX4_FCH_PM_SIZE = 8;
@@ -746,18 +745,18 @@ namespace SpdReaderWriterCore {
                     }
 
                     // Set Smbus address
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : NvidiaSmbusRegister.Address,
                         value  : (byte)(smbusData.Address << 1));
 
                     // Set offset
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : NvidiaSmbusRegister.Command,
                         value  : (byte)smbusData.Offset);
 
                     // Set data byte register if Write mode is set
                     if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                        IoPort.Write(
+                        IoPort.WriteEx(
                             offset : NvidiaSmbusRegister.Data,
                             value  : smbusData.Input);
                     }
@@ -788,7 +787,7 @@ namespace SpdReaderWriterCore {
                     }
 
                     // Execute command
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : NvidiaSmbusRegister.Protocol,
                         value  : protocolCmd);
 
@@ -839,7 +838,7 @@ namespace SpdReaderWriterCore {
                                            SmbusStatus.Failed;
 
                     // Reset status
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : (byte)(DefaultSmbusRegister.Status + portOffset),
                         value  : clearStatusMask);
 
@@ -850,19 +849,19 @@ namespace SpdReaderWriterCore {
                     }
 
                     // Set slave address
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : (byte)(DefaultSmbusRegister.Address + portOffset),
                         value  : (byte)(smbusData.Address << 1 | (smbusData.AccessMode == SmbusAccessMode.Read ? 1 : 0)));
 
                     // Set input data for writing
                     if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                        IoPort.Write(
+                        IoPort.WriteEx(
                             offset : (byte)(DefaultSmbusRegister.Data0 + portOffset),
                             value  : smbusData.Input);
                     }
 
                     // Set offset
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : (byte)(DefaultSmbusRegister.HostCmd + portOffset),
                         value  : (byte)smbusData.Offset);
 
@@ -886,7 +885,7 @@ namespace SpdReaderWriterCore {
                     }
 
                     // Execute
-                    IoPort.Write(
+                    IoPort.WriteEx(
                         offset : (byte)(DefaultSmbusRegister.Control + portOffset),
                         value  : (byte)(SmbusCmd.Interrupt | smbusDataCmd | SmbusCmd.Start));
 
@@ -903,7 +902,7 @@ namespace SpdReaderWriterCore {
                             timeout  : 1000)) {
 
                         // Abort current execution
-                        IoPort.Write((byte)(DefaultSmbusRegister.Control + portOffset), SmbusCmd.Stop);
+                        IoPort.WriteEx((byte)(DefaultSmbusRegister.Control + portOffset), SmbusCmd.Stop);
 
                         smbusData.Status = SmbStatus.Timeout;
                         return false;
