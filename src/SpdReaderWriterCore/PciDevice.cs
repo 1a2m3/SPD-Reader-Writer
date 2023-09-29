@@ -168,9 +168,8 @@ namespace SpdReaderWriterCore {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <returns>PCI Device Address matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static PciDevice FindDeviceById(VendorId vendorId, DeviceId deviceId) {
-            return FindDeviceById(vendorId, deviceId, 0);
-        }
+        public static PciDevice FindDeviceById(VendorId vendorId, DeviceId deviceId) => 
+            FindDeviceById(vendorId, deviceId, 0);
 
         /// <summary>
         /// Finds PCI device matching Vendor ID and Device ID
@@ -200,9 +199,8 @@ namespace SpdReaderWriterCore {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static PciDevice[] FindPciDeviceById(VendorId vendorId, DeviceId deviceId) {
-            return FindPciDeviceById(vendorId, deviceId, _maxPciBus * _maxPciDevice * _maxPciFunction);
-        }
+        public static PciDevice[] FindPciDeviceById(VendorId vendorId, DeviceId deviceId) => 
+            FindPciDeviceById(vendorId, deviceId, _maxPciBus * _maxPciDevice * _maxPciFunction);
 
         /// <summary>
         /// Finds PCI devices matching Vendor ID and Device ID
@@ -261,9 +259,8 @@ namespace SpdReaderWriterCore {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <returns>PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public static PciDevice FindPciDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) {
-            return FindPciDeviceByClass(baseClass, subClass, programIf, 0);
-        }
+        public static PciDevice FindPciDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) => 
+            FindPciDeviceByClass(baseClass, subClass, programIf, 0);
 
         /// <summary>
         /// Finds PCI device by Device Class
@@ -290,9 +287,8 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
-        public static PciDevice[] FindDeviceByClass(BaseClassType baseClass, SubClassType subClass) {
-            return FindDeviceByClass(baseClass, subClass, 0);
-        }
+        public static PciDevice[] FindDeviceByClass(BaseClassType baseClass, SubClassType subClass) => 
+            FindDeviceByClass(baseClass, subClass, 0);
 
         /// <summary>
         /// Finds PCI devices by Device Class
@@ -301,9 +297,8 @@ namespace SpdReaderWriterCore {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public static PciDevice[] FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) {
-            return FindDeviceByClass(baseClass, subClass, programIf, _maxPciBus * _maxPciDevice * _maxPciFunction);
-        }
+        public static PciDevice[] FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) => 
+            FindDeviceByClass(baseClass, subClass, programIf, _maxPciBus * _maxPciDevice * _maxPciFunction);
 
         /// <summary>
         /// Finds PCI devices by Device Class
@@ -360,9 +355,7 @@ namespace SpdReaderWriterCore {
         /// and <see cref="FindDeviceByClass(BaseClassType,SubClassType,ProgramIf,int)"/>
         /// </summary>
         /// <param name="max">Maximum PCI bus index to scan</param>
-        public static void SetPciMaxBusIndex(ushort max) {
-            _maxPciBus = max;
-        }
+        public static void SetPciMaxBusIndex(ushort max) => _maxPciBus = max;
 
         /// <summary>
         /// PCI device location

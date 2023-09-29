@@ -73,7 +73,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="output">Output reference</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool Read<T>(ushort offset, out T output) => 
+        public bool ReadEx<T>(ushort offset, out T output) => 
             KernelDriver.ReadIoPortEx(offset, out output);
 
         /// <summary>
@@ -82,8 +82,17 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
+        public void Write<T>(ushort offset, T value) => 
+            KernelDriver.WriteIoPortEx(offset, value);
+
+        /// <summary>
+        /// Writes data to an IO port register
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool Write<T>(ushort offset, T value) {
+        public bool WriteEx<T>(ushort offset, T value) {
 
             object input = value;
             Data.DataSize inputSize = Data.GetDataSize(input);
