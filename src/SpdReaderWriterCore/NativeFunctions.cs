@@ -13,7 +13,6 @@ using System;
 using System.IO;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
-using System.Security;
 using System.ServiceProcess;
 using Microsoft.Win32.SafeHandles;
 
@@ -35,7 +34,7 @@ namespace SpdReaderWriterCore {
             /// <param name="dwCreationDisposition">An action to take on a file or device that exists or does not exist.
             /// For devices other than files, this parameter is usually set to <see cref="FileMode.Open"/>.</param>
             /// <param name="dwFlagsAndAttributes">The file or device attributes and flags.</param>
-            /// <param name="hTemplateFile">A valid handle to a template file with the <see cref="FileAccess.Read"/> access right.</param>
+            /// <param name="hTemplateFile">A valid handle to a template file with the <see cref="FileAccess.GenericRead"/> access right.</param>
             /// <returns>If the function succeeds, the return value is an open handle to the specified file, device, named pipe, or mail slot.</returns>
             [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
             public static extern IntPtr CreateFile(
@@ -47,15 +46,29 @@ namespace SpdReaderWriterCore {
                 [MarshalAs(UnmanagedType.U4)] FileAttributes dwFlagsAndAttributes,
                 [Optional] IntPtr hTemplateFile);
 
+            /// <summary>
+            /// Generic Access Rights
+            /// </summary>
+            [Flags]
+            public enum FileAccess : uint {
+                /// <summary>
+                /// Read access
+                /// </summary>
+                GenericRead  = 0x80000000,
+
+                /// <summary>
+                /// Write access
+                /// </summary>
+                GenericWrite = 0x40000000
+            }
 
             /// <summary>
             /// Closes an open object handle.
             /// </summary>
             /// <param name="hObject">A valid handle to an open object.</param>
-            /// <returns>If the function succeeds, the return value is nonzero (<see langword="true"/>).</returns>
-            [DllImport("kernel32.dll", SetLastError = true)]
+            /// <returns>If the function succeeds, the return value is <see langword="true"/>.</returns>
             [ReliabilityContract(Consistency.WillNotCorruptState, Cer.Success)]
-            [SuppressUnmanagedCodeSecurity]
+            [DllImport("kernel32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             public static extern bool CloseHandle(IntPtr hObject);
 
@@ -151,7 +164,7 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Advanced Windows 32 Base API (services)
+        /// Advanced Windows 32 Base API
         /// </summary>
         public static class Advapi32 {
 
@@ -245,39 +258,48 @@ namespace SpdReaderWriterCore {
             }
 
             /// <summary>
-            /// Windows error codes returned by <see cref="Marshal.GetHRForLastWin32Error"/>
-            /// </summary>
-            /// <remarks>The HRESULT values 0x8007XXXX format, where the XXXX value corresponds to the DWORD values of the appropriate Win32 error code.</remarks>
-            internal struct WinError {
-                /// <summary>
-                /// The operation completed successfully
-                /// </summary>
-                public const int NoError               = unchecked((int)0x80070000);
-
-                /// <summary>
-                /// The specified service already exists
-                /// </summary>
-                public const int ServiceExists         = unchecked((int)0x80070431);
-
-                /// <summary>
-                /// An instance of the service is already running
-                /// </summary>
-                public const int ServiceAlreadyRunning = unchecked((int)0x80070420);
-            }
-
-            /// <summary>
             /// System Error Codes returned by <see cref="Marshal.GetLastWin32Error"/>
             /// </summary>
             internal struct SystemError {
                 /// <summary>
                 /// The operation completed successfully
                 /// </summary>
-                public const int ErrorSuccess        = 0x00;
+                public const int Success                      = 0x00;
+
+                /// <summary>
+                /// The system cannot find the file specified.
+                /// </summary>
+                public const int ErrorFileNotFound            = 0x02;
+
+                /// <summary>
+                /// Access is denied.
+                /// </summary>
+                public const int ErrorAccessDenied            = 0x05;
+
+                /// <summary>
+                /// An instance of the service is already running.
+                /// </summary>
+                public const int ServiceAlreadyRunning        = 0x420;
+
+                /// <summary>
+                /// The specified service does not exist as an installed service.
+                /// </summary>
+                public const int ErrorServiceDoesNotExist     = 0x424;
+
+                /// <summary>
+                /// The service cannot accept control messages at this time.
+                /// </summary>
+                public const int ErrorServiceCannotAcceptCtrl = 0x425;
+
+                /// <summary>
+                /// The specified service already exists.
+                /// </summary>
+                public const int ErrorServiceExists           = 0x431;
 
                 /// <summary>
                 /// Not all privileges or groups referenced are assigned to the caller.
                 /// </summary>
-                public const int ErrorNotAllAssigned = 0x514;
+                public const int ErrorNotAllAssigned          = 0x514;
             }
 
             /// <summary>
@@ -293,9 +315,9 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Opens an existing service.
             /// </summary>
-            /// <param name="hSCManager"></param>
-            /// <param name="lpServiceName"></param>
-            /// <param name="dwDesiredAccess"></param>
+            /// <param name="hSCManager">A handle to the service control manager database.</param>
+            /// <param name="lpServiceName">The name of the service to be opened</param>
+            /// <param name="dwDesiredAccess">The access to the service.</param>
             /// <returns>If the function succeeds, the return value is a handle to the service. If the function fails, the return value is <see cref="IntPtr.Zero"/>.</returns>
             [DllImport("advapi32.dll", EntryPoint = "OpenServiceW", SetLastError = true, CharSet = CharSet.Unicode)]
             internal static extern IntPtr OpenService(IntPtr hSCManager, string lpServiceName, ServiceRights dwDesiredAccess);
@@ -442,7 +464,7 @@ namespace SpdReaderWriterCore {
             }
 
             /// <summary>
-            /// The current state of the service for <see cref="ServiceStatus"/>. 
+            /// The current state of the service for <see cref="ServiceStatus"/>.
             /// </summary>
             internal enum ServiceStatusCurrentState : uint {
 
@@ -605,12 +627,12 @@ namespace SpdReaderWriterCore {
             }
 
             /// <summary>
-            /// The LookupPrivilegeValue function retrieves the locally unique identifier (LUID) used on a specified system to locally represent the specified privilege name.
+            /// The LookupPrivilegeValue function retrieves the locally unique identifier (<see cref="LUID"/>) used on a specified system to locally represent the specified privilege name.
             /// </summary>
             /// <param name="lpSystemName">The name of the system on which the privilege name is retrieved.
             /// If a null string is specified, the function attempts to find the privilege name on the local system.</param>
             /// <param name="lpName">The name of the privilege.</param>
-            /// <param name="lpLuid">A pointer to a variable that receives the LUID by which the privilege is known on the system specified by the <paramref name="lpSystemName"/> parameter.</param>
+            /// <param name="lpLuid">A pointer to a variable that receives the <see cref="LUID"/> by which the privilege is known on the system specified by the <paramref name="lpSystemName"/> parameter.</param>
             /// <returns></returns>
             [DllImport("advapi32.dll")]
             public static extern bool LookupPrivilegeValue(string lpSystemName, string lpName, ref LUID lpLuid);
@@ -625,7 +647,7 @@ namespace SpdReaderWriterCore {
             }
 
             /// <summary>
-            /// The AdjustTokenPrivileges function enables or disables privileges in the specified access token.
+            /// Enables or disables privileges in the specified access token.
             /// </summary>
             /// <param name="tokenHandle">A handle to the access token that contains the privileges to be modified.</param>
             /// <param name="disableAllPrivileges">Specifies whether the function disables all of the token's privileges.</param>
@@ -670,7 +692,7 @@ namespace SpdReaderWriterCore {
                 public LUID Luid;
 
                 /// <summary>
-                /// Specifies attributes of the LUID
+                /// Specifies attributes of the <see cref="LUID"/>
                 /// </summary>
                 public LuidAttributes Attributes;
             }
