@@ -9,6 +9,10 @@
 
 */
 
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
+
 namespace SpdReaderWriterCore {
     /// <summary>
     /// Core class
@@ -23,6 +27,11 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Executing assembly name
         /// </summary>
-        public string AssemblyName = Assembly.GetExecutingAssembly().FullName;
+        public static string AssemblyName = Assembly.GetEntryAssembly()?.GetName().Name;
+
+        /// <summary>
+        /// Current process name
+        /// </summary>
+        public static string ProcessName = Process.GetCurrentProcess().ProcessName;
     }
 }
