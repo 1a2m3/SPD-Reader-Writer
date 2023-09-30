@@ -93,7 +93,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Driver file name
             /// </summary>
-            public string FileName => $"{DriverInfo.ServiceName}{(Environment.Is64BitOperatingSystem ? "_x64" : "_x32")}.sys";
+            public string FileName => $"{DriverInfo.ServiceName}{(Environment.Is64BitOperatingSystem ? "x64" : "")}.sys";
 
             /// <summary>
             /// NT Device name
@@ -476,8 +476,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns></returns>
         public static bool Stop() {
-            StopDriver();
-            return !IsRunning;
+            return StopDriver();
         }
 
         /// <summary>
@@ -514,7 +513,7 @@ namespace SpdReaderWriterCore {
                 RemoveDriver(deleteFile: false);
             }
 
-            CloseServiceHandle(ManagerHandle);
+            CloseServiceHandle(Manager);
         }
 
         /// <summary>
@@ -553,12 +552,12 @@ namespace SpdReaderWriterCore {
                 return false;
             }
 
-            if (ManagerHandle == IntPtr.Zero) {
+            if (Manager == IntPtr.Zero) {
                 return false;
             }
 
             _serviceHandle = CreateService(
-                hSCManager       : ManagerHandle,
+                hSCManager       : Manager,
                 lpServiceName    : DriverInfo.ServiceName,
                 lpDisplayName    : DriverInfo.ServiceName,
                 dwDesiredAccess  : ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
@@ -582,11 +581,11 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver is successfully deleted</returns>
         private static bool RemoveDriver() {
 
-            if (ManagerHandle == IntPtr.Zero) {
+            if (Manager == IntPtr.Zero) {
                 return false;
             }
 
-            _serviceHandle = OpenService(ManagerHandle, DriverInfo.ServiceName, ServiceRights.ServiceAllAccess);
+            _serviceHandle = OpenService(Manager, DriverInfo.ServiceName, ServiceRights.ServiceAllAccess);
 
             if (_serviceHandle == IntPtr.Zero) {
                 return false;
@@ -627,8 +626,13 @@ namespace SpdReaderWriterCore {
             }
 
             if (IsInstalled) {
-                Service.Start();
-                Service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(Timeout));
+                try {
+                    Service.Start();
+                    Service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromMilliseconds(Timeout));
+                }
+                catch {
+                    return IsRunning;
+                }
             }
 
             return IsRunning;
@@ -645,9 +649,7 @@ namespace SpdReaderWriterCore {
                     Service.Stop();
                 }
                 catch {
-                    int status = Marshal.GetLastWin32Error();
-                    return status == SystemError.ErrorServiceDoesNotExist ||
-                           !IsRunning;
+                    return !IsRunning;
                 }
             }
 
@@ -835,7 +837,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Service control manager
         /// </summary>
-        private static IntPtr ManagerHandle => OpenSCManager(ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
+        private static IntPtr Manager => OpenSCManager(ServiceAccessRights.SC_MANAGER_ALL_ACCESS);
 
         /// <summary>
         /// Service object
