@@ -176,7 +176,7 @@ namespace SpdReaderWriterCore {
             /// <param name="dwAccess">The access to the service control manager</param>
             /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
             [DllImport("advapi32.dll", EntryPoint = "OpenSCManagerW", ExactSpelling = true, CharSet = CharSet.Unicode, SetLastError = true)]
-            internal static extern IntPtr OpenSCManager(
+            public static extern IntPtr OpenSCManager(
                 string machineName,
                 string databaseName,
                 ServiceAccessRights dwAccess);
@@ -186,13 +186,13 @@ namespace SpdReaderWriterCore {
             /// </summary>
             /// <param name="dwAccess">The access to the service control manager</param>
             /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
-            internal static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => OpenSCManager(null, null, dwAccess);
+            public static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => OpenSCManager(null, null, dwAccess);
 
             /// <summary>
             /// Service Security and Access Rights for the Service Control Manager
             /// </summary>
             [Flags]
-            internal enum ServiceAccessRights : uint {
+            public enum ServiceAccessRights : uint {
                 SC_MANAGER_ALL_ACCESS = 0xF003F
             }
 
@@ -214,7 +214,7 @@ namespace SpdReaderWriterCore {
             /// <param name="lpPassword">The password to the account name specified by the <paramref name="lpServiceStartName"/> parameter</param>
             /// <returns>If the function succeeds, the return value is a handle to the service.</returns>
             [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
-            internal static extern IntPtr CreateService(
+            public static extern IntPtr CreateService(
                 IntPtr hSCManager,
                 string lpServiceName,
                 string lpDisplayName,
@@ -232,7 +232,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
             /// </summary>
-            internal enum ErrorControl : uint {
+            public enum ErrorControl : uint {
 
                 /// <summary>
                 /// The startup program ignores the error and continues the startup operation
@@ -260,7 +260,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// System Error Codes returned by <see cref="Marshal.GetLastWin32Error"/>
             /// </summary>
-            internal struct SystemError {
+            public struct SystemError {
                 /// <summary>
                 /// The operation completed successfully
                 /// </summary>
@@ -272,9 +272,24 @@ namespace SpdReaderWriterCore {
                 public const int ErrorFileNotFound            = 0x02;
 
                 /// <summary>
+                /// The system cannot find the path specified.
+                /// </summary>
+                public const int ErrorPathNotFound            = 0x03;
+
+                /// <summary>
                 /// Access is denied.
                 /// </summary>
                 public const int ErrorAccessDenied            = 0x05;
+
+                /// <summary>
+                /// The handle is invalid.
+                /// </summary>
+                public const int ErrorInvalidHandle           = 0x06;
+
+                /// <summary>
+                /// %1 is not a valid Win32 application.
+                /// </summary>
+                public const int ErrorBadExeFormat            = 0xC1;
 
                 /// <summary>
                 /// An instance of the service is already running.
@@ -320,13 +335,13 @@ namespace SpdReaderWriterCore {
             /// <param name="dwDesiredAccess">The access to the service.</param>
             /// <returns>If the function succeeds, the return value is a handle to the service. If the function fails, the return value is <see cref="IntPtr.Zero"/>.</returns>
             [DllImport("advapi32.dll", EntryPoint = "OpenServiceW", SetLastError = true, CharSet = CharSet.Unicode)]
-            internal static extern IntPtr OpenService(IntPtr hSCManager, string lpServiceName, ServiceRights dwDesiredAccess);
+            public static extern IntPtr OpenService(IntPtr hSCManager, string lpServiceName, ServiceRights dwDesiredAccess);
 
             /// <summary>
             /// Specific access rights for a service
             /// </summary>
             [Flags]
-            internal enum ServiceRights : uint {
+            public enum ServiceRights : uint {
 
                 /// <summary>
                 /// Required to call the QueryServiceConfig and QueryServiceConfig2 functions to query the service configuration.
@@ -417,7 +432,7 @@ namespace SpdReaderWriterCore {
             /// Contains status information for a service.
             /// </summary>
             [StructLayout(LayoutKind.Sequential, Pack = 1)]
-            internal struct ServiceStatus {
+            public struct ServiceStatus {
                 public ServiceStatusServiceType dwServiceType;
                 public ServiceStatusCurrentState dwCurrentState;
                 public ServiceStatusControlsAccepted dwControlsAccepted;
@@ -430,7 +445,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// The type of service for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusServiceType : uint {
+            public enum ServiceStatusServiceType : uint {
 
                 /// <summary>
                 /// The service is a device driver. 
@@ -466,7 +481,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// The current state of the service for <see cref="ServiceStatus"/>.
             /// </summary>
-            internal enum ServiceStatusCurrentState : uint {
+            public enum ServiceStatusCurrentState : uint {
 
                 /// <summary>
                 /// The service is not running. 
@@ -508,7 +523,7 @@ namespace SpdReaderWriterCore {
             /// The control codes the service accepts and processes in its handler function for <see cref="ServiceStatus"/>.
             /// </summary>
             [Flags]
-            internal enum ServiceStatusControlsAccepted : uint {
+            public enum ServiceStatusControlsAccepted : uint {
 
                 /// <summary>
                 /// The service can be stopped.
@@ -550,7 +565,7 @@ namespace SpdReaderWriterCore {
             /// <returns><see langword="true"/> if the function succeeds</returns>
             [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
-            internal static extern bool CloseServiceHandle(IntPtr hSCObject);
+            public static extern bool CloseServiceHandle(IntPtr hSCObject);
 
             /// <summary>
             /// The OpenProcessToken function opens the access token associated with a process
