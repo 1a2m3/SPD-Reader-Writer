@@ -11,8 +11,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Reflection;
 using System.Text;
 
 namespace SpdReaderWriterCore {
@@ -143,24 +141,8 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool Write<T>(ushort offset, T value) {
-
-            object input  = value;
-            
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                return KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, (byte)input);
-            }
-
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                return KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, (ushort)input);
-            }
-
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                return KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, (uint)input);
-            }
-
-            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
-        }
+        public bool Write<T>(ushort offset, T value) => 
+            KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, value);
 
         /// <summary>
         /// Finds PCI device matching Vendor ID and Device ID

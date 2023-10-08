@@ -9,10 +9,6 @@
 
 */
 
-using System;
-using System.IO;
-using System.Reflection;
-
 namespace SpdReaderWriterCore {
 
     /// <summary>
@@ -54,17 +50,8 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public T Read<T>(ushort offset) {
-
-            Data.DataSize inputSize = Data.GetDataSize(typeof(T));
-
-            if (inputSize > Data.DataSize.Dword || inputSize < Data.DataSize.Byte) {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
-            }
-
-            object output = KernelDriver.ReadIoPort<T>((ushort)(BaseAddress + offset));
-            return (T)Convert.ChangeType(output, typeof(T));
-        }
+        public T Read<T>(ushort offset) => 
+            KernelDriver.ReadIoPort<T>((ushort)(BaseAddress + offset));
 
         /// <summary>
         /// Reads data from an IO port register
@@ -74,7 +61,7 @@ namespace SpdReaderWriterCore {
         /// <param name="output">Output reference</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool ReadEx<T>(ushort offset, out T output) => 
-            KernelDriver.ReadIoPortEx(offset, out output);
+            KernelDriver.ReadIoPortEx((ushort)(BaseAddress + offset), out output);
 
         /// <summary>
         /// Writes data to an IO port register
@@ -83,7 +70,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         public void Write<T>(ushort offset, T value) => 
-            KernelDriver.WriteIoPortEx(offset, value);
+            KernelDriver.WriteIoPortEx((ushort)(BaseAddress + offset), value);
 
         /// <summary>
         /// Writes data to an IO port register
@@ -92,16 +79,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool WriteEx<T>(ushort offset, T value) {
-
-            object input = value;
-            Data.DataSize inputSize = Data.GetDataSize(input);
-
-            if (inputSize > Data.DataSize.Dword || inputSize < Data.DataSize.Byte) {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
-            }
-
-            return KernelDriver.WriteIoPortEx((ushort)(BaseAddress + offset), (T)input);
-        }
+        public bool WriteEx<T>(ushort offset, T value) => 
+            KernelDriver.WriteIoPortEx((ushort)(BaseAddress + offset), value);
     }
 }
