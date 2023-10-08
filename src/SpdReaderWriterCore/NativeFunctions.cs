@@ -96,71 +96,6 @@ namespace SpdReaderWriterCore {
                 uint nOutBufferSize,
                 [Optional] out uint lpBytesReturned,
                 [Optional] IntPtr lpOverlapped);
-
-            /// <summary>
-            /// Defines a new IO Control Code
-            /// </summary>
-            /// <param name="deviceType">Identifies the device type.</param>
-            /// <param name="function">Identifies the function to be performed by the driver.</param>
-            /// <param name="method">Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/>
-            /// and the driver that handles the IRP. Use one of the <see cref="IoctlMethod"/> constants.</param>
-            /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
-            /// <returns>An I/O control code</returns>
-            internal static uint CTL_CODE(uint deviceType, uint function, IoctlMethod method, IoctlAccess access) {
-                return (deviceType << 16) | ((uint)access << 14) | (uint)((ushort)(function) << 2) | (uint)method;
-            }
-
-            /// <summary>
-            /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
-            /// </summary>
-            internal enum IoctlMethod : uint {
-
-                /// <summary>
-                /// Specifies the buffered I/O method, which is typically used for transferring small amounts of data per request. 
-                /// </summary>
-                Buffered,
-
-                /// <summary>
-                /// Specifies the direct I/O method, which is typically used for writing large amounts of data, using DMA or PIO, that must be transferred quickly.
-                /// </summary>
-                InDirect,
-
-                /// <summary>
-                /// Specifies the direct I/O method, which is typically used for reading large amounts of data, using DMA or PIO, that must be transferred quickly.
-                /// </summary>
-                OutDirect,
-
-                /// <summary>
-                /// Specifies neither buffered nor direct I/O. The I/O manager does not provide any system buffers or MDLs.
-                /// </summary>
-                Neither,
-            }
-
-            /// <summary>
-            /// Indicates the type of access that a caller must request when opening the file object that represents the device.
-            /// </summary>
-            internal enum IoctlAccess : byte {
-
-                /// <summary>
-                /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
-                /// </summary>
-                AnyAccess,
-
-                /// <summary>
-                /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
-                /// </summary>
-                ReadData,
-
-                /// <summary>
-                /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
-                /// </summary>
-                WriteData,
-
-                /// <summary>
-                /// The caller must have both read and write access rights
-                /// </summary>
-                ReadWriteData = ReadData | WriteData,
-            }
         }
 
         /// <summary>
@@ -228,6 +163,19 @@ namespace SpdReaderWriterCore {
                 [Optional] string lpDependencies,
                 [Optional] string lpServiceStartName,
                 [Optional] string lpPassword);
+
+            /// <summary>
+            /// Starts a service.
+            /// </summary>
+            /// <param name="hService">A handle to the service.</param>
+            /// <param name="dwNumServiceArgs">The number of strings in the lpServiceArgVectors array.</param>
+            /// <param name="lpServiceArgVectors">The null-terminated strings to be passed to the ServiceMain function for the service as arguments.</param>
+            /// <returns></returns>
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+            public static extern bool StartService(
+                IntPtr hService,
+                uint dwNumServiceArgs,
+                string[] lpServiceArgVectors);
 
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
@@ -629,14 +577,14 @@ namespace SpdReaderWriterCore {
                 /// <summary>
                 /// Combines all possible access rights for a token.
                 /// </summary>
-                TOKEN_ALL_ACCESS         = STANDARD_RIGHTS_REQUIRED | 
+                TOKEN_ALL_ACCESS         = STANDARD_RIGHTS_REQUIRED |
                                            TOKEN_ASSIGN_PRIMARY |
                                            TOKEN_DUPLICATE |
-                                           TOKEN_IMPERSONATE | 
-                                           TOKEN_QUERY | 
+                                           TOKEN_IMPERSONATE |
+                                           TOKEN_QUERY |
                                            TOKEN_QUERY_SOURCE |
-                                           TOKEN_ADJUST_PRIVILEGES | 
-                                           TOKEN_ADJUST_GROUPS | 
+                                           TOKEN_ADJUST_PRIVILEGES |
+                                           TOKEN_ADJUST_GROUPS |
                                            TOKEN_ADJUST_DEFAULT |
                                            TOKEN_ADJUST_SESSIONID
             }
@@ -717,14 +665,14 @@ namespace SpdReaderWriterCore {
             /// </summary>
             [Flags]
             public enum LuidAttributes : uint {
-                SE_PRIVILEGE_ENABLED_BY_DEFAULT = 0x00000001,
-                SE_PRIVILEGE_ENABLED            = 0x00000002,
-                SE_PRIVILEGE_REMOVED            = 0x00000004,
-                SE_PRIVILEGE_USED_FOR_ACCESS    = 0x80000000,
-                SE_PRIVILEGE_VALID_ATTRIBUTES   = SE_PRIVILEGE_ENABLED_BY_DEFAULT |
-                                                  SE_PRIVILEGE_ENABLED |
-                                                  SE_PRIVILEGE_REMOVED |
-                                                  SE_PRIVILEGE_USED_FOR_ACCESS
+                SePrivilegeEnabledByDefault = 0x00000001,
+                SePrivilegeEnabled          = 0x00000002,
+                SePrivilegeRemoved          = 0x00000004,
+                SePrivilegeUsedForAccess    = 0x80000000,
+                SePrivilegeValidAttributes  = SePrivilegeEnabledByDefault | 
+                                              SePrivilegeEnabled | 
+                                              SePrivilegeRemoved | 
+                                              SePrivilegeUsedForAccess
             }
         }
     }
