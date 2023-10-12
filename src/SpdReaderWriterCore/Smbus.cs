@@ -418,11 +418,11 @@ namespace SpdReaderWriterCore {
                         byte smba_en_hi = KernelDriver.ReadIoPort<byte>(SB800_PIIX4_SMB_DAT);
 
                         if (smba_en_hi == byte.MaxValue || smba_en_lo == byte.MaxValue) {
-                            //const uint SB800_PIIX4_FCH_PM_ADDR = 0xFED80300;
-                            //const byte SB800_PIIX4_FCH_PM_SIZE = 8;
+                            // PMIO is disabled, get SMBus port from memory
+                            const uint SB800_PIIX4_FCH_PM_ADDR = 0xFED80300;
 
-                            // PMIO is disabled, AMD SMBus controllers have two adapters with fixed I/O spaces at 0x0B00 and 0x0B20
-                            IoPort = new IoPort(0x0B00);
+                            uint smbusBase = KernelDriver.ReadMemory<uint>(SB800_PIIX4_FCH_PM_ADDR);
+                            IoPort = new IoPort((ushort)(((smbusBase >> 8) & 0xFF) << 8));
                         }
                         else if (Data.GetBit(smba_en_lo, 4)) {
                             // Primary bus
