@@ -94,7 +94,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Driver file name
             /// </summary>
-            internal string FileName => $"{DriverInfo.ServiceName}{(Environment.Is64BitOperatingSystem ? "x64" : "")}.sys";
+            internal string FileName;
 
             /// <summary>
             /// NT Device name
@@ -109,12 +109,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Binary driver file contents
             /// </summary>
-            internal byte[] BinaryData => Data.Gzip(DriverInfo.GZipData, Data.GzipMethod.Decompress);
-
-            /// <summary>
-            /// Compressed driver file contents
-            /// </summary>
-            internal byte[] GZipData;
+            internal byte[] BinaryData;
 
             /// <summary>
             /// Driver specific setup procedure
@@ -502,7 +497,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public static void Dispose() {
 
-            _driverHandle.Close();
+            _driverHandle?.Close();
 
             if (_disposeOnExit) {
                 StopDriver();
@@ -699,7 +694,7 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver handle is successfully closed</returns>
         private static bool CloseDriverHandle() {
             
-            _driverHandle.Close();
+            _driverHandle?.Close();
             return !IsHandleOpen;
         }
 
@@ -709,8 +704,8 @@ namespace SpdReaderWriterCore {
         public static bool IsInstalled {
             get {
                 try {
-                    return Service.ServiceName == DriverInfo.ServiceName &&
-                           Service.ServiceType == ServiceType.KernelDriver;
+                    return Service?.ServiceName == DriverInfo.ServiceName &&
+                           Service?.ServiceType == ServiceType.KernelDriver;
                 }
                 catch {
                     return false;
@@ -724,7 +719,7 @@ namespace SpdReaderWriterCore {
         public static bool IsRunning {
             get {
                 try {
-                    return Service.Status == ServiceControllerStatus.Running;
+                    return Service?.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
