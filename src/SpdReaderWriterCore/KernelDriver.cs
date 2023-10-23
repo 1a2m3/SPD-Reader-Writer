@@ -42,12 +42,8 @@ namespace SpdReaderWriterCore {
             set {
                 _driverInfo = value;
 
-                // Driver pre-init
-                if (!_driverInfo.Setup()) {
-                    throw new Exception($"{_driverInfo.ServiceName} setup failed");
-                }
-
                 // Check if all functions are present
+                if (_driverInfo.Setup                 == null) { throw new MissingMethodException(nameof(SetupDelegate)); }
                 if (_driverInfo.GetDriverVersion      == null) { throw new MissingMethodException(nameof(GetDriverVersionDelegate)); }
                 if (_driverInfo.ReadIoPortByte        == null) { throw new MissingMethodException(nameof(ReadIoPortByteDelegate)); }
                 if (_driverInfo.ReadIoPortByteEx      == null) { throw new MissingMethodException(nameof(ReadIoPortByteExDelegate)); }
@@ -79,6 +75,11 @@ namespace SpdReaderWriterCore {
                 if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(nameof(ReadMemoryWordDelegateEx)); }
                 if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegate)); }
                 if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegateEx)); }
+
+                // Driver pre-init
+                if (!_driverInfo.Setup()) {
+                    throw new Exception($"{_driverInfo.ServiceName} setup failed");
+                }
             }
         }
 
@@ -104,7 +105,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Driver file path
             /// </summary>
-            internal string FilePath => $"{Core.ParentPath}\\{DriverInfo.FileName}";
+            internal string FilePath;
 
             /// <summary>
             /// Binary driver file contents
@@ -115,6 +116,12 @@ namespace SpdReaderWriterCore {
             /// Driver specific setup procedure
             /// </summary>
             internal SetupDelegate Setup { get; set; }
+            internal InstallDriverDelegate InstallDriver { get; set; }
+            internal UninstallDriverDelegate UninstallDriver { get; set; }
+            internal StartDriverDelegate StartDriver { get; set; }
+            internal StopDriverDelegate StopDriver { get; set; }
+
+            internal LockHandleDelegate LockHandle { get; set; }
 
             internal GetDriverVersionDelegate GetDriverVersion { get; set; }
 
@@ -154,6 +161,13 @@ namespace SpdReaderWriterCore {
 
         // Setup
         internal delegate bool SetupDelegate();
+
+        // Controls
+        internal delegate bool InstallDriverDelegate();
+        internal delegate bool UninstallDriverDelegate();
+        internal delegate bool StartDriverDelegate();
+        internal delegate bool StopDriverDelegate();
+        internal delegate bool LockHandleDelegate(bool state);
 
         // Info
         internal delegate uint GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
@@ -476,6 +490,10 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver file is successfully initialized</returns>
         private static bool Initialize() {
 
+            if (DriverInfo.Setup()) {
+                return true;
+            }
+
             if (OpenDriverHandle(out IntPtr handle)) {
                 CloseHandle(handle);
                 return true;
@@ -535,6 +553,10 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the driver is successfully installed</returns>
         private static bool InstallDriver() {
 
+            if (DriverInfo.InstallDriver != null) {
+                return DriverInfo.InstallDriver();
+            }
+
             if (IsInstalled) {
                 return true;
             }
@@ -571,6 +593,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if driver is successfully deleted</returns>
         private static bool RemoveDriver() {
+
+            if (DriverInfo.UninstallDriver != null) {
+                return DriverInfo.UninstallDriver();
+            }
 
             if (Manager == IntPtr.Zero) {
                 return false;
@@ -612,6 +638,10 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver is successfully started</returns>
         private static bool StartDriver() {
 
+            if (DriverInfo.StartDriver != null) {
+                return DriverInfo.StartDriver();
+            }
+
             if (IsRunning) {
                 return true;
             }
@@ -634,6 +664,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if driver is successfully stopped</returns>
         private static bool StopDriver() {
+
+            if (DriverInfo.StopDriver != null) {
+                return DriverInfo.StopDriver();
+            }
 
             if (IsInstalled && Service.Status != ServiceControllerStatus.Stopped) {
                 try {
@@ -696,6 +730,15 @@ namespace SpdReaderWriterCore {
             
             _driverHandle?.Close();
             return !IsHandleOpen;
+        }
+
+        /// <summary>
+        /// Sets handle lock status
+        /// </summary>
+        /// <param name="state">Handle lock state</param>
+        /// <returns><see langword="true"/> if driver handle lock is successfully set</returns>
+        internal static bool LockHandle(bool state) {
+            return DriverInfo.LockHandle(state);
         }
 
         /// <summary>
