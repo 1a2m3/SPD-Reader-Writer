@@ -17,7 +17,6 @@ using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
-using SpdReaderWriterCore.Driver;
 using static SpdReaderWriterCore.NativeFunctions;
 using static SpdReaderWriterCore.NativeFunctions.Advapi32;
 using static SpdReaderWriterCore.NativeFunctions.Kernel32;
@@ -32,7 +31,47 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Default driver to use
         /// </summary>
-        private static readonly Info DefaultDriver = CpuZ.DriverInfo;
+        private static readonly Info DefaultDriver = GetDefaultDriver();
+
+        /// <summary>
+        /// Gets default driver info
+        /// </summary>
+        /// <returns>Driver info</returns>
+        private static Info GetDefaultDriver() {
+
+            Type cpuzType = Type.GetType("SpdReaderWriterCore.Driver.CpuZ");
+
+            if (cpuzType == null) {
+                return new Info();
+            }
+
+            BindingFlags fieldFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
+            FieldInfo driverInfoField = cpuzType.GetField("DriverInfo", fieldFlags);
+
+            if (driverInfoField == null) {
+                foreach (FieldInfo fieldInfo in cpuzType.GetFields(fieldFlags)) {
+                    if (fieldInfo.FieldType != DriverInfo.GetType()) {
+                        continue;
+                    }
+
+                    driverInfoField = fieldInfo;
+                    break;
+                }
+            }
+
+            if (driverInfoField == null) {
+                return new Info();
+            }
+
+            object driverInfoValue = driverInfoField.GetValue(null);
+
+            if (driverInfoValue == null) {
+                return new Info();
+            }
+
+            return (Info)driverInfoValue;
+        }
 
         /// <summary>
         /// Driver info
@@ -42,44 +81,44 @@ namespace SpdReaderWriterCore {
             set {
                 _driverInfo = value;
 
-                // Check if all functions are present
-                if (_driverInfo.Setup                 == null) { throw new MissingMethodException(nameof(SetupDelegate)); }
-                if (_driverInfo.GetDriverVersion      == null) { throw new MissingMethodException(nameof(GetDriverVersionDelegate)); }
-                if (_driverInfo.ReadIoPortByte        == null) { throw new MissingMethodException(nameof(ReadIoPortByteDelegate)); }
-                if (_driverInfo.ReadIoPortByteEx      == null) { throw new MissingMethodException(nameof(ReadIoPortByteExDelegate)); }
-                if (_driverInfo.ReadIoPortWord        == null) { throw new MissingMethodException(nameof(ReadIoPortWordDelegate)); }
-                if (_driverInfo.ReadIoPortWordEx      == null) { throw new MissingMethodException(nameof(ReadIoPortWordExDelegate)); }
-                if (_driverInfo.ReadIoPortDword       == null) { throw new MissingMethodException(nameof(ReadIoPortDwordDelegate)); }
-                if (_driverInfo.ReadIoPortDwordEx     == null) { throw new MissingMethodException(nameof(ReadIoPortDwordExDelegate)); }
-                if (_driverInfo.WriteIoPortByte       == null) { throw new MissingMethodException(nameof(WriteIoPortByteDelegate)); }
-                if (_driverInfo.WriteIoPortByteEx     == null) { throw new MissingMethodException(nameof(WriteIoPortByteExDelegate)); }
-                if (_driverInfo.WriteIoPortWord       == null) { throw new MissingMethodException(nameof(WriteIoPortWordDelegate)); }
-                if (_driverInfo.WriteIoPortWordEx     == null) { throw new MissingMethodException(nameof(WriteIoPortWordExDelegate)); }
-                if (_driverInfo.WriteIoPortDword      == null) { throw new MissingMethodException(nameof(WriteIoPortDwordDelegate)); }
-                if (_driverInfo.WriteIoPortDwordEx    == null) { throw new MissingMethodException(nameof(WriteIoPortDwordExDelegate)); }
-                if (_driverInfo.ReadPciConfigByte     == null) { throw new MissingMethodException(nameof(ReadPciConfigByteDelegate)); }
-                if (_driverInfo.ReadPciConfigByteEx   == null) { throw new MissingMethodException(nameof(ReadPciConfigByteExDelegate)); }
-                if (_driverInfo.ReadPciConfigWord     == null) { throw new MissingMethodException(nameof(ReadPciConfigWordDelegate)); }
-                if (_driverInfo.ReadPciConfigWordEx   == null) { throw new MissingMethodException(nameof(ReadPciConfigWordExDelegate)); }
-                if (_driverInfo.ReadPciConfigDword    == null) { throw new MissingMethodException(nameof(ReadPciConfigDwordDelegate)); }
-                if (_driverInfo.ReadPciConfigDwordEx  == null) { throw new MissingMethodException(nameof(ReadPciConfigDwordExDelegate)); }
-                if (_driverInfo.WritePciConfigByte    == null) { throw new MissingMethodException(nameof(WritePciConfigByteDelegate)); }
-                if (_driverInfo.WritePciConfigByteEx  == null) { throw new MissingMethodException(nameof(WritePciConfigByteExDelegate)); }
-                if (_driverInfo.WritePciConfigWord    == null) { throw new MissingMethodException(nameof(WritePciConfigWordDelegate)); }
-                if (_driverInfo.WritePciConfigWordEx  == null) { throw new MissingMethodException(nameof(WritePciConfigWordExDelegate)); }
-                if (_driverInfo.WritePciConfigDword   == null) { throw new MissingMethodException(nameof(WritePciConfigDwordDelegate)); }
-                if (_driverInfo.WritePciConfigDwordEx == null) { throw new MissingMethodException(nameof(WritePciConfigDwordExDelegate)); }
-                if (_driverInfo.ReadMemoryByte        == null) { throw new MissingMethodException(nameof(ReadMemoryByteDelegate)); }
-                if (_driverInfo.ReadMemoryByteEx      == null) { throw new MissingMethodException(nameof(ReadMemoryByteDelegateEx)); }
-                if (_driverInfo.ReadMemoryWord        == null) { throw new MissingMethodException(nameof(ReadMemoryWordDelegate)); }
-                if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(nameof(ReadMemoryWordDelegateEx)); }
-                if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegate)); }
-                if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegateEx)); }
-
                 // Driver pre-init
                 if (!_driverInfo.Setup()) {
                     throw new Exception($"{_driverInfo.ServiceName} setup failed");
                 }
+
+                // Check if all functions are present
+                if (_driverInfo.Setup                 == null) { throw new MissingMethodException(typeof(SetupDelegate).ToString()); }
+                if (_driverInfo.GetDriverVersion      == null) { throw new MissingMethodException(typeof(GetDriverVersionDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortByte        == null) { throw new MissingMethodException(typeof(ReadIoPortByteDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortByteEx      == null) { throw new MissingMethodException(typeof(ReadIoPortByteExDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortWord        == null) { throw new MissingMethodException(typeof(ReadIoPortWordDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortWordEx      == null) { throw new MissingMethodException(typeof(ReadIoPortWordExDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortDword       == null) { throw new MissingMethodException(typeof(ReadIoPortDwordDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortDwordEx     == null) { throw new MissingMethodException(typeof(ReadIoPortDwordExDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortByte       == null) { throw new MissingMethodException(typeof(WriteIoPortByteDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortByteEx     == null) { throw new MissingMethodException(typeof(WriteIoPortByteExDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortWord       == null) { throw new MissingMethodException(typeof(WriteIoPortWordDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortWordEx     == null) { throw new MissingMethodException(typeof(WriteIoPortWordExDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortDword      == null) { throw new MissingMethodException(typeof(WriteIoPortDwordDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortDwordEx    == null) { throw new MissingMethodException(typeof(WriteIoPortDwordExDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigByte     == null) { throw new MissingMethodException(typeof(ReadPciConfigByteDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigByteEx   == null) { throw new MissingMethodException(typeof(ReadPciConfigByteExDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigWord     == null) { throw new MissingMethodException(typeof(ReadPciConfigWordDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigWordEx   == null) { throw new MissingMethodException(typeof(ReadPciConfigWordExDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigDword    == null) { throw new MissingMethodException(typeof(ReadPciConfigDwordDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigDwordEx  == null) { throw new MissingMethodException(typeof(ReadPciConfigDwordExDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigByte    == null) { throw new MissingMethodException(typeof(WritePciConfigByteDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigByteEx  == null) { throw new MissingMethodException(typeof(WritePciConfigByteExDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigWord    == null) { throw new MissingMethodException(typeof(WritePciConfigWordDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigWordEx  == null) { throw new MissingMethodException(typeof(WritePciConfigWordExDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigDword   == null) { throw new MissingMethodException(typeof(WritePciConfigDwordDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigDwordEx == null) { throw new MissingMethodException(typeof(WritePciConfigDwordExDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryByte        == null) { throw new MissingMethodException(typeof(ReadMemoryByteDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryByteEx      == null) { throw new MissingMethodException(typeof(ReadMemoryByteDelegateEx).ToString()); }
+                if (_driverInfo.ReadMemoryWord        == null) { throw new MissingMethodException(typeof(ReadMemoryWordDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(typeof(ReadMemoryWordDelegateEx).ToString()); }
+                if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(typeof(ReadMemoryDwordDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(typeof(ReadMemoryDwordDelegateEx).ToString()); }
             }
         }
 
@@ -120,7 +159,6 @@ namespace SpdReaderWriterCore {
             internal UninstallDriverDelegate UninstallDriver { get; set; }
             internal StartDriverDelegate StartDriver { get; set; }
             internal StopDriverDelegate StopDriver { get; set; }
-
             internal LockHandleDelegate LockHandle { get; set; }
 
             internal GetDriverVersionDelegate GetDriverVersion { get; set; }
