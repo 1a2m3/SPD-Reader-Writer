@@ -31,26 +31,28 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Default driver to use
         /// </summary>
-        private static readonly Info DefaultDriver = GetDefaultDriver();
+        private static readonly Info DefaultDriver = GetDriverInfo("SpdReaderWriterCore.Driver.CpuZ", "CpuZInfo");
 
         /// <summary>
-        /// Gets default driver info
+        /// Gets driver info
         /// </summary>
+        /// <param name="driverClass">Driver class</param>
+        /// <param name="fieldName">Driver info field name</param>
         /// <returns>Driver info</returns>
-        private static Info GetDefaultDriver() {
+        private static Info GetDriverInfo(string driverClass, string fieldName) {
 
-            Type cpuzType = Type.GetType("SpdReaderWriterCore.Driver.CpuZ");
+            Type driverType = Type.GetType(driverClass);
 
-            if (cpuzType == null) {
+            if (driverType == null) {
                 return new Info();
             }
 
             BindingFlags fieldFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
 
-            FieldInfo driverInfoField = cpuzType.GetField("DriverInfo", fieldFlags);
+            FieldInfo driverInfoField = driverType.GetField(fieldName, fieldFlags);
 
             if (driverInfoField == null) {
-                foreach (FieldInfo fieldInfo in cpuzType.GetFields(fieldFlags)) {
+                foreach (FieldInfo fieldInfo in driverType.GetFields(fieldFlags)) {
                     if (fieldInfo.FieldType != DriverInfo.GetType()) {
                         continue;
                     }
@@ -720,6 +722,19 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Ensures the driver keeps running
+        /// </summary>
+        private static void KeepAlive() {
+            if (!IsInstalled) {
+                InstallDriver();
+            }
+
+            if (!IsRunning) {
+                StartDriver();
+            }
+        }
+
+        /// <summary>
         /// Opens driver handle
         /// </summary>
         /// <returns><see langword="true"/> if driver handle is successfully opened</returns>
@@ -814,6 +829,13 @@ namespace SpdReaderWriterCore {
         private static bool IsHandleOpen => _driverHandle != null &&
                                             !_driverHandle.IsInvalid &&
                                             !_driverHandle.IsClosed;
+
+        /// <summary>
+        /// Establishes a connection to the service control manager on local computer and opens the specified service control manager SERVICES_ACTIVE_DATABASE database.
+        /// </summary>
+        /// <param name="dwAccess">The access to the service control manager</param>
+        /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
+        public static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => Advapi32.OpenSCManager(null, null, dwAccess);
 
         /// <summary>
         /// Reads data from device
@@ -937,19 +959,6 @@ namespace SpdReaderWriterCore {
             /// The caller must have both read and write access rights
             /// </summary>
             ReadWriteData = ReadData | WriteData,
-        }
-
-        /// <summary>
-        /// Ensures the driver keeps running
-        /// </summary>
-        private static void KeepAlive() {
-            if (!IsInstalled) {
-                InstallDriver();
-            }
-
-            if (!IsRunning) {
-                StartDriver();
-            }
         }
 
         /// <summary>
