@@ -828,7 +828,7 @@ namespace SpdReaderWriterCore {
             set {
                 _i2CAddress = value;
 
-                if (Eeprom.ValidateAddress(_i2CAddress)) {
+                if (Eeprom.ValidateAddress(_i2CAddress) && IsConnected) {
                     DataLength = GetSpdSize();
                 }
             }
