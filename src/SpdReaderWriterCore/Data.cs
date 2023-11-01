@@ -17,6 +17,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace SpdReaderWriterCore {
@@ -744,7 +745,12 @@ namespace SpdReaderWriterCore {
         /// <param name="count">Number of bytes in the array</param>
         /// <returns>An array of random bytes</returns>
         public static byte[] RandomArray(int count) {
-            return RandomArray(count, byte.MinValue, byte.MaxValue);
+            using (RNGCryptoServiceProvider rg = new RNGCryptoServiceProvider()) {
+                byte[] rno = new byte[count];
+                rg.GetBytes(rno);
+                
+                return rno;
+            }
         }
 
         /// <summary>
@@ -757,11 +763,16 @@ namespace SpdReaderWriterCore {
         public static byte[] RandomArray(int count, int min, int max) {
 
             byte[] array = new byte[count];
+            byte r = RandomArray(1)[0];
 
-            Random r = new Random();
+            for (int i = 0; i < count;) {
 
-            for (int i = 0; i < count; i++) {
-                array[i] = (byte)r.Next(min, max);
+                r = RandomArray(1)[0];
+
+                if (r >= min && r <= max) {
+                    array[i] = r;
+                    i++;
+                }
             }
 
             return array;
