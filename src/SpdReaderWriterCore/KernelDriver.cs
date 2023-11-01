@@ -68,11 +68,9 @@ namespace SpdReaderWriterCore {
 
             object driverInfoValue = driverInfoField.GetValue(null);
 
-            if (driverInfoValue == null) {
-                return new Info();
-            }
-
-            return (Info)driverInfoValue;
+            return driverInfoValue is Info driverInfo
+                ? driverInfo
+                : new Info();
         }
 
         /// <summary>
@@ -511,24 +509,21 @@ namespace SpdReaderWriterCore {
         /// Starts kernel driver
         /// </summary>
         /// <returns><see langword="true"/> if driver service starts successfully</returns>
-        public static bool Start() {
-            DriverInfo = DefaultDriver;
-            return Initialize();
-        }
+        public static bool Start() => Initialize();
 
         /// <summary>
         /// Stops kernel driver
         /// </summary>
         /// <returns><see langword="true"/> if driver service stops successfully</returns>
-        public static bool Stop() {
-            return StopDriver();
-        }
+        public static bool Stop() => StopDriver();
 
         /// <summary>
         /// Initializes driver
         /// </summary>
         /// <returns><see langword="true"/> if driver file is successfully initialized</returns>
         private static bool Initialize() {
+
+            DriverInfo = DefaultDriver;
 
             if (DriverInfo.Setup()) {
                 return true;
@@ -558,7 +553,7 @@ namespace SpdReaderWriterCore {
             _driverHandle?.Close();
 
             if (_disposeOnExit) {
-                StopDriver();
+                Stop();
                 RemoveDriver(deleteFile: false);
             }
 
