@@ -278,8 +278,9 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadIoPortEx<T>(ushort port, out T output) {
 
-            object outputData;
-            bool result;
+            object outputData = null;
+            bool result = false;
+            output = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = DriverInfo.ReadIoPortByteEx(port, out byte buffer);
@@ -293,11 +294,11 @@ namespace SpdReaderWriterCore {
                 result = DriverInfo.ReadIoPortDwordEx(port, out uint buffer);
                 outputData = buffer;
             }
-            else {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+            
+            if (outputData != null) {
+                output = (T)outputData;
             }
 
-            output = (T)outputData;
             return result;
         }
 
@@ -379,8 +380,9 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadPciConfigEx<T>(byte bus, byte device, byte function, ushort offset, out T output) {
 
-            object outputData;
-            bool result;
+            object outputData = null;
+            bool result = false;
+            output = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
@@ -394,11 +396,11 @@ namespace SpdReaderWriterCore {
                 result = DriverInfo.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
                 outputData = buffer;
             }
-            else {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+
+            if (outputData != null) {
+                output = (T)outputData;
             }
 
-            output = (T)outputData;
             return result;
         }
 
@@ -436,7 +438,7 @@ namespace SpdReaderWriterCore {
                 case Data.DataSize.Dword:
                     return DriverInfo.WritePciConfigDwordEx(bus, device, function, offset, (uint)input);
                 default:
-                    throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+                    return false;
             }
         }
 
@@ -467,9 +469,10 @@ namespace SpdReaderWriterCore {
         /// <param name="output">Output data reference</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadMemoryEx<T>(uint address, out T output) {
-            
-            object outputData;
-            bool result;
+
+            object outputData = null;
+            bool result = false;
+            output = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = DriverInfo.ReadMemoryByteEx(address, out byte buffer);
@@ -483,11 +486,11 @@ namespace SpdReaderWriterCore {
                 result = DriverInfo.ReadMemoryDwordEx(address, out uint buffer);
                 outputData = buffer;
             }
-            else {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+
+            if (outputData != null) {
+                output = (T)outputData;
             }
 
-            output = (T)outputData;
             return result;
         }
 
