@@ -784,6 +784,16 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Locks driver object handle to prevent opening new handles
+        /// </summary>
+        internal static void LockHandle() => LockHandle(true);
+
+        /// <summary>
+        /// Unlocks driver object handle to allow opening new handles
+        /// </summary>
+        internal static void UnlockHandle() => LockHandle(false);
+
+        /// <summary>
         /// Sets handle lock status
         /// </summary>
         /// <param name="state">Handle lock state</param>

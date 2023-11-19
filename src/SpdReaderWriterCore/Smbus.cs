@@ -700,7 +700,7 @@ namespace SpdReaderWriterCore {
                 }
                 
                 try {
-                    KernelDriver.LockHandle(true);
+                    KernelDriver.LockHandle();
 
                     if (PlatformType == Platform.SkylakeX) {
                         // Set input for writing
@@ -937,7 +937,7 @@ namespace SpdReaderWriterCore {
                     }
                 }
                 finally {
-                    KernelDriver.LockHandle(false);
+                    KernelDriver.UnlockHandle();
                 }
 
                 return true;
