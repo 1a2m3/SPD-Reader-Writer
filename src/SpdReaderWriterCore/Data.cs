@@ -495,7 +495,7 @@ namespace SpdReaderWriterCore {
         /// Converts byte array to hex string
         /// </summary>
         /// <param name="input">Input byte array</param>
-        /// <returns>Space separated hexadecimal string</returns>
+        /// <returns>Non separated hexadecimal string</returns>
         public static string BytesToHexString(byte[] input) {
 
             StringBuilder hex = new StringBuilder(input.Length * 2);
@@ -745,12 +745,14 @@ namespace SpdReaderWriterCore {
         /// <param name="count">Number of bytes in the array</param>
         /// <returns>An array of random bytes</returns>
         public static byte[] RandomArray(int count) {
+
+            byte[] array = new byte[count];
+
             using (RNGCryptoServiceProvider rg = new RNGCryptoServiceProvider()) {
-                byte[] rno = new byte[count];
-                rg.GetBytes(rno);
-                
-                return rno;
+                rg.GetBytes(array);
             }
+
+            return array;
         }
 
         /// <summary>
@@ -760,19 +762,29 @@ namespace SpdReaderWriterCore {
         /// <param name="min">Minimum byte value</param>
         /// <param name="max">Maximum byte value</param>
         /// <returns>An array of random bytes whose values are within <paramref name="min"/> and <paramref name="max"/> values</returns>
-        public static byte[] RandomArray(int count, int min, int max) {
+        public static byte[] RandomArray(uint count, int min, int max) {
+
+            if (min > max) {
+                throw new ArgumentOutOfRangeException($"{nameof(min)} cannot be greater than {nameof(max)}");
+            }
+
+            if (max < min) {
+                throw new ArgumentOutOfRangeException($"{nameof(max)} cannot be less than {nameof(min)}");
+            }
 
             byte[] array = new byte[count];
-            byte r = RandomArray(1)[0];
+            byte r;
 
             for (int i = 0; i < count;) {
 
                 r = RandomArray(1)[0];
 
-                if (r >= min && r <= max) {
-                    array[i] = r;
-                    i++;
+                if (r < min || r > max) {
+                    continue;
                 }
+
+                array[i] = r;
+                i++;
             }
 
             return array;
