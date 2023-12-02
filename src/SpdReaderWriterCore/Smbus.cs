@@ -22,7 +22,7 @@ namespace SpdReaderWriterCore {
     /// <summary>
     /// SMBus class
     /// </summary>
-    public class Smbus : IDisposable {
+    public class Smbus : IDisposable, IDevice {
 
         /// <summary>
         /// Kernel Driver version
@@ -112,15 +112,31 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Initialize SMBus with default settings
         /// </summary>
-        public Smbus() {
-            Initialize();
-        }
+        public Smbus() => Connect();
+
+        /// <summary>
+        /// Established SMBus connection
+        /// </summary>
+        /// <returns><see langword="true"/> upon successful initialization</returns>
+        public bool Connect() => Initialize();
 
         /// <summary>
         /// SMBus instance destructor
         /// </summary>
         ~Smbus() {
             Dispose();
+        }
+
+        /// <summary>
+        /// Deinitializes SMBus instance
+        /// </summary>
+        /// <returns><see langword="true"/> upon successful disposal</returns>
+        public bool Disconnect() {
+            
+            Dispose();
+            KernelDriver.Stop();
+
+            return !KernelDriver.IsRunning;
         }
 
         /// <summary>
@@ -255,9 +271,6 @@ namespace SpdReaderWriterCore {
         /// Nvidia Smbus protocol commands for the <see cref="NvidiaSmbusRegister.Protocol"/> register
         /// </summary>
         private struct NvidiaSmbusProtocol {
-            public const byte Write     = 0x00;
-            public const byte Read      = 0x01;
-
             public const byte Quick     = 0x02;
             public const byte Byte      = 0x04;
             public const byte ByteData  = 0x06;
@@ -343,7 +356,8 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Initializes SMBus controller class
         /// </summary>
-        private void Initialize() {
+        /// <returns><see langword="true"/> if SMBus instance is initialized successfully</returns>
+        private bool Initialize() {
             try {
                 if (!KernelDriver.Start()) {
                     throw new Exception($"{KernelDriver.DriverInfo.ServiceName} did not start.");
@@ -372,7 +386,9 @@ namespace SpdReaderWriterCore {
                 }
             }
             else {
-                return;
+                if (Info.VendorId != VendorId.VIA) {
+                    return false;
+                }
             }
 
             switch (Info.VendorId) {
@@ -435,10 +451,57 @@ namespace SpdReaderWriterCore {
                     }
 
                     break;
+
+                case VendorId.VIA:
+
+                    // Find PCI to ISA bridge
+                    PciDevice = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa)[0];
+
+                    // Switch to function 4 (Power Management, SMBus and HWM)
+                    PciDevice.Function = 4;
+
+                    // Assign base address offset
+                    byte viasmbba;
+
+                    switch (PciDevice.DeviceId) {
+                        case DeviceId.VT82C596A:
+                        case DeviceId.VT82C596B:
+                        case DeviceId.VT82C686x:
+                        case DeviceId.VT8231:
+                            viasmbba = 0x90;
+                            break;
+
+                        case DeviceId.VT8233:
+                        case DeviceId.VT8233A:
+                        case DeviceId.VT8235:
+                        case DeviceId.VT8237R:
+                        case DeviceId.VT8237A:
+                        case DeviceId.VT8251:
+                        case DeviceId.CX700:
+                        case DeviceId.VT8237S:
+                        case DeviceId.VX8x0:
+                        case DeviceId.VX8x5:
+                            viasmbba = 0xD0;
+                            break;
+
+                        default:
+                            return false;
+                    }
+
+                    // Update info
+                    Info = new DeviceInfo {
+                        VendorId = PciDevice.VendorId,
+                        DeviceId = PciDevice.DeviceId
+                    };
+
+                    // Read SMBus I/O Base from base address offset
+                    IoPort = new IoPort((ushort)(PciDevice.Read<ushort>(viasmbba) & 0xFFF0));
+
+                    break;
             }
 
             if (PlatformType == Platform.Unknown) {
-                return;
+                return false;
             }
 
             // Common properties
@@ -448,6 +511,8 @@ namespace SpdReaderWriterCore {
             if (IsConnected) {
                 BusNumber = SMBuses[0];
             }
+
+            return IsConnected;
         }
 
         /// <summary>
@@ -463,9 +528,10 @@ namespace SpdReaderWriterCore {
 
             switch (result.VendorId) {
                 case VendorId.Intel:
+                case VendorId.VIA:
                     // Find ISA bridge to get chipset ID
                     try {
-                        PciDevice isa = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa, 0)[0];
+                        PciDevice isa = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa)[0];
                         result.DeviceId = isa.DeviceId;
                     }
                     catch {
@@ -476,7 +542,7 @@ namespace SpdReaderWriterCore {
 
                 case VendorId.AMD:
                 case VendorId.Nvidia:
-                    PciDevice smbus = FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus, 0)[0];
+                    PciDevice smbus = FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus)[0];
                     result.DeviceId = smbus.DeviceId;
                     break;
             }
@@ -719,7 +785,7 @@ namespace SpdReaderWriterCore {
                                 // Execute command
                                 (SmbusCmd.CmdByteData | SmbusCmd.Start) << 16 |
                                 // Address and R/W mode
-                                (smbusData.Address | (smbusData.AccessMode == SmbusAccessMode.Write ? 1 << 7 : 0)) << 8 |
+                                (smbusData.Address | ((byte)~smbusData.AccessMode << 7)) << 8 |
                                 // Offset
                                 (byte)smbusData.Offset
                             )
@@ -780,9 +846,7 @@ namespace SpdReaderWriterCore {
                         byte protocolCmd = 0x00;
 
                         // Check access mode and set protocol mode bit accordingly
-                        protocolCmd |= smbusData.AccessMode == SmbusAccessMode.Read
-                            ? NvidiaSmbusProtocol.Read
-                            : NvidiaSmbusProtocol.Write;
+                        protocolCmd |= (byte)smbusData.AccessMode;
 
                         // Command type
                         switch (smbusData.DataCommand) {
@@ -835,7 +899,7 @@ namespace SpdReaderWriterCore {
                     }
                     else if (PlatformType == Platform.Default && Info.VendorId != VendorId.Nvidia) {
                         // These platforms don't support multiple SMbuses
-                        if (smbusData.BusNumber > 0 && Info.VendorId == VendorId.Intel) {
+                        if ((Info.VendorId == VendorId.Intel || Info.VendorId == VendorId.VIA) && smbusData.BusNumber > 0) {
                             return false;
                         }
 
@@ -852,6 +916,11 @@ namespace SpdReaderWriterCore {
                                                SmbusStatus.BusCollision |
                                                SmbusStatus.Failed;
 
+                        // Stop current transaction
+                        IoPort.WriteEx(
+                            offset : (byte)(DefaultSmbusRegister.Control + portOffset),
+                            value  : SmbusCmd.Stop);
+
                         // Reset status
                         IoPort.WriteEx(
                             offset : (byte)(DefaultSmbusRegister.Status + portOffset),
@@ -866,7 +935,7 @@ namespace SpdReaderWriterCore {
                         // Set slave address
                         IoPort.WriteEx(
                             offset : (byte)(DefaultSmbusRegister.Address + portOffset),
-                            value  : (byte)(smbusData.Address << 1 | (smbusData.AccessMode == SmbusAccessMode.Read ? 1 : 0)));
+                            value  : (byte)(smbusData.Address << 1 | (byte)smbusData.AccessMode));
 
                         // Set input data for writing
                         if (smbusData.AccessMode == SmbusAccessMode.Write) {
@@ -1017,8 +1086,8 @@ namespace SpdReaderWriterCore {
         /// SMBus Read/Write access
         /// </summary>
         public enum SmbusAccessMode : byte {
-            Read,
             Write,
+            Read
         }
 
         /// <summary>

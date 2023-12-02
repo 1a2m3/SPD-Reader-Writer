@@ -209,5 +209,21 @@ namespace SpdReaderWriterCore {
         MCP73          = 0x07D8,
         MCP78S         = 0x0752,
         MCP79          = 0x0AA2,
+
+        // VIA
+        VT82C596A = 0x3050,
+        VT82C596B = 0x3051,
+        VT82C686x = 0x3057, // VT82C686A (rev 0x30), VT82C686B (rev 0x40)
+        VT8231    = 0x8235,
+        VT8233    = 0x3074,
+        VT8233A   = 0x3147,
+        VT8235    = 0x3177,
+        VT8237R   = 0x3227,
+        VT8237A   = 0x3337,
+        VT8237S   = 0x3372,
+        VT8251    = 0x3287,
+        CX700     = 0x8324,
+        VX8x0     = 0x8353, // VX800 & VX820
+        VX8x5     = 0x8409, // VX855 & VX875
     }
 }
