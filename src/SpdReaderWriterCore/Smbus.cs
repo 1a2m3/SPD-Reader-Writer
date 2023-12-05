@@ -419,8 +419,8 @@ namespace SpdReaderWriterCore {
 
                 case VendorId.AMD:
                     // AMD AM4, AM1, FM1, FM2(+)
-                    if ((PciDevice.DeviceId == DeviceId.FCH && PciDevice.RevisionId >= 0x49) ||
-                        (PciDevice.DeviceId == DeviceId.Hudson2 && PciDevice.RevisionId >= 0x41)) {
+                    if ((PciDevice.DeviceId == DeviceId.ZEN && PciDevice.RevisionId >= 0x49) ||
+                        (PciDevice.DeviceId == DeviceId.FCH && PciDevice.RevisionId >= 0x41)) {
 
                         // PMIO registers accessible via IO ports
                         const ushort SB800_PIIX4_SMB_IDX = 0xCD6;
@@ -455,33 +455,37 @@ namespace SpdReaderWriterCore {
                 case VendorId.VIA:
 
                     // Find PCI to ISA bridge
-                    PciDevice = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa)[0];
+                    PciDevice[] viaPciIsaBridge = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa);
 
-                    // Switch to function 4 (Power Management, SMBus and HWM)
-                    PciDevice.Function = 4;
+                    if (viaPciIsaBridge.Length == 0) {
+                        return false;
+                    }
 
-                    // Assign base address offset
-                    byte viasmbba;
+                    PciDevice = viaPciIsaBridge[0];
+
+                    // Assign smbus base address offset
+                    byte viaSmbBa;
 
                     switch (PciDevice.DeviceId) {
-                        case DeviceId.VT82C596A:
-                        case DeviceId.VT82C596B:
-                        case DeviceId.VT82C686x:
-                        case DeviceId.VT8231:
-                            viasmbba = 0x90;
-                            break;
-
                         case DeviceId.VT8233:
                         case DeviceId.VT8233A:
                         case DeviceId.VT8235:
-                        case DeviceId.VT8237R:
                         case DeviceId.VT8237A:
+                        case DeviceId.VT8237R:
+                        case DeviceId.VT8237S:
                         case DeviceId.VT8251:
                         case DeviceId.CX700:
-                        case DeviceId.VT8237S:
                         case DeviceId.VX8x0:
                         case DeviceId.VX8x5:
-                            viasmbba = 0xD0;
+                        case DeviceId.VX900:
+                            viaSmbBa = 0xD0;
+                            break;
+
+                        case DeviceId.VT8231:
+                        case DeviceId.VT82C596A:
+                        case DeviceId.VT82C596B:
+                        case DeviceId.VT82C686x:
+                            viaSmbBa = 0x90;
                             break;
 
                         default:
@@ -495,7 +499,7 @@ namespace SpdReaderWriterCore {
                     };
 
                     // Read SMBus I/O Base from base address offset
-                    IoPort = new IoPort((ushort)(PciDevice.Read<ushort>(viasmbba) & 0xFFF0));
+                    IoPort = new IoPort((ushort)(PciDevice.Read<ushort>(viaSmbBa) & 0xFFF0));
 
                     break;
             }
