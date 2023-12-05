@@ -633,6 +633,39 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Checks if input string is within ASCII range
+        /// </summary>
+        /// <param name="input">Input string</param>
+        /// <returns><see langword="true"/> if <see cref="input"/> contains ASCII characters</returns>
+        public static bool IsAscii(string input) {
+            foreach (byte b in Encoding.ASCII.GetBytes(input)) {
+                if (!IsAscii(b)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Removes non ASCII symbols from the string
+        /// </summary>
+        /// <param name="input">Input string</param>
+        /// <returns>ASCII-only string</returns>
+        public static string TrimNonAscii(string input) {
+
+            StringBuilder output = new StringBuilder(input.Length);
+
+            foreach (char c in Encoding.Default.GetBytes(input)) {
+                if (IsAscii(c)) {
+                    output.Append(c);
+                }
+            }
+
+            return output.ToString();
+        }
+
+        /// <summary>
         /// Converts input to a Binary Coded Decimal (BCD)
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
