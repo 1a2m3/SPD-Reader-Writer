@@ -253,7 +253,7 @@ namespace SpdReaderWriterCore {
                 return Data.BytesToString(chars);
             }
 
-            return spd != null ? spd.PartNumber : string.Empty;
+            return Data.TrimNonAscii(spd?.PartNumber);
         }
 
         /// <summary>
