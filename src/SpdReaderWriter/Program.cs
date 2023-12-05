@@ -293,8 +293,8 @@ namespace SpdReaderWriter {
                 inputFile.Length > 1 ? "bytes" : "byte",
                 Arduino.I2CAddress);
 
-            if (inputFile.Length > Arduino.DataLength) {
-                throw new Exception($"File \"{FilePath}\" is larger than {Arduino.DataLength} bytes.");
+            if (inputFile.Length > Arduino.MaxSpdSize) {
+                throw new Exception($"File \"{FilePath}\" is larger than {Arduino.MaxSpdSize} bytes.");
             }
 
             int bytesWritten = 0;
@@ -357,7 +357,7 @@ namespace SpdReaderWriter {
                 name = Arduino.ToString();
                 Arduino.I2CAddress = i2CAddress;
 
-                for (ushort i = 0; i < Arduino.DataLength; i += 32) {
+                for (ushort i = 0; i < Arduino.MaxSpdSize; i += 32) {
                     spdDump = Data.MergeArray(spdDump, Eeprom.Read(Arduino, i, 32));
                 }
 
@@ -675,7 +675,7 @@ namespace SpdReaderWriter {
         /// <summary>
         /// Detects if administrative privileges are present
         /// </summary>
-        /// <returns><see langref="true"/> if administrative privileges are present</returns>
+        /// <returns><see langword="true"/> if administrative privileges are present</returns>
         private static bool IsAdmin() {
 
             try {
