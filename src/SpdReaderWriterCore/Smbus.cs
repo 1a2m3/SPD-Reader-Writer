@@ -789,7 +789,7 @@ namespace SpdReaderWriterCore {
                                 // Execute command
                                 (SmbusCmd.CmdByteData | SmbusCmd.Start) << 16 |
                                 // Address and R/W mode
-                                (smbusData.Address | ((byte)~smbusData.AccessMode << 7)) << 8 |
+                                (smbusData.Address | (byte)(~(byte)smbusData.AccessMode << 7)) << 8 |
                                 // Offset
                                 (byte)smbusData.Offset
                             )
