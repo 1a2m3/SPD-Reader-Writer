@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20231205  // Firmware version number (YYYYMMDD)
+#define FW_VER 20231206  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -931,9 +931,9 @@ bool setRswp(uint8_t address, uint8_t block) {
 bool getRswp(uint8_t address, uint8_t block) {
 
   if (ddr5Detect(address)) {
-    return (block > 15) 
-      ? false
-      : readReg(address, MR12 + bitRead(block, 3)) & (1 << (block & 0b111));
+    return (block <= 15)
+      ? readReg(address, MR12 + bitRead(block, 3)) & (1 << (block & 0b111))
+      : false;
   }
 
   uint8_t commands[] = { RPS0, RPS1, RPS2, RPS3 };
@@ -955,13 +955,10 @@ bool getRswp(uint8_t address, uint8_t block) {
 bool clearRswp(uint8_t address) {
 
   if (ddr5Detect(address)) {
-
-    if (!ddr5GetOfflineMode()) {
-      return false;
-    }
-
-    return writeReg(address, MR12, 0) && readReg(address, MR12) == 0 &&
-           writeReg(address, MR13, 0) && readReg(address, MR13) == 0;
+    return ddr5GetOfflineMode()
+      ? writeReg(address, MR12, 0) && readReg(address, MR12) == 0 &&
+        writeReg(address, MR13, 0) && readReg(address, MR13) == 0
+      : false;
   }
 
   if (!ddr4Detect(address)) {
@@ -1377,7 +1374,7 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
     Wire.write(DNC);
     Wire.write(DNC);
   }
-  status = Wire.endTransmission(false);
+  status = Wire.endTransmission();
 
   if (writeBit) {
     return status == 0;
