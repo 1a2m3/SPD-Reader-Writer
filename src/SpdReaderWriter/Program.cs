@@ -103,7 +103,7 @@ namespace SpdReaderWriter {
                 ""
             };
             foreach (string line in header) {
-                Console.WriteLine(line, FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).ProductVersion);
+                Console.WriteLine(line, Core.AssemblyVersion);
             }
         }
         static void ShowHelp() {
@@ -128,6 +128,7 @@ namespace SpdReaderWriter {
                 "",
                 "Parameters in CAPS are mandatory!",
                 "All numbers must be specified in decimal format",
+                "If baud rate is not specified, default value will be used - {1}",
                 "Parameter <filepath> is optional when /read switch is used, output will be printed to console only.",
                 "Switch /silent is optional, progress won't be shown with this switch.",
                 "Switch /nocolor is optional, use to show SPD contents in monochrome",
@@ -144,13 +145,13 @@ namespace SpdReaderWriter {
             };
 
             foreach (string line in help) {
-                Console.WriteLine(line, AppDomain.CurrentDomain.FriendlyName);
+                Console.WriteLine(line, AppDomain.CurrentDomain.FriendlyName, ReaderSettings.BaudRate);
             }
         }
 
         static void ParseCommand() {
 
-            string mode = Args[0];
+            string mode = Args[0].ToLower();
 
             try {
                 switch (mode) {
@@ -259,7 +260,7 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void WriteEeprom() {
 
-            string mode = Args[0];
+            string mode = Args[0].ToLower();
             byte i2CAddress = (byte)int.Parse(Args[2]);
 
             if (FilePath.Length < 1) {
@@ -346,7 +347,7 @@ namespace SpdReaderWriter {
 
             int startTick = Environment.TickCount;
 
-            if (Args[1].StartsWith("COM")) {
+            if (Args[1].ToUpper().StartsWith("COM")) {
 
                 Connect();
 
@@ -478,7 +479,7 @@ namespace SpdReaderWriter {
                 byte[] addresses;
                 string name;
 
-                if (Args[1].StartsWith("COM")) {
+                if (Args[1].ToUpper().StartsWith("COM")) {
 
                     Connect();
 
@@ -535,8 +536,8 @@ namespace SpdReaderWriter {
             // Get baud rate
             if (portName.Contains(":")) {
                 string[] portParams = portName.Split(':');
-                portName = portParams[0];
-                ReaderSettings.BaudRate = Int32.Parse(portParams[1]);
+                portName = portParams[0].Trim();
+                ReaderSettings.BaudRate = Int32.Parse(portParams[1].Trim());
             }
 
             Arduino = new Arduino(ReaderSettings, portName);
@@ -561,14 +562,14 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void FindDevice() {
 
-            if (Args.Length == 1 || Args.Length == 2 && Args[1] == "all") {
+            if (Args.Length == 1 || (Args.Length == 2 && Args[1].ToLower() == "all")) {
                 FindArduino();
                 if (IsAdmin()) {
                     FindSmbus();
                 }
             }
             else if (Args.Length == 2) {
-                switch (Args[1]) {
+                switch (Args[1].ToLower()) {
                     case "arduino":
                         FindArduino();
                         break;
