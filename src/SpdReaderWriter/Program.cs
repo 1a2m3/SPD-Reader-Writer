@@ -70,11 +70,7 @@ namespace SpdReaderWriter {
             ShowColor = !Data.ArrayContains(Args, "/nocolor");
             FilePath = Args.Length >= 4 && !Args[3].Contains("/") ? Args[3] : "";
 
-            if (IsAdmin()) {
-                Smbus = new Smbus();
-            }
-
-            Welcome();
+            ShowBanner();
 
             if (args.Length > 0) {
 #if DEBUG
@@ -98,7 +94,7 @@ namespace SpdReaderWriter {
             Console.ReadLine();
         }
 
-        static void Welcome() {
+        static void ShowBanner() {
             string[] header = {
                 "   SPD-RW - EEPROM SPD reader and writer",
                 "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
@@ -118,17 +114,17 @@ namespace SpdReaderWriter {
                 "{0} /?",
                 "{0} /find",
                 "{0} /find <all|arduino|smbus>",
-                "{0} /scan <PORTNAME>",
+                "{0} /scan <PORTNAME<:baudrate>>",
                 "{0} /scan <SMBUS#>",
-                "{0} /read <PORTNAME> <ADDRESS#> <filepath> /silent /nocolor",
+                "{0} /read <PORTNAME<:baudrate>> <ADDRESS#> <filepath> /silent /nocolor",
                 "{0} /read <SMBUS#> <ADDRESS#> <filepath> /silent /nocolor",
-                "{0} /write <PORTNAME> <ADDRESS#> <FILEPATH> /silent /nocolor",
-                "{0} /writeforce <PORTNAME> <ADDRESS#> <FILEPATH> /silent /nocolor",
+                "{0} /write <PORTNAME<:baudrate>> <ADDRESS#> <FILEPATH> /silent /nocolor",
+                "{0} /writeforce <PORTNAME<:baudrate>> <ADDRESS#> <FILEPATH> /silent /nocolor",
                 "{0} /firmware <FILEPATH>",
-                "{0} /enablewriteprotection <PORTNAME> <ADDRESS#>",
-                "{0} /enablewriteprotection <PORTNAME> <ADDRESS#> <block#>",
-                "{0} /disablewriteprotection <PORTNAME> <ADDRESS#>",
-                "{0} /enablepermanentwriteprotection <PORTNAME> <ADDRESS#>",
+                "{0} /enablewriteprotection <PORTNAME<:baudrate>> <ADDRESS#>",
+                "{0} /enablewriteprotection <PORTNAME<:baudrate>> <ADDRESS#> <block#>",
+                "{0} /disablewriteprotection <PORTNAME<:baudrate>> <ADDRESS#>",
+                "{0} /enablepermanentwriteprotection <PORTNAME<:baudrate>> <ADDRESS#>",
                 "",
                 "Parameters in CAPS are mandatory!",
                 "All numbers must be specified in decimal format",
@@ -368,6 +364,8 @@ namespace SpdReaderWriter {
                     throw new AccessViolationException("Administrative privileges required");
                 }
 
+                Smbus = new Smbus();
+
                 Smbus.BusNumber = (byte)int.Parse(Args[1]);
                 Smbus.I2CAddress = i2CAddress;
                 name = $"{Smbus} ({Smbus.BusNumber})";
@@ -494,6 +492,8 @@ namespace SpdReaderWriter {
                         throw new AccessViolationException("Administrative privileges required");
                     }
 
+                    Smbus = new Smbus();
+
                     int i = -1;
                     if (int.TryParse(Args[1], out i) && i != -1) {
                         if (i > Smbus.FindBus().Length - 1) {
@@ -526,10 +526,17 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void Connect() {
             // Init
-            string portName = Args[1];
+            string portName = Args[1].ToUpper();
 
             if (!portName.StartsWith("COM", StringComparison.CurrentCulture)) {
                 throw new ArgumentException("Port name should start with \"COM\" followed by a number.");
+            }
+
+            // Get baud rate
+            if (portName.Contains(":")) {
+                string[] portParams = portName.Split(':');
+                portName = portParams[0];
+                ReaderSettings.BaudRate = Int32.Parse(portParams[1]);
             }
 
             Arduino = new Arduino(ReaderSettings, portName);
@@ -595,6 +602,8 @@ namespace SpdReaderWriter {
             if (!IsAdmin()) {
                 throw new AccessViolationException("Administrative privileges required");
             }
+
+            Smbus = new Smbus();
 
             try {
                 foreach (byte bus in Smbus.FindBus()) {
