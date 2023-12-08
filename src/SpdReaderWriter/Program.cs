@@ -536,8 +536,15 @@ namespace SpdReaderWriter {
             // Get baud rate
             if (portName.Contains(":")) {
                 string[] portParams = portName.Split(':');
-                portName = portParams[0].Trim();
-                ReaderSettings.BaudRate = Int32.Parse(portParams[1].Trim());
+                if (portParams.Length == 2) {
+                    portName = portParams[0].Trim();
+                    if (!int.TryParse(portParams[1].Trim(), out ReaderSettings.BaudRate)) {
+                        throw new ArgumentException("Baud rate should be specified in decimal notation.");
+                    }
+                }
+                else {
+                    throw new ArgumentException("Incorrect use of port arguments");
+                }
             }
 
             Arduino = new Arduino(ReaderSettings, portName);
