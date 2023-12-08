@@ -72,14 +72,14 @@ namespace SpdReaderWriterCore {
                 _i2CAddress = value;
 
                 // Check for DDR5 presence
-                IsDdr5Present = Eeprom.ValidateAddress(_i2CAddress) &&
+                IsDdr5Present = Eeprom.ValidateEepromAddress(_i2CAddress) &&
                                 ProbeAddress((byte)(Eeprom.LidCode.Pmic0 << 3 | (Eeprom.Spd5Register.LocalHid & value)));
 
                 // Reset Eeprom page
                 Eeprom.ResetPageAddress(this);
 
                 // Get or update SPD size
-                MaxSpdSize = Eeprom.ValidateAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;
+                MaxSpdSize = Eeprom.ValidateEepromAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;
             }
         }
         private byte _i2CAddress;
@@ -797,7 +797,7 @@ namespace SpdReaderWriterCore {
 
                         // Wait after writing
                         if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                            Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
+                            Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
                                 ? ExecutionDelay.WriteDelay
                                 : ExecutionDelay.WaitDelay);
                         }
@@ -876,7 +876,7 @@ namespace SpdReaderWriterCore {
 
                         // Wait after writing
                         if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                            Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
+                            Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
                                 ? ExecutionDelay.WriteDelay
                                 : ExecutionDelay.WaitDelay);
                         }
@@ -979,7 +979,7 @@ namespace SpdReaderWriterCore {
 
                         // Wait after writing
                         if (smbusData.AccessMode == SmbusAccessMode.Write) {
-                            Thread.Sleep(Eeprom.ValidateAddress(smbusData.Address)
+                            Thread.Sleep(Eeprom.ValidateEepromAddress(smbusData.Address)
                                 ? ExecutionDelay.WriteDelay
                                 : ExecutionDelay.WaitDelay);
                         }
@@ -1127,15 +1127,12 @@ namespace SpdReaderWriterCore {
                     return SmbStatus.Busy;
                 }
 
+                if ((status & SkylakeXSmbusStatus.Nack) > 0) {
+                    return SmbStatus.Error;
+                }
+
                 if ((status & SkylakeXSmbusStatus.Complete) > 0) {
-
-                    if ((status & SkylakeXSmbusStatus.Nack) > 0) {
-                        return SmbStatus.Error;
-                    }
-
-                    if ((status & ~(SkylakeXSmbusStatus.Busy | SkylakeXSmbusStatus.Nack) & (SkylakeXSmbusStatus.Busy | SkylakeXSmbusStatus.Nack)) == 0) {
-                        return SmbStatus.Success;
-                    }
+                    return SmbStatus.Success;
                 }
 
                 return SmbStatus.Ready;
