@@ -685,8 +685,19 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="address">Input address</param>
         /// <returns><see langword="true"/> if <paramref name="address"/> is a valid EEPROM address between 0x50 and 0x57</returns>
-        public static bool ValidateAddress(int address) {
+        public static bool ValidateEepromAddress(int address) {
             return address >> 3 == LidCode.Eeprom;
+        }
+
+        /// <summary>
+        /// Checks if input address is a valid PMIC address
+        /// </summary>
+        /// <param name="address">Input address</param>
+        /// <returns><see langword="true"/> if <paramref name="address"/> is a valid PMIC address</returns>
+        public static bool ValidatePmicAddress(int address) {
+            return address >> 3 == LidCode.Pmic0 ||
+                   address >> 3 == LidCode.Pmic1 ||
+                   address >> 3 == LidCode.Pmic2;
         }
 
         /// <summary>
