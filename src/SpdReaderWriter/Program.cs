@@ -103,7 +103,7 @@ namespace SpdReaderWriter {
                 ""
             };
             foreach (string line in header) {
-                Console.WriteLine(line, Core.AssemblyVersion);
+                Console.WriteLine(line, Core.ExecutingProgramFileVersion);
             }
         }
         static void ShowHelp() {
@@ -361,7 +361,7 @@ namespace SpdReaderWriter {
                 Arduino.Disconnect();
             }
             else {
-                if (!IsAdmin()) {
+                if (!Core.IsAdmin()) {
                     throw new AccessViolationException("Administrative privileges required");
                 }
 
@@ -489,7 +489,7 @@ namespace SpdReaderWriter {
                     Arduino.Disconnect();
                 }
                 else {
-                    if (!IsAdmin()) {
+                    if (!Core.IsAdmin()) {
                         throw new AccessViolationException("Administrative privileges required");
                     }
 
@@ -571,7 +571,7 @@ namespace SpdReaderWriter {
 
             if (Args.Length == 1 || (Args.Length == 2 && Args[1].ToLower() == "all")) {
                 FindArduino();
-                if (IsAdmin()) {
+                if (Core.IsAdmin()) {
                     FindSmbus();
                 }
             }
@@ -607,7 +607,7 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void FindSmbus() {
 
-            if (!IsAdmin()) {
+            if (!Core.IsAdmin()) {
                 throw new AccessViolationException("Administrative privileges required");
             }
 
@@ -687,23 +687,6 @@ namespace SpdReaderWriter {
 
             // Reset colors
             Console.ResetColor();
-        }
-
-        /// <summary>
-        /// Detects if administrative privileges are present
-        /// </summary>
-        /// <returns><see langword="true"/> if administrative privileges are present</returns>
-        private static bool IsAdmin() {
-
-            try {
-                using (WindowsIdentity identity = WindowsIdentity.GetCurrent()) {
-                    WindowsPrincipal principal = new WindowsPrincipal(identity);
-                    return principal.IsInRole(WindowsBuiltInRole.Administrator);
-                }
-            }
-            catch {
-                return false;
-            }
         }
     }
 }
