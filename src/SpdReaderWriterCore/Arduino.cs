@@ -534,7 +534,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if EEPROM is detected at assigned <see cref="I2CAddress"/></returns>
         public bool ProbeAddress() {
-            return Eeprom.ValidateAddress(I2CAddress) && ProbeAddress(I2CAddress);
+            return Eeprom.ValidateEepromAddress(I2CAddress) && ProbeAddress(I2CAddress);
         }
 
         /// <summary>
@@ -833,7 +833,8 @@ namespace SpdReaderWriterCore {
             set {
                 _i2CAddress = value;
 
-                if (Eeprom.ValidateAddress(_i2CAddress) && IsConnected) {
+                if (IsConnected &&
+                    (Eeprom.ValidateEepromAddress(_i2CAddress) || Eeprom.ValidatePmicAddress(_i2CAddress))) {
                     MaxSpdSize = GetSpdSize();
                 }
             }
