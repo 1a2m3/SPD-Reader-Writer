@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20231206  // Firmware version number (YYYYMMDD)
+#define FW_VER 20231207  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -516,29 +516,31 @@ void cmdSize() {
 
   uint8_t address = buffer[0];  // I2C address
 
-  if (!validateAddress(address) || !probeBusAddress(address)) {
-    Respond(false);
-    return;
-  }
-
   uint16_t size = 0; // 0
 
-  if (ddr5Detect(address)) {
-    size = 1024;  // 3
-  }
-  else {
-    if (getQuantity() == 1) {
-      if (ddr4Detect()) {
-        size = 512;  // 2
+  if (probeBusAddress(address)) {
+    if (validateEepromAddress(address)) { // EEPROM
+      if (ddr5Detect(address)) {
+        size = 1024;  // 3
       }
       else {
-        size = 256;  // 1
+        if (getQuantity() == 1) {
+          if (ddr4Detect()) {
+            size = 512;  // 2
+          }
+          else {
+            size = 256;  // 1
+          }
+        }
+        else if (getQuantity() > 1) {
+          if (!ddr4Detect()) {
+            size = 256;  // 1
+          }
+        }
       }
     }
-    else if (getQuantity() > 1) {
-      if (!ddr4Detect()) {
-        size = 256;  // 1
-      }
+    else if (validatePmicAddress(address)) { // PMIC
+      size = 256;  // 1
     }
   }
 
@@ -1137,7 +1139,7 @@ void setDdr4PageAddress(uint8_t pageNumber) {
 // Adjusts page address according to byte offset specified
 void adjustPageAddress(uint8_t address, uint16_t offset) {
 
-  if (!validateAddress(address) || offset >= 1024) {
+  if (!validateEepromAddress(address) || offset >= 1024) {
     return;
   }
 
@@ -1402,7 +1404,7 @@ bool ddr4Detect() {
 // DDR5 detection test (address)
 bool ddr5Detect(uint8_t address) {
 
-  if (!validateAddress(address) ||
+  if (!validateEepromAddress(address) ||
       !probeBusAddress(address) ||
       !probeBusAddress((address & 0b111) | PMIC)) {
     return false;
@@ -1420,8 +1422,13 @@ bool ddr5Detect(uint8_t address) {
 }
 
 // Validates EEPROM address
-bool validateAddress(uint8_t address) {
+bool validateEepromAddress(uint8_t address) {
   return address >> 3 == 0b1010;
+}
+
+// Validates PMIC address
+bool validatePmicAddress(uint8_t address) {
+  return address >> 3 == PMIC >> 3;
 }
 
 // Restores device's default settings
