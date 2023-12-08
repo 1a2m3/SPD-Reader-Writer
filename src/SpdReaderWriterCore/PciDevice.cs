@@ -420,17 +420,17 @@ namespace SpdReaderWriterCore {
         /// PCI registers
         /// </summary>
         public struct Register {
-            public const byte VendorId          = 0x00;
-            public const byte DeviceId          = 0x02;
-            public const byte Status            = 0x06;
-            public const byte RevisionId        = 0x08;
-            public const byte ProgramInterface  = 0x09;
-            public const byte SubClass          = 0x0A;
-            public const byte BaseClass         = 0x0B;
-            public const byte HeaderType        = 0x0E;
-            public static byte[] BaseAddress    = { 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24 };
-            public const byte SubsystemId       = 0x2E;
-            public const byte SubsystemVendorId = 0x2C;
+            public static byte VendorId          = 0x00;
+            public static byte DeviceId          = 0x02;
+            public static byte Status            = 0x06;
+            public static byte RevisionId        = 0x08;
+            public static byte ProgramInterface  = 0x09;
+            public static byte SubClass          = 0x0A;
+            public static byte BaseClass         = 0x0B;
+            public static byte HeaderType        = 0x0E;
+            public static byte[] BaseAddress     = { 0x10, 0x14, 0x18, 0x1C, 0x20, 0x24 };
+            public static byte SubsystemId       = 0x2E;
+            public static byte SubsystemVendorId = 0x2C;
         }
 
         /// <summary>
