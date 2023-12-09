@@ -464,7 +464,7 @@ namespace SpdReaderWriterCore {
                     PciDevice = viaPciIsaBridge[0];
 
                     // Assign smbus base address offset
-                    byte viaSmbBa;
+                    byte viaSmbBa = 0;
 
                     switch (PciDevice.DeviceId) {
                         case DeviceId.VT8233:
@@ -480,16 +480,25 @@ namespace SpdReaderWriterCore {
                         case DeviceId.VX900:
                             viaSmbBa = 0xD0;
                             break;
+                    }
 
-                        case DeviceId.VT8231:
-                        case DeviceId.VT82C596A:
-                        case DeviceId.VT82C596B:
-                        case DeviceId.VT82C686x:
-                            viaSmbBa = 0x90;
-                            break;
+                    if (viaSmbBa == 0) {
+                        // Switch to ACPI Power Management system which includes an SMBus interface controller
+                        PciDevice.Function = 4;
 
-                        default:
-                            return false;
+                        switch (PciDevice.DeviceId) {
+                            case DeviceId.VT8231:
+                            case DeviceId.VT82C596A:
+                            case DeviceId.VT82C596B:
+                            case DeviceId.VT82C686x:
+                                viaSmbBa = 0x90;
+                                break;
+                        }
+                    }
+
+                    // Unsupported chipset
+                    if (viaSmbBa == 0) {
+                        return false;
                     }
 
                     // Update info
