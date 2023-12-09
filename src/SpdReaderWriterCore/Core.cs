@@ -37,9 +37,14 @@ namespace SpdReaderWriterCore {
         public static string ProcessName = Process.GetCurrentProcess().ProcessName;
 
         /// <summary>
+        /// DLL File Version
+        /// </summary>
+        public static string CoreFileVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion;
+
+        /// <summary>
         /// DLL Product Version
         /// </summary>
-        public static string AssemblyVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
+        public static string CoreProductVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
 
         /// <summary>
         /// Executing program file version
