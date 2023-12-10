@@ -651,8 +651,9 @@ namespace SpdReaderWriterCore {
 
             for (byte i = 0; i <= 7; i++) {
                 try {
-                    if (ReadByte((byte)(i + 0x50))) {
-                        result.Enqueue((byte)(i + 0x50));
+                    byte address = (byte)(i + 0x50);
+                    if (ProbeAddress(address)) {
+                        result.Enqueue(address);
                         if (minimumResults) {
                             break;
                         }
@@ -1148,6 +1149,11 @@ namespace SpdReaderWriterCore {
             }
 
             if (Info.VendorId == VendorId.Nvidia) {
+
+                if (IoPort.Read<byte>(NvidiaSmbusRegister.Protocol) != 0) {
+                    return SmbStatus.Busy;
+                }
+
                 status = IoPort.Read<byte>(NvidiaSmbusRegister.Status);
 
                 switch (status) {
