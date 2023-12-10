@@ -12,7 +12,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Security.Principal;
 using SpdReaderWriterCore;
 using SpdReaderWriterCore.Properties;
 
@@ -211,7 +210,9 @@ namespace SpdReaderWriter {
                 Console.ResetColor();
             }
             finally {
-                Arduino.Disconnect();
+                if (Arduino.IsConnected) {
+                    Arduino.Disconnect();
+                }
             }
         }
 
@@ -368,7 +369,13 @@ namespace SpdReaderWriter {
                 Smbus = new Smbus();
 
                 Smbus.BusNumber = (byte)int.Parse(Args[1]);
-                Smbus.I2CAddress = i2CAddress;
+                if (Smbus.ProbeAddress(i2CAddress)) {
+                    Smbus.I2CAddress = i2CAddress;
+                }
+                else {
+                    throw new AccessViolationException($"Address {i2CAddress} not found");
+                }
+
                 name = $"{Smbus} ({Smbus.BusNumber})";
 
                 for (ushort i = 0; i < Smbus.MaxSpdSize; i += 32) {
