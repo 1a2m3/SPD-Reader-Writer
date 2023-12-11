@@ -17,9 +17,9 @@ using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
-using SpdReaderWriterCore.Driver;
 using static SpdReaderWriterCore.NativeFunctions;
 using static SpdReaderWriterCore.NativeFunctions.Advapi32;
+using static SpdReaderWriterCore.NativeFunctions.Kernel32;
 
 namespace SpdReaderWriterCore {
 
@@ -31,7 +31,47 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Default driver to use
         /// </summary>
-        private static readonly Info DefaultDriver = CpuZ.CpuZDriverInfo;
+        private static readonly Info DefaultDriver = GetDriverInfo("SpdReaderWriterCore.Driver.CpuZ", "CpuZInfo");
+
+        /// <summary>
+        /// Gets driver info
+        /// </summary>
+        /// <param name="driverClass">Driver class</param>
+        /// <param name="fieldName">Driver info field name</param>
+        /// <returns>Driver info</returns>
+        private static Info GetDriverInfo(string driverClass, string fieldName) {
+
+            Type driverType = Type.GetType(driverClass);
+
+            if (driverType == null) {
+                return new Info();
+            }
+
+            BindingFlags fieldFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
+            FieldInfo driverInfoField = driverType.GetField(fieldName, fieldFlags);
+
+            if (driverInfoField == null) {
+                foreach (FieldInfo fieldInfo in driverType.GetFields(fieldFlags)) {
+                    if (fieldInfo.FieldType != DriverInfo.GetType()) {
+                        continue;
+                    }
+
+                    driverInfoField = fieldInfo;
+                    break;
+                }
+            }
+
+            if (driverInfoField == null) {
+                return new Info();
+            }
+
+            object driverInfoValue = driverInfoField.GetValue(null);
+
+            return driverInfoValue is Info driverInfo
+                ? driverInfo
+                : new Info();
+        }
 
         /// <summary>
         /// Driver info
@@ -47,37 +87,38 @@ namespace SpdReaderWriterCore {
                 }
 
                 // Check if all functions are present
-                if (_driverInfo.GetDriverVersion      == null) { throw new MissingMethodException(nameof(GetDriverVersionDelegate)); }
-                if (_driverInfo.ReadIoPortByte        == null) { throw new MissingMethodException(nameof(ReadIoPortByteDelegate)); }
-                if (_driverInfo.ReadIoPortByteEx      == null) { throw new MissingMethodException(nameof(ReadIoPortByteExDelegate)); }
-                if (_driverInfo.ReadIoPortWord        == null) { throw new MissingMethodException(nameof(ReadIoPortWordDelegate)); }
-                if (_driverInfo.ReadIoPortWordEx      == null) { throw new MissingMethodException(nameof(ReadIoPortWordExDelegate)); }
-                if (_driverInfo.ReadIoPortDword       == null) { throw new MissingMethodException(nameof(ReadIoPortDwordDelegate)); }
-                if (_driverInfo.ReadIoPortDwordEx     == null) { throw new MissingMethodException(nameof(ReadIoPortDwordExDelegate)); }
-                if (_driverInfo.WriteIoPortByte       == null) { throw new MissingMethodException(nameof(WriteIoPortByteDelegate)); }
-                if (_driverInfo.WriteIoPortByteEx     == null) { throw new MissingMethodException(nameof(WriteIoPortByteExDelegate)); }
-                if (_driverInfo.WriteIoPortWord       == null) { throw new MissingMethodException(nameof(WriteIoPortWordDelegate)); }
-                if (_driverInfo.WriteIoPortWordEx     == null) { throw new MissingMethodException(nameof(WriteIoPortWordExDelegate)); }
-                if (_driverInfo.WriteIoPortDword      == null) { throw new MissingMethodException(nameof(WriteIoPortDwordDelegate)); }
-                if (_driverInfo.WriteIoPortDwordEx    == null) { throw new MissingMethodException(nameof(WriteIoPortDwordExDelegate)); }
-                if (_driverInfo.ReadPciConfigByte     == null) { throw new MissingMethodException(nameof(ReadPciConfigByteDelegate)); }
-                if (_driverInfo.ReadPciConfigByteEx   == null) { throw new MissingMethodException(nameof(ReadPciConfigByteExDelegate)); }
-                if (_driverInfo.ReadPciConfigWord     == null) { throw new MissingMethodException(nameof(ReadPciConfigWordDelegate)); }
-                if (_driverInfo.ReadPciConfigWordEx   == null) { throw new MissingMethodException(nameof(ReadPciConfigWordExDelegate)); }
-                if (_driverInfo.ReadPciConfigDword    == null) { throw new MissingMethodException(nameof(ReadPciConfigDwordDelegate)); }
-                if (_driverInfo.ReadPciConfigDwordEx  == null) { throw new MissingMethodException(nameof(ReadPciConfigDwordExDelegate)); }
-                if (_driverInfo.WritePciConfigByte    == null) { throw new MissingMethodException(nameof(WritePciConfigByteDelegate)); }
-                if (_driverInfo.WritePciConfigByteEx  == null) { throw new MissingMethodException(nameof(WritePciConfigByteExDelegate)); }
-                if (_driverInfo.WritePciConfigWord    == null) { throw new MissingMethodException(nameof(WritePciConfigWordDelegate)); }
-                if (_driverInfo.WritePciConfigWordEx  == null) { throw new MissingMethodException(nameof(WritePciConfigWordExDelegate)); }
-                if (_driverInfo.WritePciConfigDword   == null) { throw new MissingMethodException(nameof(WritePciConfigDwordDelegate)); }
-                if (_driverInfo.WritePciConfigDwordEx == null) { throw new MissingMethodException(nameof(WritePciConfigDwordExDelegate)); }
-                if (_driverInfo.ReadMemoryByte        == null) { throw new MissingMethodException(nameof(ReadMemoryByteDelegate)); }
-                if (_driverInfo.ReadMemoryByteEx      == null) { throw new MissingMethodException(nameof(ReadMemoryByteDelegateEx)); }
-                if (_driverInfo.ReadMemoryWord        == null) { throw new MissingMethodException(nameof(ReadMemoryWordDelegate)); }
-                if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(nameof(ReadMemoryWordDelegateEx)); }
-                if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegate)); }
-                if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(nameof(ReadMemoryDwordDelegateEx)); }
+                if (_driverInfo.Setup                 == null) { throw new MissingMethodException(typeof(SetupDelegate).ToString()); }
+                if (_driverInfo.GetDriverVersion      == null) { throw new MissingMethodException(typeof(GetDriverVersionDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortByte        == null) { throw new MissingMethodException(typeof(ReadIoPortByteDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortByteEx      == null) { throw new MissingMethodException(typeof(ReadIoPortByteExDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortWord        == null) { throw new MissingMethodException(typeof(ReadIoPortWordDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortWordEx      == null) { throw new MissingMethodException(typeof(ReadIoPortWordExDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortDword       == null) { throw new MissingMethodException(typeof(ReadIoPortDwordDelegate).ToString()); }
+                if (_driverInfo.ReadIoPortDwordEx     == null) { throw new MissingMethodException(typeof(ReadIoPortDwordExDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortByte       == null) { throw new MissingMethodException(typeof(WriteIoPortByteDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortByteEx     == null) { throw new MissingMethodException(typeof(WriteIoPortByteExDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortWord       == null) { throw new MissingMethodException(typeof(WriteIoPortWordDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortWordEx     == null) { throw new MissingMethodException(typeof(WriteIoPortWordExDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortDword      == null) { throw new MissingMethodException(typeof(WriteIoPortDwordDelegate).ToString()); }
+                if (_driverInfo.WriteIoPortDwordEx    == null) { throw new MissingMethodException(typeof(WriteIoPortDwordExDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigByte     == null) { throw new MissingMethodException(typeof(ReadPciConfigByteDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigByteEx   == null) { throw new MissingMethodException(typeof(ReadPciConfigByteExDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigWord     == null) { throw new MissingMethodException(typeof(ReadPciConfigWordDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigWordEx   == null) { throw new MissingMethodException(typeof(ReadPciConfigWordExDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigDword    == null) { throw new MissingMethodException(typeof(ReadPciConfigDwordDelegate).ToString()); }
+                if (_driverInfo.ReadPciConfigDwordEx  == null) { throw new MissingMethodException(typeof(ReadPciConfigDwordExDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigByte    == null) { throw new MissingMethodException(typeof(WritePciConfigByteDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigByteEx  == null) { throw new MissingMethodException(typeof(WritePciConfigByteExDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigWord    == null) { throw new MissingMethodException(typeof(WritePciConfigWordDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigWordEx  == null) { throw new MissingMethodException(typeof(WritePciConfigWordExDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigDword   == null) { throw new MissingMethodException(typeof(WritePciConfigDwordDelegate).ToString()); }
+                if (_driverInfo.WritePciConfigDwordEx == null) { throw new MissingMethodException(typeof(WritePciConfigDwordExDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryByte        == null) { throw new MissingMethodException(typeof(ReadMemoryByteDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryByteEx      == null) { throw new MissingMethodException(typeof(ReadMemoryByteDelegateEx).ToString()); }
+                if (_driverInfo.ReadMemoryWord        == null) { throw new MissingMethodException(typeof(ReadMemoryWordDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(typeof(ReadMemoryWordDelegateEx).ToString()); }
+                if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(typeof(ReadMemoryDwordDelegate).ToString()); }
+                if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(typeof(ReadMemoryDwordDelegateEx).ToString()); }
             }
         }
 
@@ -93,114 +134,121 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Driver file name
             /// </summary>
-            public string FileName => $"{DriverInfo.ServiceName}{(Environment.Is64BitOperatingSystem ? "x64" : "")}.sys";
+            internal string FileName;
 
             /// <summary>
             /// NT Device name
             /// </summary>
-            public string DeviceName;
+            internal string DeviceName;
 
             /// <summary>
             /// Driver file path
             /// </summary>
-            public string FilePath => $"{Core.ParentPath}\\{DriverInfo.FileName}";
+            internal string FilePath;
 
             /// <summary>
             /// Binary driver file contents
             /// </summary>
-            public byte[] BinaryData => Data.Gzip(DriverInfo.GZipData, Data.GzipMethod.Decompress);
-
-            /// <summary>
-            /// Compressed driver file contents
-            /// </summary>
-            public byte[] GZipData;
+            internal byte[] BinaryData;
 
             /// <summary>
             /// Driver specific setup procedure
             /// </summary>
-            public SetupDelegate Setup { get; set; }
+            internal SetupDelegate Setup { get; set; }
+            internal InstallDriverDelegate InstallDriver { get; set; }
+            internal UninstallDriverDelegate UninstallDriver { get; set; }
+            internal StartDriverDelegate StartDriver { get; set; }
+            internal StopDriverDelegate StopDriver { get; set; }
+            internal LockHandleDelegate LockHandle { get; set; }
 
-            public GetDriverVersionDelegate GetDriverVersion { get; set; }
+            internal GetDriverVersionDelegate GetDriverVersion { get; set; }
 
-            public ReadIoPortByteDelegate ReadIoPortByte { get; set; }
-            public ReadIoPortByteExDelegate ReadIoPortByteEx { get; set; }
-            public ReadIoPortWordDelegate ReadIoPortWord { get; set; }
-            public ReadIoPortWordExDelegate ReadIoPortWordEx { get; set; }
-            public ReadIoPortDwordDelegate ReadIoPortDword { get; set; }
-            public ReadIoPortDwordExDelegate ReadIoPortDwordEx { get; set; }
-            public WriteIoPortByteDelegate WriteIoPortByte { get; set; }
-            public WriteIoPortByteExDelegate WriteIoPortByteEx { get; set; }
-            public WriteIoPortWordDelegate WriteIoPortWord { get; set; }
-            public WriteIoPortWordExDelegate WriteIoPortWordEx { get; set; }
-            public WriteIoPortDwordDelegate WriteIoPortDword { get; set; }
-            public WriteIoPortDwordExDelegate WriteIoPortDwordEx { get; set; }
-            public ReadPciConfigByteDelegate ReadPciConfigByte { get; set; }
-            public ReadPciConfigByteExDelegate ReadPciConfigByteEx { get; set; }
-            public ReadPciConfigWordDelegate ReadPciConfigWord { get; set; }
-            public ReadPciConfigWordExDelegate ReadPciConfigWordEx { get; set; }
-            public ReadPciConfigDwordDelegate ReadPciConfigDword { get; set; }
-            public ReadPciConfigDwordExDelegate ReadPciConfigDwordEx { get; set; }
-            public WritePciConfigByteDelegate WritePciConfigByte { get; set; }
-            public WritePciConfigByteExDelegate WritePciConfigByteEx { get; set; }
-            public WritePciConfigWordDelegate WritePciConfigWord { get; set; }
-            public WritePciConfigWordExDelegate WritePciConfigWordEx { get; set; }
-            public WritePciConfigDwordDelegate WritePciConfigDword { get; set; }
-            public WritePciConfigDwordExDelegate WritePciConfigDwordEx { get; set; }
-            public ReadMemoryByteDelegate ReadMemoryByte { get; set; }
-            public ReadMemoryByteDelegateEx ReadMemoryByteEx { get; set; }
-            public ReadMemoryWordDelegate ReadMemoryWord { get; set; }
-            public ReadMemoryWordDelegateEx ReadMemoryWordEx { get; set; }
-            public ReadMemoryDwordDelegate ReadMemoryDword { get; set; }
-            public ReadMemoryDwordDelegateEx ReadMemoryDwordEx { get; set; }
+            internal ReadIoPortByteDelegate ReadIoPortByte { get; set; }
+            internal ReadIoPortByteExDelegate ReadIoPortByteEx { get; set; }
+            internal ReadIoPortWordDelegate ReadIoPortWord { get; set; }
+            internal ReadIoPortWordExDelegate ReadIoPortWordEx { get; set; }
+            internal ReadIoPortDwordDelegate ReadIoPortDword { get; set; }
+            internal ReadIoPortDwordExDelegate ReadIoPortDwordEx { get; set; }
+            internal WriteIoPortByteDelegate WriteIoPortByte { get; set; }
+            internal WriteIoPortByteExDelegate WriteIoPortByteEx { get; set; }
+            internal WriteIoPortWordDelegate WriteIoPortWord { get; set; }
+            internal WriteIoPortWordExDelegate WriteIoPortWordEx { get; set; }
+            internal WriteIoPortDwordDelegate WriteIoPortDword { get; set; }
+            internal WriteIoPortDwordExDelegate WriteIoPortDwordEx { get; set; }
+            internal ReadPciConfigByteDelegate ReadPciConfigByte { get; set; }
+            internal ReadPciConfigByteExDelegate ReadPciConfigByteEx { get; set; }
+            internal ReadPciConfigWordDelegate ReadPciConfigWord { get; set; }
+            internal ReadPciConfigWordExDelegate ReadPciConfigWordEx { get; set; }
+            internal ReadPciConfigDwordDelegate ReadPciConfigDword { get; set; }
+            internal ReadPciConfigDwordExDelegate ReadPciConfigDwordEx { get; set; }
+            internal WritePciConfigByteDelegate WritePciConfigByte { get; set; }
+            internal WritePciConfigByteExDelegate WritePciConfigByteEx { get; set; }
+            internal WritePciConfigWordDelegate WritePciConfigWord { get; set; }
+            internal WritePciConfigWordExDelegate WritePciConfigWordEx { get; set; }
+            internal WritePciConfigDwordDelegate WritePciConfigDword { get; set; }
+            internal WritePciConfigDwordExDelegate WritePciConfigDwordEx { get; set; }
+            internal ReadMemoryByteDelegate ReadMemoryByte { get; set; }
+            internal ReadMemoryByteDelegateEx ReadMemoryByteEx { get; set; }
+            internal ReadMemoryWordDelegate ReadMemoryWord { get; set; }
+            internal ReadMemoryWordDelegateEx ReadMemoryWordEx { get; set; }
+            internal ReadMemoryDwordDelegate ReadMemoryDword { get; set; }
+            internal ReadMemoryDwordDelegateEx ReadMemoryDwordEx { get; set; }
         }
 
         #region Delegates
 
         // Setup
-        public delegate bool SetupDelegate();
+        internal delegate bool SetupDelegate();
+
+        // Controls
+        internal delegate bool InstallDriverDelegate();
+        internal delegate bool UninstallDriverDelegate();
+        internal delegate bool StartDriverDelegate();
+        internal delegate bool StopDriverDelegate();
+        internal delegate bool LockHandleDelegate(bool state);
 
         // Info
-        public delegate uint GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
+        internal delegate uint GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
 
         // Read IO
-        public delegate byte ReadIoPortByteDelegate(ushort port);
-        public delegate bool ReadIoPortByteExDelegate(ushort port, out byte output);
-        public delegate ushort ReadIoPortWordDelegate(ushort port);
-        public delegate bool ReadIoPortWordExDelegate(ushort port, out ushort output);
-        public delegate uint ReadIoPortDwordDelegate(ushort port);
-        public delegate bool ReadIoPortDwordExDelegate(ushort port, out uint output);
+        internal delegate byte ReadIoPortByteDelegate(ushort port);
+        internal delegate bool ReadIoPortByteExDelegate(ushort port, out byte output);
+        internal delegate ushort ReadIoPortWordDelegate(ushort port);
+        internal delegate bool ReadIoPortWordExDelegate(ushort port, out ushort output);
+        internal delegate uint ReadIoPortDwordDelegate(ushort port);
+        internal delegate bool ReadIoPortDwordExDelegate(ushort port, out uint output);
 
         // Write IO
-        public delegate void WriteIoPortByteDelegate(ushort port, byte value);
-        public delegate bool WriteIoPortByteExDelegate(ushort port, byte value);
-        public delegate void WriteIoPortWordDelegate(ushort port, ushort value);
-        public delegate bool WriteIoPortWordExDelegate(ushort port, ushort value);
-        public delegate void WriteIoPortDwordDelegate(ushort port, uint value);
-        public delegate bool WriteIoPortDwordExDelegate(ushort port, uint value);
+        internal delegate void WriteIoPortByteDelegate(ushort port, byte value);
+        internal delegate bool WriteIoPortByteExDelegate(ushort port, byte value);
+        internal delegate void WriteIoPortWordDelegate(ushort port, ushort value);
+        internal delegate bool WriteIoPortWordExDelegate(ushort port, ushort value);
+        internal delegate void WriteIoPortDwordDelegate(ushort port, uint value);
+        internal delegate bool WriteIoPortDwordExDelegate(ushort port, uint value);
 
         // Read PCI
-        public delegate byte ReadPciConfigByteDelegate(byte bus, byte device, byte function, ushort offset);
-        public delegate bool ReadPciConfigByteExDelegate(byte bus, byte device, byte function, ushort offset, out byte output);
-        public delegate ushort ReadPciConfigWordDelegate(byte bus, byte device, byte function, ushort offset);
-        public delegate bool ReadPciConfigWordExDelegate(byte bus, byte device, byte function, ushort offset, out ushort output);
-        public delegate uint ReadPciConfigDwordDelegate(byte bus, byte device, byte function, ushort offset);
-        public delegate bool ReadPciConfigDwordExDelegate(byte bus, byte device, byte function, ushort offset, out uint output);
+        internal delegate byte ReadPciConfigByteDelegate(byte bus, byte device, byte function, ushort offset);
+        internal delegate bool ReadPciConfigByteExDelegate(byte bus, byte device, byte function, ushort offset, out byte output);
+        internal delegate ushort ReadPciConfigWordDelegate(byte bus, byte device, byte function, ushort offset);
+        internal delegate bool ReadPciConfigWordExDelegate(byte bus, byte device, byte function, ushort offset, out ushort output);
+        internal delegate uint ReadPciConfigDwordDelegate(byte bus, byte device, byte function, ushort offset);
+        internal delegate bool ReadPciConfigDwordExDelegate(byte bus, byte device, byte function, ushort offset, out uint output);
 
         // Write PCI
-        public delegate void WritePciConfigByteDelegate(byte bus, byte device, byte function, ushort offset, byte value);
-        public delegate bool WritePciConfigByteExDelegate(byte bus, byte device, byte function, ushort offset, byte value);
-        public delegate void WritePciConfigWordDelegate(byte bus, byte device, byte function, ushort offset, ushort value);
-        public delegate bool WritePciConfigWordExDelegate(byte bus, byte device, byte function, ushort offset, ushort value);
-        public delegate void WritePciConfigDwordDelegate(byte bus, byte device, byte function, ushort offset, uint value);
-        public delegate bool WritePciConfigDwordExDelegate(byte bus, byte device, byte function, ushort offset, uint value);
+        internal delegate void WritePciConfigByteDelegate(byte bus, byte device, byte function, ushort offset, byte value);
+        internal delegate bool WritePciConfigByteExDelegate(byte bus, byte device, byte function, ushort offset, byte value);
+        internal delegate void WritePciConfigWordDelegate(byte bus, byte device, byte function, ushort offset, ushort value);
+        internal delegate bool WritePciConfigWordExDelegate(byte bus, byte device, byte function, ushort offset, ushort value);
+        internal delegate void WritePciConfigDwordDelegate(byte bus, byte device, byte function, ushort offset, uint value);
+        internal delegate bool WritePciConfigDwordExDelegate(byte bus, byte device, byte function, ushort offset, uint value);
 
         // Read memory
-        public delegate byte ReadMemoryByteDelegate(uint address);
-        public delegate bool ReadMemoryByteDelegateEx(uint address, out byte output);
-        public delegate ushort ReadMemoryWordDelegate(uint address);
-        public delegate bool ReadMemoryWordDelegateEx(uint address, out ushort output);
-        public delegate uint ReadMemoryDwordDelegate(uint address);
-        public delegate bool ReadMemoryDwordDelegateEx(uint address, out uint output);
+        internal delegate byte ReadMemoryByteDelegate(uint address);
+        internal delegate bool ReadMemoryByteDelegateEx(uint address, out byte output);
+        internal delegate ushort ReadMemoryWordDelegate(uint address);
+        internal delegate bool ReadMemoryWordDelegateEx(uint address, out ushort output);
+        internal delegate uint ReadMemoryDwordDelegate(uint address);
+        internal delegate bool ReadMemoryDwordDelegateEx(uint address, out uint output);
 
         #endregion
 
@@ -230,8 +278,9 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadIoPortEx<T>(ushort port, out T output) {
 
-            object outputData;
-            bool result;
+            object outputData = null;
+            bool result = false;
+            output = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = DriverInfo.ReadIoPortByteEx(port, out byte buffer);
@@ -245,11 +294,11 @@ namespace SpdReaderWriterCore {
                 result = DriverInfo.ReadIoPortDwordEx(port, out uint buffer);
                 outputData = buffer;
             }
-            else {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+            
+            if (outputData != null) {
+                output = (T)outputData;
             }
 
-            output = (T)outputData;
             return result;
         }
 
@@ -273,19 +322,16 @@ namespace SpdReaderWriterCore {
 
             object input = value;
 
-            if (Data.GetDataSize(input) == Data.DataSize.Byte) {
-                return DriverInfo.WriteIoPortByteEx(port, (byte)input);
+            switch (Data.GetDataSize(input)) {
+                case Data.DataSize.Byte:
+                    return DriverInfo.WriteIoPortByteEx(port, (byte)input);
+                case Data.DataSize.Word:
+                    return DriverInfo.WriteIoPortWordEx(port, (ushort)input);
+                case Data.DataSize.Dword:
+                    return DriverInfo.WriteIoPortDwordEx(port, (uint)input);
+                default:
+                    return false;
             }
-
-            if (Data.GetDataSize(input) == Data.DataSize.Word) {
-                return DriverInfo.WriteIoPortWordEx(port, (ushort)input);
-            }
-
-            if (Data.GetDataSize(input) == Data.DataSize.Dword) {
-                return DriverInfo.WriteIoPortDwordEx(port, (uint)input);
-            }
-
-            return false;
         }
 
         #endregion
@@ -303,20 +349,20 @@ namespace SpdReaderWriterCore {
         /// <returns>PCI register value</returns>
         public static T ReadPciConfig<T>(byte bus, byte device, byte function, ushort offset) {
 
-            object output = null;
+            object outputData = null;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                output = DriverInfo.ReadPciConfigByte(bus, device, function, offset);
+                outputData = DriverInfo.ReadPciConfigByte(bus, device, function, offset);
             }
             else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                output = DriverInfo.ReadPciConfigWord(bus, device, function, offset);
+                outputData = DriverInfo.ReadPciConfigWord(bus, device, function, offset);
             }
             else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                output = DriverInfo.ReadPciConfigDword(bus, device, function, offset);
+                outputData = DriverInfo.ReadPciConfigDword(bus, device, function, offset);
             }
 
-            if (output != null) {
-                return (T)Convert.ChangeType(output, Type.GetTypeCode(typeof(T)));
+            if (outputData != null) {
+                return (T)Convert.ChangeType(outputData, Type.GetTypeCode(typeof(T)));
             }
 
             throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
@@ -334,8 +380,9 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadPciConfigEx<T>(byte bus, byte device, byte function, ushort offset, out T output) {
 
-            object outputData;
-            bool result;
+            object outputData = null;
+            bool result = false;
+            output = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
@@ -349,11 +396,11 @@ namespace SpdReaderWriterCore {
                 result = DriverInfo.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
                 outputData = buffer;
             }
-            else {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+
+            if (outputData != null) {
+                output = (T)outputData;
             }
 
-            output = (T)outputData;
             return result;
         }
 
@@ -383,18 +430,16 @@ namespace SpdReaderWriterCore {
 
             object input = value;
 
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                return DriverInfo.WritePciConfigByteEx(bus, device, function, offset, (byte)input);
+            switch (Data.GetDataSize(typeof(T))) {
+                case Data.DataSize.Byte:
+                    return DriverInfo.WritePciConfigByteEx(bus, device, function, offset, (byte)input);
+                case Data.DataSize.Word:
+                    return DriverInfo.WritePciConfigWordEx(bus, device, function, offset, (ushort)input);
+                case Data.DataSize.Dword:
+                    return DriverInfo.WritePciConfigDwordEx(bus, device, function, offset, (uint)input);
+                default:
+                    return false;
             }
-
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                return DriverInfo.WritePciConfigWordEx(bus, device, function, offset, (ushort)input);
-            }
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                return DriverInfo.WritePciConfigDwordEx(bus, device, function, offset, (uint)input);
-            }
-
-            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
         }
 
         #endregion
@@ -424,9 +469,10 @@ namespace SpdReaderWriterCore {
         /// <param name="output">Output data reference</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadMemoryEx<T>(uint address, out T output) {
-            
-            object outputData;
-            bool result;
+
+            object outputData = null;
+            bool result = false;
+            output = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = DriverInfo.ReadMemoryByteEx(address, out byte buffer);
@@ -440,11 +486,11 @@ namespace SpdReaderWriterCore {
                 result = DriverInfo.ReadMemoryDwordEx(address, out uint buffer);
                 outputData = buffer;
             }
-            else {
-                throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+
+            if (outputData != null) {
+                output = (T)outputData;
             }
 
-            output = (T)outputData;
             return result;
         }
 
@@ -465,19 +511,14 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Starts kernel driver
         /// </summary>
-        /// <returns></returns>
-        public static bool Start() {
-            DriverInfo = DefaultDriver;
-            return Initialize();
-        }
+        /// <returns><see langword="true"/> if driver service starts successfully</returns>
+        public static bool Start() => Initialize();
 
         /// <summary>
         /// Stops kernel driver
         /// </summary>
-        /// <returns></returns>
-        public static bool Stop() {
-            return StopDriver();
-        }
+        /// <returns><see langword="true"/> if driver service stops successfully</returns>
+        public static bool Stop() => StopDriver();
 
         /// <summary>
         /// Initializes driver
@@ -485,8 +526,14 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver file is successfully initialized</returns>
         private static bool Initialize() {
 
+            DriverInfo = DefaultDriver;
+
+            if (DriverInfo.Setup()) {
+                return true;
+            }
+
             if (OpenDriverHandle(out IntPtr handle)) {
-                Kernel32.CloseHandle(handle);
+                CloseHandle(handle);
                 return true;
             }
 
@@ -506,10 +553,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public static void Dispose() {
 
-            _driverHandle.Close();
+            _driverHandle?.Close();
 
             if (_disposeOnExit) {
-                StopDriver();
+                Stop();
                 RemoveDriver(deleteFile: false);
             }
 
@@ -543,6 +590,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if the driver is successfully installed</returns>
         private static bool InstallDriver() {
+
+            if (DriverInfo.InstallDriver != null) {
+                return DriverInfo.InstallDriver();
+            }
 
             if (IsInstalled) {
                 return true;
@@ -580,6 +631,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if driver is successfully deleted</returns>
         private static bool RemoveDriver() {
+
+            if (DriverInfo.UninstallDriver != null) {
+                return DriverInfo.UninstallDriver();
+            }
 
             if (Manager == IntPtr.Zero) {
                 return false;
@@ -621,6 +676,10 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver is successfully started</returns>
         private static bool StartDriver() {
 
+            if (DriverInfo.StartDriver != null) {
+                return DriverInfo.StartDriver();
+            }
+
             if (IsRunning) {
                 return true;
             }
@@ -644,6 +703,10 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver is successfully stopped</returns>
         private static bool StopDriver() {
 
+            if (DriverInfo.StopDriver != null) {
+                return DriverInfo.StopDriver();
+            }
+
             if (IsInstalled && Service.Status != ServiceControllerStatus.Stopped) {
                 try {
                     Service.Stop();
@@ -654,6 +717,19 @@ namespace SpdReaderWriterCore {
             }
 
             return !IsRunning;
+        }
+
+        /// <summary>
+        /// Ensures the driver keeps running
+        /// </summary>
+        private static void KeepAlive() {
+            if (!IsInstalled) {
+                InstallDriver();
+            }
+
+            if (!IsRunning) {
+                StartDriver();
+            }
         }
 
         /// <summary>
@@ -669,7 +745,7 @@ namespace SpdReaderWriterCore {
 
             try {
                 while (_sw.ElapsedMilliseconds < Timeout) {
-                    handle = Kernel32.CreateFile(
+                    handle = CreateFile(
                         lpFileName            : DriverInfo.DeviceName,
                         dwDesiredAccess       : Kernel32.FileAccess.GenericRead,
                         dwShareMode           : FileShare.Read,
@@ -703,8 +779,27 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if driver handle is successfully closed</returns>
         private static bool CloseDriverHandle() {
             
-            _driverHandle.Close();
+            _driverHandle?.Close();
             return !IsHandleOpen;
+        }
+
+        /// <summary>
+        /// Locks driver object handle to prevent opening new handles
+        /// </summary>
+        internal static void LockHandle() => LockHandle(true);
+
+        /// <summary>
+        /// Unlocks driver object handle to allow opening new handles
+        /// </summary>
+        internal static void UnlockHandle() => LockHandle(false);
+
+        /// <summary>
+        /// Sets handle lock status
+        /// </summary>
+        /// <param name="state">Handle lock state</param>
+        /// <returns><see langword="true"/> if driver handle lock is successfully set</returns>
+        internal static bool LockHandle(bool state) {
+            return DriverInfo.LockHandle(state);
         }
 
         /// <summary>
@@ -713,8 +808,8 @@ namespace SpdReaderWriterCore {
         public static bool IsInstalled {
             get {
                 try {
-                    return Service.ServiceName == DriverInfo.ServiceName &&
-                           Service.ServiceType == ServiceType.KernelDriver;
+                    return Service?.ServiceName == DriverInfo.ServiceName &&
+                           Service?.ServiceType == ServiceType.KernelDriver;
                 }
                 catch {
                     return false;
@@ -728,7 +823,7 @@ namespace SpdReaderWriterCore {
         public static bool IsRunning {
             get {
                 try {
-                    return Service.Status == ServiceControllerStatus.Running;
+                    return Service?.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -744,6 +839,13 @@ namespace SpdReaderWriterCore {
                                             !_driverHandle.IsClosed;
 
         /// <summary>
+        /// Establishes a connection to the service control manager on local computer and opens the specified service control manager SERVICES_ACTIVE_DATABASE database.
+        /// </summary>
+        /// <param name="dwAccess">The access to the service control manager</param>
+        /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
+        public static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => Advapi32.OpenSCManager(null, null, dwAccess);
+
+        /// <summary>
         /// Reads data from device
         /// </summary>
         /// <typeparam name="T">Output data type</typeparam>
@@ -751,63 +853,126 @@ namespace SpdReaderWriterCore {
         /// <param name="inputData">Input parameters</param>
         /// <param name="outputData">Output data returned by the driver</param>
         /// <returns><see langword="true"/> if the operation succeeds</returns>
-        public static bool DeviceIoControl<T>(uint ioControlCode, object inputData, ref T outputData) {
+        internal static bool DeviceIoControl<T>(uint ioControlCode, object inputData, ref T outputData) {
 
-            uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
-            object outputBuffer = outputData;
-            IntPtr deviceHandle = default;
+            bool result;
 
-            _sw.Restart();
+            lock (_driverLock) {
 
-            while (_sw.ElapsedMilliseconds < Timeout && !OpenDriverHandle(out deviceHandle)) {
-                KeepAlive();
+                uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+                object outputBuffer = outputData;
+                IntPtr deviceHandle = default;
+
+                _sw.Restart();
+
+                while (_sw.ElapsedMilliseconds < Timeout && !OpenDriverHandle(out deviceHandle)) {
+                    KeepAlive();
+                }
+
+                _sw.Stop();
+
+                if (_sw.ElapsedMilliseconds >= Timeout) {
+                    throw new Exception($"Unable to open {DriverInfo.ServiceName} handle");
+                }
+
+                if (_driverHandle == null || _driverHandle.IsClosed) {
+                    _driverHandle = new SafeFileHandle(deviceHandle, true);
+                }
+
+                if (_driverHandle.IsInvalid) {
+                    return false;
+                }
+
+                result = Kernel32.DeviceIoControl(
+                    hDevice         : _driverHandle,
+                    dwIoControlCode : ioControlCode,
+                    lpInBuffer      : inputData,
+                    nInBufferSize   : inputSize,
+                    lpOutBuffer     : outputBuffer,
+                    nOutBufferSize  : (uint)Marshal.SizeOf(outputBuffer),
+                    lpBytesReturned : out uint returnedLength,
+                    lpOverlapped    : IntPtr.Zero);
+
+                if (result) {
+                    outputData = (T)outputBuffer;
+                }
+
+                CloseDriverHandle();
             }
-
-            _sw.Stop();
-
-            if (_sw.ElapsedMilliseconds >= Timeout) {
-                throw new Exception($"Unable to open {DriverInfo.ServiceName} handle");
-            }
-
-            if (_driverHandle == null || _driverHandle.IsClosed) {
-                _driverHandle = new SafeFileHandle(deviceHandle, true);
-            }
-
-            if (_driverHandle.IsInvalid) {
-                return false;
-            }
-
-            bool result = Kernel32.DeviceIoControl(
-                hDevice         : _driverHandle,
-                dwIoControlCode : ioControlCode,
-                lpInBuffer      : inputData,
-                nInBufferSize   : inputSize,
-                lpOutBuffer     : outputBuffer,
-                nOutBufferSize  : (uint)Marshal.SizeOf(outputBuffer),
-                lpBytesReturned : out uint returnedLength,
-                lpOverlapped    : IntPtr.Zero);
-
-            if (result) {
-                outputData = (T)outputBuffer;
-            }
-
-            CloseDriverHandle();
 
             return result;
         }
 
         /// <summary>
-        /// Ensures the driver keeps running
+        /// Defines a new IO Control Code
         /// </summary>
-        private static void KeepAlive() {
-            if (!IsInstalled) {
-                InstallDriver();
-            }
-
-            if (!IsRunning) {
-                StartDriver();
-            }
+        /// <param name="deviceType">Identifies the device type.</param>
+        /// <param name="function">Identifies the function to be performed by the driver.</param>
+        /// <param name="method">Indicates how the system will pass data between the caller of <see cref="Kernel32.DeviceIoControl"/> and the driver that handles the IRP.
+        /// Use one of the <see cref="IoctlMethod"/> constants.</param>
+        /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
+        /// <returns>An I/O control code</returns>
+        internal static uint CTL_CODE(uint deviceType, ushort function, IoctlMethod method, IoctlAccess access) {
+            return (deviceType << 16) | ((uint)access << 14) | (ushort)(function << 2) | (byte)method;
         }
+
+        /// <summary>
+        /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
+        /// </summary>
+        internal enum IoctlMethod : byte {
+
+            /// <summary>
+            /// Specifies the buffered I/O method, which is typically used for transferring small amounts of data per request. 
+            /// </summary>
+            Buffered  = 0,
+
+            /// <summary>
+            /// Specifies the direct I/O method, which is typically used for writing large amounts of data, using DMA or PIO, that must be transferred quickly.
+            /// </summary>
+            InDirect  = 1,
+
+            /// <summary>
+            /// Specifies the direct I/O method, which is typically used for reading large amounts of data, using DMA or PIO, that must be transferred quickly.
+            /// </summary>
+            OutDirect = 2,
+
+            /// <summary>
+            /// Specifies neither buffered nor direct I/O. The I/O manager does not provide any system buffers or MDLs.
+            /// </summary>
+            Neither   = 3,
+        }
+
+        /// <summary>
+        /// Indicates the type of access that a caller must request when opening the file object that represents the device.
+        /// </summary>
+        [Flags]
+        internal enum IoctlAccess : byte {
+
+            /// <summary>
+            /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
+            /// </summary>
+            AnyAccess     = 0,
+
+            /// <summary>
+            /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
+            /// </summary>
+            ReadData      = 1,
+
+            /// <summary>
+            /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
+            /// </summary>
+            WriteData     = 2,
+
+            /// <summary>
+            /// The caller must have both read and write access rights
+            /// </summary>
+            ReadWriteData = ReadData | WriteData,
+        }
+
+        /// <summary>
+        /// Driver object lock to prevent multiple threads from acquiring the lock
+        /// </summary>
+        private static object _driverLock = new object();
 
         /// <summary>
         /// Service operation timeout

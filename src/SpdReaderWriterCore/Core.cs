@@ -9,9 +9,11 @@
 
 */
 
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Security.Principal;
 
 namespace SpdReaderWriterCore {
     /// <summary>
@@ -33,5 +35,42 @@ namespace SpdReaderWriterCore {
         /// Current process name
         /// </summary>
         public static string ProcessName = Process.GetCurrentProcess().ProcessName;
+
+        /// <summary>
+        /// DLL File Version
+        /// </summary>
+        public static string CoreFileVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).FileVersion;
+
+        /// <summary>
+        /// DLL Product Version
+        /// </summary>
+        public static string CoreProductVersion = FileVersionInfo.GetVersionInfo(Assembly.GetExecutingAssembly().Location).ProductVersion;
+
+        /// <summary>
+        /// Executing program file version
+        /// </summary>
+        public static string ExecutingProgramFileVersion = FileVersionInfo.GetVersionInfo(Assembly.GetEntryAssembly()?.Location ?? string.Empty).FileVersion;
+
+        /// <summary>
+        /// Executing program product version
+        /// </summary>
+        public static string ExecutingProgramProductVersion = FileVersionInfo.GetVersionInfo(Assembly.GetEntryAssembly()?.Location ?? string.Empty).ProductVersion;
+
+        /// <summary>
+        /// Detects if administrative privileges are present
+        /// </summary>
+        /// <returns><see langword="true"/> if administrative privileges are present</returns>
+        public static bool IsAdmin() {
+
+            try {
+                using (WindowsIdentity identity = WindowsIdentity.GetCurrent()) {
+                    WindowsPrincipal principal = new WindowsPrincipal(identity);
+                    return principal.IsInRole(WindowsBuiltInRole.Administrator);
+                }
+            }
+            catch {
+                return false;
+            }
+        }
     }
 }

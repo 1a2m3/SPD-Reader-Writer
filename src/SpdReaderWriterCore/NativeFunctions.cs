@@ -96,71 +96,6 @@ namespace SpdReaderWriterCore {
                 uint nOutBufferSize,
                 [Optional] out uint lpBytesReturned,
                 [Optional] IntPtr lpOverlapped);
-
-            /// <summary>
-            /// Defines a new IO Control Code
-            /// </summary>
-            /// <param name="deviceType">Identifies the device type.</param>
-            /// <param name="function">Identifies the function to be performed by the driver.</param>
-            /// <param name="method">Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/>
-            /// and the driver that handles the IRP. Use one of the <see cref="IoctlMethod"/> constants.</param>
-            /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
-            /// <returns>An I/O control code</returns>
-            internal static uint CTL_CODE(uint deviceType, uint function, IoctlMethod method, IoctlAccess access) {
-                return (deviceType << 16) | ((uint)access << 14) | (uint)((ushort)(function) << 2) | (uint)method;
-            }
-
-            /// <summary>
-            /// Indicates how the system will pass data between the caller of <see cref="DeviceIoControl"/> and the driver that handles the IRP.
-            /// </summary>
-            internal enum IoctlMethod : uint {
-
-                /// <summary>
-                /// Specifies the buffered I/O method, which is typically used for transferring small amounts of data per request. 
-                /// </summary>
-                Buffered,
-
-                /// <summary>
-                /// Specifies the direct I/O method, which is typically used for writing large amounts of data, using DMA or PIO, that must be transferred quickly.
-                /// </summary>
-                InDirect,
-
-                /// <summary>
-                /// Specifies the direct I/O method, which is typically used for reading large amounts of data, using DMA or PIO, that must be transferred quickly.
-                /// </summary>
-                OutDirect,
-
-                /// <summary>
-                /// Specifies neither buffered nor direct I/O. The I/O manager does not provide any system buffers or MDLs.
-                /// </summary>
-                Neither,
-            }
-
-            /// <summary>
-            /// Indicates the type of access that a caller must request when opening the file object that represents the device.
-            /// </summary>
-            internal enum IoctlAccess : byte {
-
-                /// <summary>
-                /// The I/O manager sends the IRP for any caller that has a handle to the file object that represents the target device object.
-                /// </summary>
-                AnyAccess,
-
-                /// <summary>
-                /// The I/O manager sends the IRP only for a caller with read access rights, allowing the underlying device driver to transfer data from the device to system memory.
-                /// </summary>
-                ReadData,
-
-                /// <summary>
-                /// The I/O manager sends the IRP only for a caller with write access rights, allowing the underlying device driver to transfer data from system memory to its device.
-                /// </summary>
-                WriteData,
-
-                /// <summary>
-                /// The caller must have both read and write access rights
-                /// </summary>
-                ReadWriteData = ReadData | WriteData,
-            }
         }
 
         /// <summary>
@@ -180,13 +115,6 @@ namespace SpdReaderWriterCore {
                 string machineName,
                 string databaseName,
                 ServiceAccessRights dwAccess);
-
-            /// <summary>
-            /// Establishes a connection to the service control manager on local computer and opens the specified service control manager SERVICES_ACTIVE_DATABASE database.
-            /// </summary>
-            /// <param name="dwAccess">The access to the service control manager</param>
-            /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
-            public static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => OpenSCManager(null, null, dwAccess);
 
             /// <summary>
             /// Service Security and Access Rights for the Service Control Manager
@@ -228,6 +156,19 @@ namespace SpdReaderWriterCore {
                 [Optional] string lpDependencies,
                 [Optional] string lpServiceStartName,
                 [Optional] string lpPassword);
+
+            /// <summary>
+            /// Starts a service.
+            /// </summary>
+            /// <param name="hService">A handle to the service.</param>
+            /// <param name="dwNumServiceArgs">The number of strings in the lpServiceArgVectors array.</param>
+            /// <param name="lpServiceArgVectors">The null-terminated strings to be passed to the ServiceMain function for the service as arguments.</param>
+            /// <returns></returns>
+            [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+            public static extern bool StartService(
+                IntPtr hService,
+                uint dwNumServiceArgs,
+                string[] lpServiceArgVectors);
 
             /// <summary>
             /// The severity of the error, and action taken, if this service fails to start
@@ -445,6 +386,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// The type of service for <see cref="ServiceStatus"/>.
             /// </summary>
+            [Flags]
             public enum ServiceStatusServiceType : uint {
 
                 /// <summary>
@@ -560,7 +502,7 @@ namespace SpdReaderWriterCore {
             /// Closes a handle to a service control manager or service object
             /// </summary>
             /// <param name="hSCObject">A handle to the service control manager object or the service object to close.
-            /// Handles to service control manager objects are returned by the <see cref="OpenSCManager(ServiceAccessRights)"/> function,
+            /// Handles to service control manager objects are returned by the <see cref="OpenSCManager"/> function,
             /// and handles to service objects are returned by either the <see cref="OpenService"/> or <see cref="CreateService"/> function.</param>
             /// <returns><see langword="true"/> if the function succeeds</returns>
             [DllImport("advapi32.dll", SetLastError = true)]
@@ -583,62 +525,74 @@ namespace SpdReaderWriterCore {
             /// </summary>
             [Flags]
             public enum DesiredAccess {
-                STANDARD_RIGHTS_REQUIRED = 0x000F0000,
-                STANDARD_RIGHTS_READ     = 0x00020000,
+                StandardRightsRequired = 0x000F0000,
+
+                StandardRightsRead     = 0x00020000,
+
                 /// <summary>
                 /// Required to attach a primary token to a process.
                 /// </summary>
-                TOKEN_ASSIGN_PRIMARY     = 0x0001,
+                TokenAssignPrimary     = 0x0001,
+
                 /// <summary>
                 /// Required to duplicate an access token.
                 /// </summary>
-                TOKEN_DUPLICATE          = 0x0002,
+                TokenDuplicate         = 0x0002,
+
                 /// <summary>
                 /// Required to attach an impersonation access token to a process.
                 /// </summary>
-                TOKEN_IMPERSONATE        = 0x0004,
+                TokenImpersonate       = 0x0004,
+
                 /// <summary>
                 /// Required to query an access token.
                 /// </summary>
-                TOKEN_QUERY              = 0x0008,
+                TokenQuery             = 0x0008,
+
                 /// <summary>
                 /// Required to query the source of an access token.
                 /// </summary>
-                TOKEN_QUERY_SOURCE       = 0x0010,
+                TokenQuerySource       = 0x0010,
+
                 /// <summary>
                 /// Required to enable or disable the privileges in an access token.
                 /// </summary>
-                TOKEN_ADJUST_PRIVILEGES  = 0x0020,
+                TokenAdjustPrivileges  = 0x0020,
+
+
                 /// <summary>
                 /// Required to adjust the attributes of the groups in an access token.
                 /// </summary>
-                TOKEN_ADJUST_GROUPS      = 0x0040,
+                TokenAdjustGroups      = 0x0040,
+
                 /// <summary>
                 /// Required to change the default owner, primary group, or DACL of an access token.
                 /// </summary>
-                TOKEN_ADJUST_DEFAULT     = 0x0080,
+                TokenAdjustDefault     = 0x0080,
+
                 /// <summary>
                 /// Required to adjust the session ID of an access token. The SE_TCB_NAME privilege is required.
                 /// </summary>
-                TOKEN_ADJUST_SESSIONID   = 0x0100,
+                TokenAdjustSessionid   = 0x0100,
+
                 /// <summary>
-                /// Combines <see cref="STANDARD_RIGHTS_READ"/> and <see cref="TOKEN_QUERY"/>.
+                /// Combines <see cref ="StandardRightsRead"/> and <see cref="TokenQuery"/>.
                 /// </summary>
-                TOKEN_READ               = STANDARD_RIGHTS_READ | 
-                                           TOKEN_QUERY,
+                TokenRead              = StandardRightsRead |
+                                          TokenQuery,
                 /// <summary>
                 /// Combines all possible access rights for a token.
                 /// </summary>
-                TOKEN_ALL_ACCESS         = STANDARD_RIGHTS_REQUIRED | 
-                                           TOKEN_ASSIGN_PRIMARY |
-                                           TOKEN_DUPLICATE |
-                                           TOKEN_IMPERSONATE | 
-                                           TOKEN_QUERY | 
-                                           TOKEN_QUERY_SOURCE |
-                                           TOKEN_ADJUST_PRIVILEGES | 
-                                           TOKEN_ADJUST_GROUPS | 
-                                           TOKEN_ADJUST_DEFAULT |
-                                           TOKEN_ADJUST_SESSIONID
+                TokenAllAccess         = StandardRightsRequired |
+                                         TokenAssignPrimary |
+                                         TokenDuplicate |
+                                         TokenImpersonate |
+                                         TokenQuery |
+                                         TokenQuerySource |
+                                         TokenAdjustPrivileges |
+                                         TokenAdjustGroups |
+                                         TokenAdjustDefault |
+                                         TokenAdjustSessionid
             }
 
             /// <summary>
@@ -666,41 +620,41 @@ namespace SpdReaderWriterCore {
             /// </summary>
             /// <param name="tokenHandle">A handle to the access token that contains the privileges to be modified.</param>
             /// <param name="disableAllPrivileges">Specifies whether the function disables all of the token's privileges.</param>
-            /// <param name="newState">A pointer to a <see cref="TOKEN_PRIVILEGES"/> structure that specifies an array of privileges and their attributes.</param>
+            /// <param name="newState">A pointer to a <see cref="TokenPrivileges"/> structure that specifies an array of privileges and their attributes.</param>
             /// <param name="bufferLengthInBytes">Specifies the size, in bytes, of the buffer pointed to by the <paramref name="previousState"/> parameter.</param>
-            /// <param name="previousState">A pointer to a buffer that the function fills with a <see cref="TOKEN_PRIVILEGES"/> structure that contains the previous state of any privileges that the function modifies.</param>
+            /// <param name="previousState">A pointer to a buffer that the function fills with a <see cref="TokenPrivileges"/> structure that contains the previous state of any privileges that the function modifies.</param>
             /// <param name="returnLengthInBytes">A pointer to a variable that receives the required size, in bytes, of the buffer pointed to by the <paramref name="previousState"/> parameter.</param>
             /// <returns></returns>
             [DllImport("advapi32.dll", SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             public static extern bool AdjustTokenPrivileges(IntPtr tokenHandle,
                 [MarshalAs(UnmanagedType.Bool)] bool disableAllPrivileges,
-                ref TOKEN_PRIVILEGES newState,
+                ref TokenPrivileges newState,
                 uint bufferLengthInBytes,
-                [Optional] ref TOKEN_PRIVILEGES previousState,
+                [Optional] ref TokenPrivileges previousState,
                 [Optional] out uint returnLengthInBytes);
 
             /// <summary>
             /// Contains information about a set of privileges for an access token.
             /// </summary>
-            public struct TOKEN_PRIVILEGES {
+            public struct TokenPrivileges {
                 /// <summary>
-                /// This must be set to the number of entries in the <see cref="TOKEN_PRIVILEGES.Privileges"/> array.
+                /// This must be set to the number of entries in the <see cref="TokenPrivileges.Privileges"/> array.
                 /// </summary>
                 public int PrivilegeCount;
 
                 /// <summary>
-                /// Specifies an array of <see cref="LUID_AND_ATTRIBUTES"/> structures.
+                /// Specifies an array of <see cref="LuidAndAttributes"/> structures.
                 /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 1)]
-                public LUID_AND_ATTRIBUTES[] Privileges;
+                public LuidAndAttributes[] Privileges;
             }
 
             /// <summary>
             /// Represents a locally unique identifier (<see cref="LUID"/>) and its attributes.
             /// </summary>
             [StructLayout(LayoutKind.Sequential, Pack = 4)]
-            public struct LUID_AND_ATTRIBUTES {
+            public struct LuidAndAttributes {
                 /// <summary>
                 /// Specifies an <see cref="LUID"/> value
                 /// </summary>
@@ -717,14 +671,14 @@ namespace SpdReaderWriterCore {
             /// </summary>
             [Flags]
             public enum LuidAttributes : uint {
-                SE_PRIVILEGE_ENABLED_BY_DEFAULT = 0x00000001,
-                SE_PRIVILEGE_ENABLED            = 0x00000002,
-                SE_PRIVILEGE_REMOVED            = 0x00000004,
-                SE_PRIVILEGE_USED_FOR_ACCESS    = 0x80000000,
-                SE_PRIVILEGE_VALID_ATTRIBUTES   = SE_PRIVILEGE_ENABLED_BY_DEFAULT |
-                                                  SE_PRIVILEGE_ENABLED |
-                                                  SE_PRIVILEGE_REMOVED |
-                                                  SE_PRIVILEGE_USED_FOR_ACCESS
+                SePrivilegeEnabledByDefault = 0x00000001,
+                SePrivilegeEnabled          = 0x00000002,
+                SePrivilegeRemoved          = 0x00000004,
+                SePrivilegeUsedForAccess    = 0x80000000,
+                SePrivilegeValidAttributes  = SePrivilegeEnabledByDefault | 
+                                              SePrivilegeEnabled | 
+                                              SePrivilegeRemoved | 
+                                              SePrivilegeUsedForAccess
             }
         }
     }

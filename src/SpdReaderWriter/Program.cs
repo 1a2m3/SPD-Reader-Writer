@@ -12,7 +12,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Security.Principal;
 using SpdReaderWriterCore;
 using SpdReaderWriterCore.Properties;
 
@@ -70,11 +69,7 @@ namespace SpdReaderWriter {
             ShowColor = !Data.ArrayContains(Args, "/nocolor");
             FilePath = Args.Length >= 4 && !Args[3].Contains("/") ? Args[3] : "";
 
-            if (IsAdmin()) {
-                Smbus = new Smbus();
-            }
-
-            Welcome();
+            ShowBanner();
 
             if (args.Length > 0) {
 #if DEBUG
@@ -98,7 +93,7 @@ namespace SpdReaderWriter {
             Console.ReadLine();
         }
 
-        static void Welcome() {
+        static void ShowBanner() {
             string[] header = {
                 "   SPD-RW - EEPROM SPD reader and writer",
                 "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~",
@@ -107,7 +102,7 @@ namespace SpdReaderWriter {
                 ""
             };
             foreach (string line in header) {
-                Console.WriteLine(line, FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).ProductVersion);
+                Console.WriteLine(line, Core.ExecutingProgramFileVersion);
             }
         }
         static void ShowHelp() {
@@ -118,20 +113,21 @@ namespace SpdReaderWriter {
                 "{0} /?",
                 "{0} /find",
                 "{0} /find <all|arduino|smbus>",
-                "{0} /scan <PORTNAME>",
+                "{0} /scan <PORTNAME<:baudrate>>",
                 "{0} /scan <SMBUS#>",
-                "{0} /read <PORTNAME> <ADDRESS#> <filepath> /silent /nocolor",
+                "{0} /read <PORTNAME<:baudrate>> <ADDRESS#> <filepath> /silent /nocolor",
                 "{0} /read <SMBUS#> <ADDRESS#> <filepath> /silent /nocolor",
-                "{0} /write <PORTNAME> <ADDRESS#> <FILEPATH> /silent /nocolor",
-                "{0} /writeforce <PORTNAME> <ADDRESS#> <FILEPATH> /silent /nocolor",
+                "{0} /write <PORTNAME<:baudrate>> <ADDRESS#> <FILEPATH> /silent /nocolor",
+                "{0} /writeforce <PORTNAME<:baudrate>> <ADDRESS#> <FILEPATH> /silent /nocolor",
                 "{0} /firmware <FILEPATH>",
-                "{0} /enablewriteprotection <PORTNAME> <ADDRESS#>",
-                "{0} /enablewriteprotection <PORTNAME> <ADDRESS#> <block#>",
-                "{0} /disablewriteprotection <PORTNAME> <ADDRESS#>",
-                "{0} /enablepermanentwriteprotection <PORTNAME> <ADDRESS#>",
+                "{0} /enablewriteprotection <PORTNAME<:baudrate>> <ADDRESS#>",
+                "{0} /enablewriteprotection <PORTNAME<:baudrate>> <ADDRESS#> <block#>",
+                "{0} /disablewriteprotection <PORTNAME<:baudrate>> <ADDRESS#>",
+                "{0} /enablepermanentwriteprotection <PORTNAME<:baudrate>> <ADDRESS#>",
                 "",
                 "Parameters in CAPS are mandatory!",
                 "All numbers must be specified in decimal format",
+                "If baud rate is not specified, default value will be used - {1}",
                 "Parameter <filepath> is optional when /read switch is used, output will be printed to console only.",
                 "Switch /silent is optional, progress won't be shown with this switch.",
                 "Switch /nocolor is optional, use to show SPD contents in monochrome",
@@ -148,13 +144,13 @@ namespace SpdReaderWriter {
             };
 
             foreach (string line in help) {
-                Console.WriteLine(line, AppDomain.CurrentDomain.FriendlyName);
+                Console.WriteLine(line, AppDomain.CurrentDomain.FriendlyName, ReaderSettings.BaudRate);
             }
         }
 
         static void ParseCommand() {
 
-            string mode = Args[0];
+            string mode = Args[0].ToLower();
 
             try {
                 switch (mode) {
@@ -214,7 +210,9 @@ namespace SpdReaderWriter {
                 Console.ResetColor();
             }
             finally {
-                Arduino.Disconnect();
+                if (Arduino.IsConnected) {
+                    Arduino.Disconnect();
+                }
             }
         }
 
@@ -263,7 +261,7 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void WriteEeprom() {
 
-            string mode = Args[0];
+            string mode = Args[0].ToLower();
             byte i2CAddress = (byte)int.Parse(Args[2]);
 
             if (FilePath.Length < 1) {
@@ -293,8 +291,8 @@ namespace SpdReaderWriter {
                 inputFile.Length > 1 ? "bytes" : "byte",
                 Arduino.I2CAddress);
 
-            if (inputFile.Length > Arduino.DataLength) {
-                throw new Exception($"File \"{FilePath}\" is larger than {Arduino.DataLength} bytes.");
+            if (inputFile.Length > Arduino.MaxSpdSize) {
+                throw new Exception($"File \"{FilePath}\" is larger than {Arduino.MaxSpdSize} bytes.");
             }
 
             int bytesWritten = 0;
@@ -350,26 +348,34 @@ namespace SpdReaderWriter {
 
             int startTick = Environment.TickCount;
 
-            if (Args[1].StartsWith("COM")) {
+            if (Args[1].ToUpper().StartsWith("COM")) {
 
                 Connect();
 
                 name = Arduino.ToString();
                 Arduino.I2CAddress = i2CAddress;
 
-                for (ushort i = 0; i < Arduino.DataLength; i += 32) {
+                for (ushort i = 0; i < Arduino.MaxSpdSize; i += 32) {
                     spdDump = Data.MergeArray(spdDump, Eeprom.Read(Arduino, i, 32));
                 }
 
                 Arduino.Disconnect();
             }
             else {
-                if (!IsAdmin()) {
+                if (!Core.IsAdmin()) {
                     throw new AccessViolationException("Administrative privileges required");
                 }
 
+                Smbus = new Smbus();
+
                 Smbus.BusNumber = (byte)int.Parse(Args[1]);
-                Smbus.I2CAddress = i2CAddress;
+                if (Smbus.ProbeAddress(i2CAddress)) {
+                    Smbus.I2CAddress = i2CAddress;
+                }
+                else {
+                    throw new AccessViolationException($"Address {i2CAddress} not found");
+                }
+
                 name = $"{Smbus} ({Smbus.BusNumber})";
 
                 for (ushort i = 0; i < Smbus.MaxSpdSize; i += 32) {
@@ -480,7 +486,7 @@ namespace SpdReaderWriter {
                 byte[] addresses;
                 string name;
 
-                if (Args[1].StartsWith("COM")) {
+                if (Args[1].ToUpper().StartsWith("COM")) {
 
                     Connect();
 
@@ -490,9 +496,11 @@ namespace SpdReaderWriter {
                     Arduino.Disconnect();
                 }
                 else {
-                    if (!IsAdmin()) {
+                    if (!Core.IsAdmin()) {
                         throw new AccessViolationException("Administrative privileges required");
                     }
+
+                    Smbus = new Smbus();
 
                     int i = -1;
                     if (int.TryParse(Args[1], out i) && i != -1) {
@@ -526,10 +534,24 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void Connect() {
             // Init
-            string portName = Args[1];
+            string portName = Args[1].ToUpper();
 
             if (!portName.StartsWith("COM", StringComparison.CurrentCulture)) {
                 throw new ArgumentException("Port name should start with \"COM\" followed by a number.");
+            }
+
+            // Get baud rate
+            if (portName.Contains(":")) {
+                string[] portParams = portName.Split(':');
+                if (portParams.Length == 2) {
+                    portName = portParams[0].Trim();
+                    if (!int.TryParse(portParams[1].Trim(), out ReaderSettings.BaudRate)) {
+                        throw new ArgumentException("Baud rate should be specified in decimal notation.");
+                    }
+                }
+                else {
+                    throw new ArgumentException("Incorrect use of port arguments");
+                }
             }
 
             Arduino = new Arduino(ReaderSettings, portName);
@@ -554,14 +576,14 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void FindDevice() {
 
-            if (Args.Length == 1 || Args.Length == 2 && Args[1] == "all") {
+            if (Args.Length == 1 || (Args.Length == 2 && Args[1].ToLower() == "all")) {
                 FindArduino();
-                if (IsAdmin()) {
+                if (Core.IsAdmin()) {
                     FindSmbus();
                 }
             }
             else if (Args.Length == 2) {
-                switch (Args[1]) {
+                switch (Args[1].ToLower()) {
                     case "arduino":
                         FindArduino();
                         break;
@@ -592,9 +614,11 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void FindSmbus() {
 
-            if (!IsAdmin()) {
+            if (!Core.IsAdmin()) {
                 throw new AccessViolationException("Administrative privileges required");
             }
+
+            Smbus = new Smbus();
 
             try {
                 foreach (byte bus in Smbus.FindBus()) {
@@ -670,23 +694,6 @@ namespace SpdReaderWriter {
 
             // Reset colors
             Console.ResetColor();
-        }
-
-        /// <summary>
-        /// Detects if administrative privileges are present
-        /// </summary>
-        /// <returns><see langref="true"/> if administrative privileges are present</returns>
-        private static bool IsAdmin() {
-
-            try {
-                using (WindowsIdentity identity = WindowsIdentity.GetCurrent()) {
-                    WindowsPrincipal principal = new WindowsPrincipal(identity);
-                    return principal.IsInRole(WindowsBuiltInRole.Administrator);
-                }
-            }
-            catch {
-                return false;
-            }
         }
     }
 }

@@ -17,6 +17,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 
 namespace SpdReaderWriterCore {
@@ -494,7 +495,7 @@ namespace SpdReaderWriterCore {
         /// Converts byte array to hex string
         /// </summary>
         /// <param name="input">Input byte array</param>
-        /// <returns>Space separated hexadecimal string</returns>
+        /// <returns>Non separated hexadecimal string</returns>
         public static string BytesToHexString(byte[] input) {
 
             StringBuilder hex = new StringBuilder(input.Length * 2);
@@ -632,6 +633,39 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Checks if input string is within ASCII range
+        /// </summary>
+        /// <param name="input">Input string</param>
+        /// <returns><see langword="true"/> if <see cref="input"/> contains ASCII characters</returns>
+        public static bool IsAscii(string input) {
+            foreach (byte b in Encoding.ASCII.GetBytes(input)) {
+                if (!IsAscii(b)) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Removes non ASCII symbols from the string
+        /// </summary>
+        /// <param name="input">Input string</param>
+        /// <returns>ASCII-only string</returns>
+        public static string TrimNonAscii(string input) {
+
+            StringBuilder output = new StringBuilder(input.Length);
+
+            foreach (char c in Encoding.Default.GetBytes(input)) {
+                if (IsAscii(c)) {
+                    output.Append(c);
+                }
+            }
+
+            return output.ToString();
+        }
+
+        /// <summary>
         /// Converts input to a Binary Coded Decimal (BCD)
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
@@ -744,7 +778,14 @@ namespace SpdReaderWriterCore {
         /// <param name="count">Number of bytes in the array</param>
         /// <returns>An array of random bytes</returns>
         public static byte[] RandomArray(int count) {
-            return RandomArray(count, byte.MinValue, byte.MaxValue);
+
+            byte[] array = new byte[count];
+
+            using (RNGCryptoServiceProvider rg = new RNGCryptoServiceProvider()) {
+                rg.GetBytes(array);
+            }
+
+            return array;
         }
 
         /// <summary>
@@ -754,14 +795,29 @@ namespace SpdReaderWriterCore {
         /// <param name="min">Minimum byte value</param>
         /// <param name="max">Maximum byte value</param>
         /// <returns>An array of random bytes whose values are within <paramref name="min"/> and <paramref name="max"/> values</returns>
-        public static byte[] RandomArray(int count, int min, int max) {
+        public static byte[] RandomArray(uint count, int min, int max) {
+
+            if (min > max) {
+                throw new ArgumentOutOfRangeException($"{nameof(min)} cannot be greater than {nameof(max)}");
+            }
+
+            if (max < min) {
+                throw new ArgumentOutOfRangeException($"{nameof(max)} cannot be less than {nameof(min)}");
+            }
 
             byte[] array = new byte[count];
+            byte r;
 
-            Random r = new Random();
+            for (int i = 0; i < count;) {
 
-            for (int i = 0; i < count; i++) {
-                array[i] = (byte)r.Next(min, max);
+                r = RandomArray(1)[0];
+
+                if (r < min || r > max) {
+                    continue;
+                }
+
+                array[i] = r;
+                i++;
             }
 
             return array;
