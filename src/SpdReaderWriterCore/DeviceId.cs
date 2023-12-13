@@ -16,6 +16,9 @@ namespace SpdReaderWriterCore {
     /// </summary>
     public enum DeviceId : ushort {
 
+        // Invalid
+        Invalid = 0xFFFF,
+
         // Old pre-PCH hardware
 
         #region ICH
@@ -178,21 +181,21 @@ namespace SpdReaderWriterCore {
 
         #region LGA1700
         B660  = 0x7A86,
+        B760  = 0x7A06,
         H610  = 0x7A87,
         H670  = 0x7A85,
+        H770  = 0x7A05,
+        HM670 = 0x7A8C,
         Q670  = 0x7A83,
         W680  = 0x7A88,
-        Z690  = 0x7A84,
-        HM670 = 0x7A8C,
         WM690 = 0x7A8D,
-        H770  = 0x7A05,
-        B760  = 0x7A06,
+        Z690  = 0x7A84,
         Z790  = 0x7A04,
         #endregion
 
         // AMD
-        FCH     = 0x790B, // AM4/ZEN
-        Hudson2 = 0x780B, // FM1/FM2(+)
+        ZEN = 0x790B, // AM4/ZEN
+        FCH = 0x780B, // FM1/FM2(+)
 
         // Nvidia
         nForce2        = 0x0064,
