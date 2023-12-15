@@ -73,7 +73,8 @@ namespace SpdReaderWriterCore {
 
                 // Check for DDR5 presence
                 IsDdr5Present = Eeprom.ValidateEepromAddress(_i2CAddress) &&
-                                ProbeAddress((byte)(Eeprom.LidCode.Pmic0 << 3 | (Eeprom.Spd5Register.LocalHid & value)));
+                                ProbeAddress((byte)(Eeprom.LidCode.Pmic0 << 3 | (Eeprom.Spd5Register.LocalHid & value))) &&
+                                ReadByte(_i2CAddress, 00) == 0x51;
 
                 // Reset Eeprom page
                 Eeprom.ResetPageAddress(this);
