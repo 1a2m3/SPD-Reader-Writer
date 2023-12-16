@@ -112,7 +112,7 @@ namespace SpdReaderWriter {
                 "",
                 "{0} /?",
                 "{0} /find",
-                "{0} /find <all|arduino|smbus>",
+                "{0} /find <all|arduino <baudrate>|smbus>",
                 "{0} /scan <PORTNAME<:baudrate>>",
                 "{0} /scan <SMBUS#>",
                 "{0} /read <PORTNAME<:baudrate>> <ADDRESS#> <filepath> /silent /nocolor",
@@ -576,13 +576,13 @@ namespace SpdReaderWriter {
         /// </summary>
         private static void FindDevice() {
 
-            if (Args.Length == 1 || (Args.Length == 2 && Args[1].ToLower() == "all")) {
+            if (Args.Length == 1 || (Args.Length >= 2 && Args[1].ToLower() == "all")) {
                 FindArduino();
                 if (Core.IsAdmin()) {
                     FindSmbus();
                 }
             }
-            else if (Args.Length == 2) {
+            else if (Args.Length >= 2) {
                 switch (Args[1].ToLower()) {
                     case "arduino":
                         FindArduino();
@@ -598,6 +598,15 @@ namespace SpdReaderWriter {
         /// Looks for Arduino devices
         /// </summary>
         private static void FindArduino() {
+
+            if (Args.Length >= 3) {
+                int.TryParse(Args[2].Trim(), out ReaderSettings.BaudRate);
+            }
+
+            if (ReaderSettings.BaudRate == 0) {
+                throw new ArgumentException("Incorrect baud rate parameter");
+            }
+
             Arduino[] devices = Arduino.Find(ReaderSettings);
             if (devices.Length > 0) {
                 foreach (Arduino arduinoPortName in devices) {
