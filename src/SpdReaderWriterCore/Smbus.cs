@@ -30,8 +30,8 @@ namespace SpdReaderWriterCore {
         public string Version {
             get {
                 byte[] v = new byte[4];
-                if (KernelDriver.IsRunning) {
-                    KernelDriver.GetDriverVersion(out v[0], out v[1], out v[2], out v[3]);
+                if (Driver.IsRunning) {
+                    Driver.GetDriverVersion(out v[0], out v[1], out v[2], out v[3]);
                 }
 
                 return $"{v[0]}.{v[1]}.{v[2]}.{v[3]}";
@@ -78,9 +78,6 @@ namespace SpdReaderWriterCore {
 
                 // Reset Eeprom page
                 Eeprom.ResetPageAddress(this);
-
-                // Get or update SPD size
-                MaxSpdSize = Eeprom.ValidateEepromAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;
             }
         }
         private byte _i2CAddress;
@@ -93,7 +90,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Maximum SPD size on this device
         /// </summary>
-        public ushort MaxSpdSize { get; private set; }
+        public ushort MaxSpdSize => Eeprom.ValidateEepromAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;// { get; private set; }
 
         /// <summary>
         /// SPD BIOS write disable state (ICH/PCH only)
@@ -135,9 +132,9 @@ namespace SpdReaderWriterCore {
         public bool Disconnect() {
             
             Dispose();
-            KernelDriver.Stop();
+            Driver.Stop();
 
-            return !KernelDriver.IsRunning;
+            return !Driver.IsRunning;
         }
 
         /// <summary>
@@ -153,7 +150,7 @@ namespace SpdReaderWriterCore {
                 SpdWriteDisabled = false;
             }
 
-            KernelDriver.Stop();
+            Driver.Stop();
         }
 
         /// <summary>
@@ -360,12 +357,12 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if SMBus instance is initialized successfully</returns>
         private bool Initialize() {
             try {
-                if (!KernelDriver.Start()) {
-                    throw new Exception($"{KernelDriver.DriverInfo.ServiceName} did not start.");
+                if (!Driver.Start()) {
+                    throw new Exception($"{Driver.DriverInfo.ServiceName} did not start.");
                 }
             }
             catch (Exception e) {
-                throw new Exception($"{KernelDriver.DriverInfo.ServiceName} initialization failure ({e.Message})");
+                throw new Exception($"{Driver.DriverInfo.ServiceName} initialization failure ({e.Message})");
             }
 
             Info = GetDeviceInfo(); 
@@ -406,7 +403,8 @@ namespace SpdReaderWriterCore {
                         ushort ioPortAddress = PciDevice.Read<ushort>(Register.BaseAddress[4]);
 
                         // Check SPD write disable bit
-                        SpdWriteDisabled = Data.GetBit(PciDevice.Read<byte>(0x40), 4);
+                        SpdWriteDisabled = Info.VendorId == VendorId.Intel && 
+                                           Data.GetBit(PciDevice.Read<byte>(0x40), 4);
 
                         // Check if SMbus is port mapped
                         if (Data.GetBit(ioPortAddress, 0)) {
@@ -429,16 +427,17 @@ namespace SpdReaderWriterCore {
 
                         const byte smb_en = 0x00; // AMD && (Hudson2 && revision >= 0x41 || FCH && revision >= 0x49)
 
-                        KernelDriver.WriteIoPort(SB800_PIIX4_SMB_IDX, smb_en);
-                        byte smba_en_lo = KernelDriver.ReadIoPort<byte>(SB800_PIIX4_SMB_DAT);
-                        KernelDriver.WriteIoPort(SB800_PIIX4_SMB_IDX, (byte)(smb_en + 1));
-                        byte smba_en_hi = KernelDriver.ReadIoPort<byte>(SB800_PIIX4_SMB_DAT);
+                        Kernel.WriteIoPort(SB800_PIIX4_SMB_IDX, smb_en);
+                        byte smba_en_lo = Kernel.ReadIoPort<byte>(SB800_PIIX4_SMB_DAT);
+                        Kernel.WriteIoPort(SB800_PIIX4_SMB_IDX, (byte)(smb_en + 1));
+                        byte smba_en_hi = Kernel.ReadIoPort<byte>(SB800_PIIX4_SMB_DAT);
 
-                        if (smba_en_hi == byte.MaxValue || smba_en_lo == byte.MaxValue) {
+                        if (smba_en_hi == byte.MaxValue || smba_en_hi == byte.MinValue ||
+                            smba_en_lo == byte.MaxValue || smba_en_lo == byte.MinValue) {
                             // PMIO is disabled, get SMBus port from memory
                             const uint SB800_PIIX4_FCH_PM_ADDR = 0xFED80300;
 
-                            uint smbusBase = KernelDriver.ReadMemory<uint>(SB800_PIIX4_FCH_PM_ADDR);
+                            uint smbusBase = Kernel.ReadMemory<uint>(SB800_PIIX4_FCH_PM_ADDR);
                             IoPort = new IoPort((ushort)(((smbusBase >> 8) & 0xFF) << 8));
                         }
                         else if (Data.GetBit(smba_en_lo, 4)) {
@@ -520,7 +519,7 @@ namespace SpdReaderWriterCore {
 
             // Common properties
             SMBuses     = FindBus();
-            IsConnected = KernelDriver.IsRunning;
+            IsConnected = Driver.IsRunning;
 
             if (IsConnected) {
                 BusNumber = SMBuses[0];
@@ -577,7 +576,7 @@ namespace SpdReaderWriterCore {
 
                 for (byte i = 0; i <= 1; i++) {
                     BusNumber = i;
-                    if (TryScan()) {
+                    if (Scan(false).Length > 0) {
                         result.Enqueue(i); // The bus is valid
                     }
                 }
@@ -590,20 +589,6 @@ namespace SpdReaderWriterCore {
             finally {
                 BusNumber = originalBus;
             }
-        }
-
-        /// <summary>
-        /// Scan SMBus for available slave devices
-        /// </summary>
-        /// <returns><see langword="true"/> if <see cref="BusNumber"/> has at least one slave device present</returns>
-        public bool TryScan() {
-            for (byte i = 0x50; i <= 0x57; i++) {
-                if (ProbeAddress(i)) {
-                    return true;
-                }
-            }
-
-            return Scan(minimumResults: true).Length > 0;
         }
 
         /// <summary>
@@ -636,17 +621,15 @@ namespace SpdReaderWriterCore {
         /// Scan SMBus for available slave devices
         /// </summary>
         /// <returns>An array of available bus addresses</returns>
-        public byte[] Scan() {
-            return Scan(minimumResults: false);
-        }
+        public byte[] Scan() => Scan(fullScan: true);
 
         /// <summary>
         /// Scan SMBus for available slave devices
         /// </summary>
-        /// <param name="minimumResults">Set to <see langword="true"/> to stop scanning once at least one slave address is found,
-        /// or <see langword="false"/> to scan the entire range</param>
+        /// <param name="fullScan">Set to <see langword="true"/> to to scan the entire range,
+        /// or <see langword="false"/> stop scanning once at least one slave address is found</param>
         /// <returns>An array of found bus addresses on <see cref="BusNumber"/></returns>
-        private byte[] Scan(bool minimumResults) {
+        private byte[] Scan(bool fullScan) {
 
             Queue<byte> result = new Queue<byte>();
 
@@ -655,7 +638,7 @@ namespace SpdReaderWriterCore {
                     byte address = (byte)(i + 0x50);
                     if (ProbeAddress(address)) {
                         result.Enqueue(address);
-                        if (minimumResults) {
+                        if (!fullScan) {
                             break;
                         }
                     }
@@ -781,7 +764,11 @@ namespace SpdReaderWriterCore {
                 }
                 
                 try {
-                    KernelDriver.LockHandle();
+                    while (Driver.LockState) {
+                        Thread.Sleep(10);
+                    }
+
+                    Driver.LockHandle();
 
                     if (PlatformType == Platform.SkylakeX) {
                         // Set input for writing
@@ -1021,7 +1008,7 @@ namespace SpdReaderWriterCore {
                     }
                 }
                 finally {
-                    KernelDriver.UnlockHandle();
+                    Driver.UnlockHandle();
                 }
 
                 return true;

@@ -51,7 +51,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
         public T Read<T>(ushort offset) => 
-            KernelDriver.ReadIoPort<T>((ushort)(BaseAddress + offset));
+            Kernel.ReadIoPort<T>((ushort)(BaseAddress + offset));
 
         /// <summary>
         /// Reads data from an IO port register
@@ -61,7 +61,7 @@ namespace SpdReaderWriterCore {
         /// <param name="output">Output reference</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool ReadEx<T>(ushort offset, out T output) => 
-            KernelDriver.ReadIoPortEx((ushort)(BaseAddress + offset), out output);
+            Kernel.ReadIoPortEx((ushort)(BaseAddress + offset), out output);
 
         /// <summary>
         /// Writes data to an IO port register
@@ -70,7 +70,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         public void Write<T>(ushort offset, T value) => 
-            KernelDriver.WriteIoPortEx((ushort)(BaseAddress + offset), value);
+            Kernel.WriteIoPortEx((ushort)(BaseAddress + offset), value);
 
         /// <summary>
         /// Writes data to an IO port register
@@ -80,6 +80,6 @@ namespace SpdReaderWriterCore {
         /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool WriteEx<T>(ushort offset, T value) => 
-            KernelDriver.WriteIoPortEx((ushort)(BaseAddress + offset), value);
+            Kernel.WriteIoPortEx((ushort)(BaseAddress + offset), value);
     }
 }

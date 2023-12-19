@@ -132,7 +132,7 @@ namespace SpdReaderWriterCore {
         /// <param name="output">Register value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool Read<T>(ushort offset, out T output) => 
-            KernelDriver.ReadPciConfigEx(Bus, Device, Function, offset, out output);
+            Kernel.ReadPciConfigEx(Bus, Device, Function, offset, out output);
 
         /// <summary>
         /// Write data to PCI device configuration space
@@ -142,7 +142,7 @@ namespace SpdReaderWriterCore {
         /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool Write<T>(ushort offset, T value) => 
-            KernelDriver.WritePciConfigEx(Bus, Device, Function, offset, value);
+            Kernel.WritePciConfigEx(Bus, Device, Function, offset, value);
 
         /// <summary>
         /// Finds PCI device matching Vendor ID and Device ID
@@ -208,7 +208,7 @@ namespace SpdReaderWriterCore {
             for (short bus = 0; bus < _maxPciBus; bus++) {
                 for (byte dev = 0; dev < _maxPciDevice; dev++) {
 
-                    DeviceId devId = KernelDriver.ReadPciConfig<DeviceId>((byte)bus, dev, 0, Register.DeviceId);
+                    DeviceId devId = Kernel.ReadPciConfig<DeviceId>((byte)bus, dev, 0, Register.DeviceId);
 
                     if (devId == ushort.MinValue || devId == DeviceId.Invalid) {
                         continue;
@@ -216,7 +216,7 @@ namespace SpdReaderWriterCore {
 
                     for (byte func = 0; func < _maxPciFunction; func++) {
 
-                        uint header = KernelDriver.ReadPciConfig<uint>((byte)bus, dev, func, 0);
+                        uint header = Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0);
 
                         if (header != ((ushort)vendorId | (ushort)deviceId << 16)) {
                             continue;
@@ -307,7 +307,7 @@ namespace SpdReaderWriterCore {
             for (short bus = 0; bus < _maxPciBus; bus++) {
                 for (byte dev = 0; dev < _maxPciDevice; dev++) {
 
-                    ushort devId = KernelDriver.ReadPciConfig<ushort>((byte)bus, dev, 0, 0x00);
+                    ushort devId = Kernel.ReadPciConfig<ushort>((byte)bus, dev, 0, 0x00);
 
                     if (devId == ushort.MinValue || devId == ushort.MaxValue) {
                         continue;
@@ -315,7 +315,7 @@ namespace SpdReaderWriterCore {
 
                     for (byte func = 0; func < _maxPciFunction; func++) {
 
-                        if ((KernelDriver.ReadPciConfig<uint>((byte)bus, dev, func, 0x08) & 0xFFFFFF00) !=
+                        if ((Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0x08) & 0xFFFFFF00) !=
                             (uint)((byte)baseClass << 24 | ((byte)subClass << 16) | (byte)programIf << 8)) {
                             continue;
                         }
