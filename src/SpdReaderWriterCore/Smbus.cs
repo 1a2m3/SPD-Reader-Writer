@@ -361,7 +361,7 @@ namespace SpdReaderWriterCore {
                 throw new Exception($"{Driver.DriverInfo.ServiceName} initialization failure: ({e.Message})");
             }
 
-            Info = GetDeviceInfo(); 
+            Info = GetDeviceInfo();
 
             switch (Info.VendorId) {
                 // Skylake-X
@@ -375,7 +375,7 @@ namespace SpdReaderWriterCore {
                     if (PlatformType == Platform.Default) {
 
                         // Find smbus
-                        foreach (PciDevice smbusPciDevice in FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus, 0)) {
+                        foreach (PciDevice smbusPciDevice in FindDevicesByClass(BaseClassType.Serial, SubClassType.Smbus, 0)) {
                             PciDevice = smbusPciDevice;
                             break;
                         }
@@ -440,7 +440,7 @@ namespace SpdReaderWriterCore {
                 case VendorId.VIA:
 
                     // Find PCI to ISA bridge
-                    PciDevice[] viaPciIsaBridge = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa);
+                    PciDevice[] viaPciIsaBridge = FindDevicesByClass(BaseClassType.Bridge, SubClassType.Isa);
 
                     if (viaPciIsaBridge.Length == 0) {
                         return false;
@@ -524,7 +524,7 @@ namespace SpdReaderWriterCore {
                 case VendorId.Intel:
                 case VendorId.VIA:
                     // Find ISA bridge to get chipset ID
-                    foreach (PciDevice isa in FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa)) {
+                    foreach (PciDevice isa in FindDevicesByClass(BaseClassType.Bridge, SubClassType.Isa)) {
                         result.DeviceId = isa.DeviceId;
                         break;
                     }
@@ -534,7 +534,7 @@ namespace SpdReaderWriterCore {
                 case VendorId.AMD:
                 case VendorId.Nvidia:
                     // Find Smbus controller
-                    foreach (PciDevice smbus in FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus)) {
+                    foreach (PciDevice smbus in FindDevicesByClass(BaseClassType.Serial, SubClassType.Smbus)) {
                         result.DeviceId = smbus.DeviceId;
                         break;
                     }
