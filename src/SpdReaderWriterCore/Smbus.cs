@@ -51,9 +51,6 @@ namespace SpdReaderWriterCore {
             set {
                 _busNumber = value;
 
-                // Rescan for slave addresses
-                Addresses = Scan();
-
                 // Reset Eeprom page when bus is set
                 Eeprom.ResetPageAddress(this);
 
@@ -113,12 +110,6 @@ namespace SpdReaderWriterCore {
         public Smbus() => Connect();
 
         /// <summary>
-        /// Established SMBus connection
-        /// </summary>
-        /// <returns><see langword="true"/> upon successful initialization</returns>
-        public bool Connect() => Initialize();
-
-        /// <summary>
         /// SMBus instance destructor
         /// </summary>
         ~Smbus() {
@@ -126,11 +117,17 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Established SMBus connection
+        /// </summary>
+        /// <returns><see langword="true"/> upon successful initialization</returns>
+        public bool Connect() => Initialize();
+
+        /// <summary>
         /// Deinitializes SMBus instance
         /// </summary>
         /// <returns><see langword="true"/> upon successful disposal</returns>
         public bool Disconnect() {
-            
+
             Dispose();
             Driver.Stop();
 
@@ -145,7 +142,6 @@ namespace SpdReaderWriterCore {
             PciDevice = null;
 
             if (!IsConnected) {
-                SMBuses          = null;
                 IsConnected      = false;
                 SpdWriteDisabled = false;
             }
@@ -169,12 +165,12 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Available SMBuses
         /// </summary>
-        public byte[] SMBuses { get; private set; }
+        public byte[] SMBuses => FindBus();
 
         /// <summary>
         /// Available slave addresses on selected bus
         /// </summary>
-        public byte[] Addresses { get; private set; }
+        public byte[] Addresses => Scan();
 
         /// <summary>
         /// Intel ICH/PCH and AMD FCH SMBus controller register offsets
@@ -362,32 +358,10 @@ namespace SpdReaderWriterCore {
                 }
             }
             catch (Exception e) {
-                throw new Exception($"{Driver.DriverInfo.ServiceName} initialization failure ({e.Message})");
+                throw new Exception($"{Driver.DriverInfo.ServiceName} initialization failure: ({e.Message})");
             }
 
             Info = GetDeviceInfo(); 
-
-            // Find default SMBus controller(s)
-            PciDevice[] smbusPciDevice = FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus, 0);
-
-            if (smbusPciDevice.Length == 1) {
-                PciDevice = smbusPciDevice[0];
-            }
-            else if (smbusPciDevice.Length > 1) {
-                foreach (PciDevice smbusPciLocation in smbusPciDevice) {
-                    if (smbusPciLocation.VendorId  == Info.VendorId && 
-                        smbusPciLocation.BaseClass == BaseClassType.Serial &&
-                        smbusPciLocation.SubClass  == SubClassType.Smbus) {
-                        PciDevice = smbusPciLocation;
-                        break;
-                    }
-                }
-            }
-            else {
-                if (Info.VendorId != VendorId.VIA) {
-                    return false;
-                }
-            }
 
             switch (Info.VendorId) {
                 // Skylake-X
@@ -399,6 +373,17 @@ namespace SpdReaderWriterCore {
                 case VendorId.Intel:
                 case VendorId.Nvidia:
                     if (PlatformType == Platform.Default) {
+
+                        // Find smbus
+                        foreach (PciDevice smbusPciDevice in FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus, 0)) {
+                            PciDevice = smbusPciDevice;
+                            break;
+                        }
+
+                        if (PciDevice != null && PciDevice.BaseClass != BaseClassType.Serial && PciDevice.SubClass != SubClassType.Smbus) {
+                            return false;
+                        }
+
                         // Read IO port address and info
                         ushort ioPortAddress = PciDevice.Read<ushort>(Register.BaseAddress[4]);
 
@@ -513,13 +498,8 @@ namespace SpdReaderWriterCore {
                     break;
             }
 
-            if (PlatformType == Platform.Unknown) {
-                return false;
-            }
-
             // Common properties
-            SMBuses     = FindBus();
-            IsConnected = Driver.IsRunning;
+            IsConnected = Driver.IsRunning && PlatformType != Platform.Unknown;
 
             if (IsConnected) {
                 BusNumber = SMBuses[0];
@@ -538,25 +518,27 @@ namespace SpdReaderWriterCore {
             PciDevice platform = new PciDevice();
 
             result.VendorId = platform.VendorId;
+            result.DeviceId = DeviceId.Invalid;
 
             switch (result.VendorId) {
                 case VendorId.Intel:
                 case VendorId.VIA:
                     // Find ISA bridge to get chipset ID
-                    try {
-                        PciDevice isa = FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa)[0];
+                    foreach (PciDevice isa in FindDeviceByClass(BaseClassType.Bridge, SubClassType.Isa)) {
                         result.DeviceId = isa.DeviceId;
-                    }
-                    catch {
-                        result.DeviceId = default;
+                        break;
                     }
 
                     break;
 
                 case VendorId.AMD:
                 case VendorId.Nvidia:
-                    PciDevice smbus = FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus)[0];
-                    result.DeviceId = smbus.DeviceId;
+                    // Find Smbus controller
+                    foreach (PciDevice smbus in FindDeviceByClass(BaseClassType.Serial, SubClassType.Smbus)) {
+                        result.DeviceId = smbus.DeviceId;
+                        break;
+                    }
+
                     break;
             }
 
@@ -568,6 +550,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>An array of bytes containing SMBus numbers</returns>
         public byte[] FindBus() {
+
+            if (!IsConnected) {
+                return new byte[0];
+            }
 
             byte originalBus = BusNumber;
 
