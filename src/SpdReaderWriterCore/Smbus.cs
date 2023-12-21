@@ -87,7 +87,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Maximum SPD size on this device
         /// </summary>
-        public ushort MaxSpdSize => Eeprom.ValidateEepromAddress(_i2CAddress) ? GetMaxSpdSize(_i2CAddress) : Spd.DataLength.Unknown;// { get; private set; }
+        public ushort MaxSpdSize => GetMaxSpdSize(_i2CAddress);
 
         /// <summary>
         /// SPD BIOS write disable state (ICH/PCH only)
@@ -380,7 +380,7 @@ namespace SpdReaderWriterCore {
                             break;
                         }
 
-                        if (PciDevice != null && PciDevice.BaseClass != BaseClassType.Serial && PciDevice.SubClass != SubClassType.Smbus) {
+                        if (PciDevice == null || (PciDevice.BaseClass != BaseClassType.Serial && PciDevice.SubClass != SubClassType.Smbus)) {
                             return false;
                         }
 
@@ -501,8 +501,12 @@ namespace SpdReaderWriterCore {
             // Common properties
             IsConnected = Driver.IsRunning && PlatformType != Platform.Unknown;
 
+            if (SMBuses.Length == 0) {
+                return false;
+            }
+
             if (IsConnected) {
-                BusNumber = SMBuses[0];
+                BusNumber = 0;
             }
 
             return IsConnected;
@@ -619,11 +623,10 @@ namespace SpdReaderWriterCore {
 
             Queue<byte> result = new Queue<byte>();
 
-            for (byte i = 0; i <= 7; i++) {
+            for (byte i = 0x50; i <= 0x57; i++) {
                 try {
-                    byte address = (byte)(i + 0x50);
-                    if (ProbeAddress(address)) {
-                        result.Enqueue(address);
+                    if (ProbeAddress(i)) {
+                        result.Enqueue(i);
                         if (!fullScan) {
                             break;
                         }
@@ -1260,6 +1263,10 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>SPD size</returns>
         private ushort GetMaxSpdSize(byte address) {
+
+            if (!Eeprom.ValidateEepromAddress(_i2CAddress)) {
+                return Spd.DataLength.Unknown;
+            }
 
             if (IsDdr5Present) {
                 return Spd.DataLength.DDR5;
