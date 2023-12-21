@@ -611,7 +611,7 @@ namespace SpdReaderWriterCore {
         /// <returns>Included firmware version number</returns>
         private static int GetIncludedFirmwareVersion() {
             try {
-                byte[] fwHeader         = Data.GzipPeek(Properties.Resources.Firmware.SpdReaderWriter_ino, 1024);
+                byte[] fwHeader         = Data.GzipPeek(Resources.Firmware.SpdReaderWriter_ino, 1024);
                 int versionLength       = Data.CountBytes(typeof(int)) * 2;
                 Regex versionPattern    = new Regex($@"([\d]{{{versionLength}}})"); // ([\d]{8})
                 MatchCollection matches = versionPattern.Matches(Data.BytesToString(fwHeader));
