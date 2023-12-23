@@ -307,14 +307,14 @@ namespace SpdReaderWriterCore {
             }
 
             _serviceHandle = CreateService(
-                hSCManager: Manager,
-                lpServiceName: DriverInfo.ServiceName,
-                lpDisplayName: DriverInfo.ServiceName,
-                dwDesiredAccess: ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
-                dwServiceType: ServiceType.KernelDriver,
-                dwStartType: ServiceStartMode.Manual,
-                dwErrorControl: ErrorControl.Normal,
-                lpBinaryPathName: DriverInfo.FilePath);
+                hSCManager       : Manager,
+                lpServiceName    : DriverInfo.ServiceName,
+                lpDisplayName    : DriverInfo.ServiceName,
+                dwDesiredAccess  : ServiceAccessRights.SC_MANAGER_ALL_ACCESS,
+                dwServiceType    : ServiceType.KernelDriver,
+                dwStartType      : ServiceStartMode.Manual,
+                dwErrorControl   : ErrorControl.Normal,
+                lpBinaryPathName : DriverInfo.FilePath);
 
             if (_serviceHandle == IntPtr.Zero) {
                 return false;
@@ -356,17 +356,18 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the driver service and the driver file are successfully deleted</returns>
         private static bool RemoveDriver(bool deleteFile) {
 
-            if (RemoveDriver() && !deleteFile) {
-                return true;
+            bool result = RemoveDriver();
+
+            if (result && deleteFile) {
+                try {
+                    File.Delete(DriverInfo.FilePath);
+                }
+                finally {
+                    result = !File.Exists(DriverInfo.FilePath);
+                }
             }
 
-            try {
-                File.Delete(DriverInfo.FilePath);
-                return !File.Exists(DriverInfo.FilePath);
-            }
-            catch {
-                return false;
-            }
+            return result;
         }
 
         /// <summary>
@@ -445,12 +446,12 @@ namespace SpdReaderWriterCore {
             try {
                 while (_sw.ElapsedMilliseconds < Timeout) {
                     handle = CreateFile(
-                        lpFileName: DriverInfo.DeviceName,
-                        dwDesiredAccess: Kernel32.FileAccess.GenericRead,
-                        dwShareMode: FileShare.Read,
-                        lpSecurityAttributes: IntPtr.Zero,
-                        dwCreationDisposition: FileMode.Open,
-                        dwFlagsAndAttributes: 0);
+                        lpFileName            : DriverInfo.DeviceName,
+                        dwDesiredAccess       : Kernel32.FileAccess.GenericRead,
+                        dwShareMode           : FileShare.Read,
+                        lpSecurityAttributes  : IntPtr.Zero,
+                        dwCreationDisposition : FileMode.Open,
+                        dwFlagsAndAttributes  : 0);
 
                     status = Marshal.GetLastWin32Error();
 
@@ -589,14 +590,14 @@ namespace SpdReaderWriterCore {
                 }
 
                 result = Kernel32.DeviceIoControl(
-                    hDevice: _driverHandle,
-                    dwIoControlCode: ioControlCode,
-                    lpInBuffer: inputData,
-                    nInBufferSize: inputSize,
-                    lpOutBuffer: outputBuffer,
-                    nOutBufferSize: (uint)Marshal.SizeOf(outputBuffer),
-                    lpBytesReturned: out uint returnedLength,
-                    lpOverlapped: IntPtr.Zero);
+                    hDevice         : _driverHandle,
+                    dwIoControlCode : ioControlCode,
+                    lpInBuffer      : inputData,
+                    nInBufferSize   : inputSize,
+                    lpOutBuffer     : outputBuffer,
+                    nOutBufferSize  : (uint)Marshal.SizeOf(outputBuffer),
+                    lpBytesReturned : out uint returnedLength,
+                    lpOverlapped    : IntPtr.Zero);
 
                 if (result) {
                     outputData = (T)outputBuffer;
