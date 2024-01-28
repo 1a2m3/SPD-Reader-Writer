@@ -13,7 +13,6 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using SpdReaderWriterCore;
-using SpdReaderWriterCore.Properties;
 
 namespace SpdReaderWriter {
     class Program {
@@ -174,25 +173,32 @@ namespace SpdReaderWriter {
 
                     case "/disablewriteprotection":
                     case "/clearwriteprotection":
-                        DisableRswp();
+                        ClearRswp();
                         break;
 
                     case "/read":
-                        ReadEeprom();
+                    case "/readSpd":
+                        ReadSpd();
                         break;
 
                     case "/write":
-                        WriteEeprom();
+                    case "/writeSpd":
+                        WriteSpd();
                         break;
 
                     case "/enablepermanentwriteprotection":
                     case "/setpermanentwriteprotection":
+                    case "/pswp":
                         EnablePswp();
                         break;
 
                     case "/firmware":
                     case "/savefirmware":
                         SaveFirmware();
+                        break;
+
+                    case "/readeeprom":
+                        ReadEeprom();
                         break;
                     default:
                         Console.WriteLine("Unknown command line parameters.\n");
@@ -257,9 +263,9 @@ namespace SpdReaderWriter {
         }
 
         /// <summary>
-        /// Writes data to EEPROM
+        /// Writes SPD data
         /// </summary>
-        private static void WriteEeprom() {
+        private static void WriteSpd() {
 
             string mode = Args[0].ToLower();
             byte i2CAddress = (byte)int.Parse(Args[2]);
@@ -331,9 +337,9 @@ namespace SpdReaderWriter {
         }
 
         /// <summary>
-        /// Reads data from EEPROM
+        /// Reads SPD data
         /// </summary>
-        private static void ReadEeprom() {
+        private static void ReadSpd() {
 
             byte i2CAddress = (byte)int.Parse(Args[2]);
             byte[] spdDump = new byte[0];
@@ -410,11 +416,38 @@ namespace SpdReaderWriter {
         }
 
         /// <summary>
-        /// Clears RSWP on EEPROM
+        /// Reads data from Device's EEPROM
         /// </summary>
-        private static void DisableRswp() {
+        private static void ReadEeprom() {
+
+            ushort offset = (ushort)int.Parse(Args[2]);
+            ushort length = (ushort)int.Parse(Args[3]);
 
             Connect();
+
+            byte[] data = Arduino.ReadEeprom(offset, length);
+
+            for (int i = 0; i < data.Length; i++) {
+                ConsoleDisplayByte(i, data[i], 16, true, ShowColor);
+            }
+
+
+            Arduino.Disconnect();
+        }
+
+        /// <summary>
+        /// Clears RSWP on EEPROM
+        /// </summary>
+        private static void ClearRswp() {
+
+            Connect();
+
+            if (Args.Length > 2) {
+                Arduino.I2CAddress = (byte)int.Parse(Args[2]);
+            }
+            else {
+                Arduino.I2CAddress = Arduino.Scan()[0];
+            }
 
             if (Eeprom.ClearRswp(Arduino)) {
                 Console.WriteLine("Write protection successfully disabled.");
