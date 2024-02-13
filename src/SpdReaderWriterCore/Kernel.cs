@@ -104,8 +104,8 @@ namespace SpdReaderWriterCore {
         public static bool ReadIoPortEx<T>(ushort port, out T output) {
 
             object outputData = null;
-            bool result = false;
-            output = default;
+            bool result       = false;
+            output            = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = Driver.DriverInfo.ReadIoPortByteEx(port, out byte buffer);
@@ -174,23 +174,19 @@ namespace SpdReaderWriterCore {
         /// <returns>PCI register value</returns>
         public static T ReadPciConfig<T>(byte bus, byte device, byte function, ushort offset) {
 
-            object outputData = null;
+            T outputData = default;
 
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                outputData = Driver.DriverInfo.ReadPciConfigByte(bus, device, function, offset);
-            }
-            else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                outputData = Driver.DriverInfo.ReadPciConfigWord(bus, device, function, offset);
-            }
-            else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                outputData = Driver.DriverInfo.ReadPciConfigDword(bus, device, function, offset);
-            }
-
-            if (outputData != null) {
-                return (T)Convert.ChangeType(outputData, Type.GetTypeCode(typeof(T)));
+            switch (Data.GetDataSize(typeof(T))) {
+                case Data.DataSize.Byte:
+                case Data.DataSize.Word:
+                case Data.DataSize.Dword:
+                    ReadPciConfigEx(bus, device, function, offset, out outputData);
+                    break;
+                default:
+                    throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
             }
 
-            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+            return (T)Convert.ChangeType(outputData, Type.GetTypeCode(typeof(T)));
         }
 
         /// <summary>
@@ -206,8 +202,8 @@ namespace SpdReaderWriterCore {
         public static bool ReadPciConfigEx<T>(byte bus, byte device, byte function, ushort offset, out T output) {
 
             object outputData = null;
-            bool result = false;
-            output = default;
+            bool result       = false;
+            output            = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = Driver.DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
@@ -296,8 +292,8 @@ namespace SpdReaderWriterCore {
         public static bool ReadMemoryEx<T>(uint address, out T output) {
 
             object outputData = null;
-            bool result = false;
-            output = default;
+            bool result       = false;
+            output            = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
                 result = Driver.DriverInfo.ReadMemoryByteEx(address, out byte buffer);
