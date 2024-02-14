@@ -9,10 +9,6 @@
 
 */
 
-using System;
-using System.IO;
-using System.Reflection;
-
 namespace SpdReaderWriterCore {
 
     /// <summary>
@@ -86,12 +82,8 @@ namespace SpdReaderWriterCore {
         /// <param name="port">I/O port address</param>
         /// <returns>Value read from the specified <paramref name="port">I/O port address</paramref></returns>
         public static T ReadIoPort<T>(ushort port) {
-
-            if (ReadIoPortEx(port, out T output)) {
-                return output;
-            }
-
-            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+            ReadIoPortEx(port, out T output);
+            return output;
         }
 
         /// <summary>
@@ -173,20 +165,8 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <returns>PCI register value</returns>
         public static T ReadPciConfig<T>(byte bus, byte device, byte function, ushort offset) {
-
-            T outputData = default;
-
-            switch (Data.GetDataSize(typeof(T))) {
-                case Data.DataSize.Byte:
-                case Data.DataSize.Word:
-                case Data.DataSize.Dword:
-                    ReadPciConfigEx(bus, device, function, offset, out outputData);
-                    break;
-                default:
-                    throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
-            }
-
-            return (T)Convert.ChangeType(outputData, Type.GetTypeCode(typeof(T)));
+            ReadPciConfigEx(bus, device, function, offset, out T outputData);
+            return outputData;
         }
 
         /// <summary>
@@ -274,12 +254,8 @@ namespace SpdReaderWriterCore {
         /// <param name="address">Memory address</param>
         /// <returns>Data at specified memory address</returns>
         public static T ReadMemory<T>(uint address) {
-
-            if (ReadMemoryEx(address, out T output)) {
-                return (T)Convert.ChangeType(output, Type.GetTypeCode(typeof(T)));
-            }
-
-            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+            ReadMemoryEx(address, out T output);
+            return output;
         }
 
         /// <summary>
