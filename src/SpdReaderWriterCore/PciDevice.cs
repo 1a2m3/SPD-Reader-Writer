@@ -233,6 +233,16 @@ namespace SpdReaderWriterCore {
 
             return result.ToArray();
         }
+        
+        /// <summary>
+        /// Finds PCI device by Device Class
+        /// </summary>
+        /// <param name="baseClass">Base Class</param>
+        /// <param name="subClass">Sub Class</param>
+        /// <returns>PCI Device Address matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
+        public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass) {
+            return FindDeviceByClass(baseClass, subClass, 0);
+        }
 
         /// <summary>
         /// Finds PCI device by Device Class
