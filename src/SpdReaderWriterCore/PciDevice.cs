@@ -149,7 +149,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
-        /// <returns>PCI Device Address matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        /// <returns>PCI Device matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public static PciDevice FindDeviceById(VendorId vendorId, DeviceId deviceId) => 
             FindDeviceById(vendorId, deviceId, 0);
 
@@ -159,10 +159,10 @@ namespace SpdReaderWriterCore {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <param name="index">Device index to find</param>
-        /// <returns>PCI Device Address matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        /// <returns>PCI Device matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public static PciDevice FindDeviceById(VendorId vendorId, DeviceId deviceId, ushort index) {
 
-            if (index > _maxPciBus * _maxPciDevice * _maxPciFunction) {
+            if (index > MaxPciCount) {
                 throw new ArgumentOutOfRangeException();
             }
 
@@ -180,9 +180,9 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
-        /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        /// <returns>An array of PCI Devices matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public static PciDevice[] FindDevicesById(VendorId vendorId, DeviceId deviceId) => 
-            FindDevicesById(vendorId, deviceId, _maxPciBus * _maxPciDevice * _maxPciFunction);
+            FindDevicesById(vendorId, deviceId, MaxPciCount);
 
         /// <summary>
         /// Finds PCI devices matching Vendor ID and Device ID
@@ -190,11 +190,11 @@ namespace SpdReaderWriterCore {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
-        /// <returns>An array of PCI Device Addresses matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
+        /// <returns>An array of PCI Devices matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
         public static PciDevice[] FindDevicesById(VendorId vendorId, DeviceId deviceId, int maxCount) {
 
-            if (maxCount > _maxPciBus * _maxPciDevice * _maxPciFunction || maxCount == 0) {
-                throw new ArgumentOutOfRangeException();
+            if (maxCount > MaxPciCount || maxCount == 0) {
+                throw new ArgumentOutOfRangeException(nameof(maxCount));
             }
 
             uint count = 0;
@@ -205,8 +205,8 @@ namespace SpdReaderWriterCore {
 
             Queue<PciDevice> result = new Queue<PciDevice>();
             
-            for (short bus = 0; bus < _maxPciBus; bus++) {
-                for (byte dev = 0; dev < _maxPciDevice; dev++) {
+            for (short bus = 0; bus <= _maxPciBusIndex; bus++) {
+                for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX; dev++) {
 
                     DeviceId devId = Kernel.ReadPciConfig<DeviceId>((byte)bus, dev, 0, Register.DeviceId);
 
@@ -214,7 +214,7 @@ namespace SpdReaderWriterCore {
                         continue;
                     }
 
-                    for (byte func = 0; func < _maxPciFunction; func++) {
+                    for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
 
                         uint header = Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0);
 
@@ -239,7 +239,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
-        /// <returns>PCI Device Address matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
+        /// <returns>PCI Devices matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
         public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass) {
             return FindDeviceByClass(baseClass, subClass, 0);
         }
@@ -250,7 +250,7 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
-        /// <returns>PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        /// <returns>PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
         public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) => 
             FindDeviceByClass(baseClass, subClass, programIf, 0);
 
@@ -261,10 +261,10 @@ namespace SpdReaderWriterCore {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <param name="index">Device index to find</param>
-        /// <returns>PCI Device Address matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        /// <returns>PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
         public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf, ushort index) {
 
-            if (index > _maxPciBus * _maxPciDevice * _maxPciFunction) {
+            if (index > MaxPciCount) {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
@@ -278,7 +278,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
-        /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
+        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
         public static PciDevice[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass) => 
             FindDevicesByClass(baseClass, subClass, 0);
 
@@ -288,9 +288,9 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
-        /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
         public static PciDevice[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) => 
-            FindDevicesByClass(baseClass, subClass, programIf, _maxPciBus * _maxPciDevice * _maxPciFunction);
+            FindDevicesByClass(baseClass, subClass, programIf, MaxPciCount);
 
         /// <summary>
         /// Finds PCI devices by Device Class
@@ -299,23 +299,19 @@ namespace SpdReaderWriterCore {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
-        /// <returns>An array of PCI Device Addresses matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
+        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
         public static PciDevice[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf, int maxCount) {
 
-            if (maxCount > _maxPciBus * _maxPciDevice * _maxPciFunction) {
+            if (maxCount > MaxPciCount || maxCount == 0) {
                 throw new ArgumentOutOfRangeException(nameof(maxCount));
-            }
-
-            if (maxCount == 0) {
-                return new PciDevice[0];
             }
 
             uint count = 0;
 
             Queue<PciDevice> result = new Queue<PciDevice>();
 
-            for (short bus = 0; bus < _maxPciBus; bus++) {
-                for (byte dev = 0; dev < _maxPciDevice; dev++) {
+            for (short bus = 0; bus <= _maxPciBusIndex; bus++) {
+                for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX; dev++) {
 
                     ushort devId = Kernel.ReadPciConfig<ushort>((byte)bus, dev, 0, 0x00);
 
@@ -323,7 +319,7 @@ namespace SpdReaderWriterCore {
                         continue;
                     }
 
-                    for (byte func = 0; func < _maxPciFunction; func++) {
+                    for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
 
                         if ((Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0x08) & 0xFFFFFF00) !=
                             (uint)((byte)baseClass << 24 | ((byte)subClass << 16) | (byte)programIf << 8)) {
@@ -347,7 +343,7 @@ namespace SpdReaderWriterCore {
         /// and <see cref="FindDevicesByClass(BaseClassType,SubClassType,ProgramIf,int)"/>
         /// </summary>
         /// <param name="max">Maximum PCI bus index to scan</param>
-        public static void SetPciMaxBusIndex(ushort max) => _maxPciBus = max;
+        public static void SetPciMaxBusIndex(int max) => _maxPciBusIndex = (byte)(max & 0xFF);
 
         /// <summary>
         /// PCI device location
@@ -416,7 +412,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// PCI sub class codes
         /// </summary>
-        public enum SubClassType {
+        public enum SubClassType : byte {
             Isa   = 0x01,
             Smbus = 0x05,
         }
@@ -444,18 +440,23 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Maximum number of PCI buses assigned by <see cref="SetPciMaxBusIndex"/>
+        /// Maximum PCI <see cref="Bus">bus</see> index assigned by <see cref="SetPciMaxBusIndex"/>
         /// </summary>
-        private static ushort _maxPciBus = 256;
+        private static byte _maxPciBusIndex = 255;
 
         /// <summary>
-        /// Maximum number of PCI devices per bus
+        /// Maximum PCI <see cref="Device">device</see> index per <see cref="Bus">bus</see>
         /// </summary>
-        private static byte _maxPciDevice = 32;
+        private const byte MAX_PCI_DEVICE_INDEX = 31;
 
         /// <summary>
-        /// Maximum number of PCI functions per device
+        /// Maximum PCI <see cref="Function">function</see> index per <see cref="Device">device</see>
         /// </summary>
-        private static byte _maxPciFunction = 8;
+        private const byte MAX_PCI_FUNCTION_INDEX = 7;
+
+        /// <summary>
+        /// Absolute maximum number of PCI devices possible
+        /// </summary>
+        private static int MaxPciCount => (_maxPciBusIndex + 1) * 256 /*(MAX_PCI_DEVICE_INDEX + 1) * (MAX_PCI_FUNCTION_INDEX + 1)*/;
     }
 }
