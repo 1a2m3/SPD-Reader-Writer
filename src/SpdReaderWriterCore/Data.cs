@@ -19,6 +19,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 
 namespace SpdReaderWriterCore {
 
@@ -438,15 +439,15 @@ namespace SpdReaderWriterCore {
         /// Data size
         /// </summary>
         public enum DataSize {
-            Qword = 8,
-            Dword = 4,
-            Word  = 2,
-            Byte  = 1,
             Null  = 0,
+            Byte  = 1,
+            Word  = 2,
+            Dword = 4,
+            Qword = 8,
         }
 
         /// <summary>
-        /// Determines if a string contains a case insensitive given substring
+        /// Determines if a string contains a case-insensitive given substring
         /// </summary>
         /// <param name="inputString">The string to search in</param>
         /// <param name="substring">The substring to search for in the <paramref name="inputString"/></param>
@@ -483,12 +484,22 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Converts hex string to byte
+        /// Converts hex string to number
         /// </summary>
         /// <param name="input">Hex string</param>
-        /// <returns>Byte value of input hex string</returns>
-        public static byte HexStringToByte(string input) {
-            return Convert.ToByte(input, 16);
+        /// <returns>Numeric value of input hex string</returns>
+        public static T HexStringToNumber<T>(string input) {
+
+            for (int i = input.Length - 1; i >= 0; i--) {
+
+                char c = input[i];
+
+                if (!ValidateHex(c)) {
+                    throw new ArgumentOutOfRangeException(c.ToString());
+                }
+            }
+
+            return (T)Convert.ChangeType(Convert.ToUInt64(input, 16), typeof(T));
         }
 
         /// <summary>
@@ -1155,6 +1166,57 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Converts struct to byte array
+        /// </summary>
+        /// <param name="input">Input struct</param>
+        /// <returns>Struct byte array</returns>
+        public static byte[] StructToByteArray(object input) {
+
+            IntPtr ptr = IntPtr.Zero;
+            int size   = Marshal.SizeOf(input);
+            byte[] arr = new byte[size];
+
+            try {
+                ptr = Marshal.AllocHGlobal(size);
+                Marshal.StructureToPtr(input, ptr, true);
+                Marshal.Copy(ptr, arr, 0, size);
+
+                return arr;
+            }
+            catch {
+                return null;
+            }
+            finally {
+                Marshal.FreeHGlobal(ptr);
+            }
+        }
+
+        /// <summary>
+        /// Converts byte array to struct
+        /// </summary>
+        /// <typeparam name="T">Output data type</typeparam>
+        /// <param name="input">Input byte array</param>
+        /// <returns>Object struct</returns>
+        public static T ByteArrayToObj<T>(byte[] input) {
+
+            IntPtr ptr = IntPtr.Zero;
+            int size   = input.Length;
+
+            try {
+                ptr = Marshal.AllocHGlobal(size);
+                Marshal.Copy(input, 0, ptr, size);
+                
+                return (T)Marshal.PtrToStructure(ptr, typeof(T));
+            }
+            catch {
+                return default;
+            }
+            finally {
+                Marshal.FreeHGlobal(ptr);
+            }
+        }
+
+        /// <summary>
         /// Gets description attribute of an Enum member
         /// </summary>
         /// <param name="e">Enum member</param>
@@ -1164,7 +1226,204 @@ namespace SpdReaderWriterCore {
             string name = e.ToString();
             object[] descriptionAttributes = e.GetType().GetMember(name)[0].GetCustomAttributes(typeof(DescriptionAttribute), false);
 
-            return descriptionAttributes.Length <= 0 ? name : ((DescriptionAttribute)descriptionAttributes[0]).Description;
+            return descriptionAttributes.Length <= 0
+                ? name
+                : ((DescriptionAttribute)descriptionAttributes[0]).Description;
+        }
+
+        /// <summary>
+        /// Gets field value from specified class
+        /// </summary>
+        /// <typeparam name="T">Field type</typeparam>
+        /// <param name="className">Class name</param>
+        /// <param name="fieldName">Field name</param>
+        /// <returns>Field value</returns>
+        public static T GetFieldValue<T>(string className, string fieldName) {
+
+            if (string.IsNullOrEmpty(className)) {
+                throw new NullReferenceException(nameof(className));
+            }
+
+            if (string.IsNullOrEmpty(fieldName)) {
+                throw new NullReferenceException(nameof(fieldName));
+            }
+
+            Type classType = Type.GetType(className);
+
+            if (classType == null) {
+                return default;
+            }
+
+            BindingFlags fieldFlags = BindingFlags.Instance |
+                                      BindingFlags.Static |
+                                      BindingFlags.Public |
+                                      BindingFlags.NonPublic;
+
+            FieldInfo field = classType.GetField(fieldName, fieldFlags);
+
+            if (field == null) {
+                throw new MissingFieldException(fieldName);
+            }
+
+            object fieldValue = field.GetValue(null);
+
+            return fieldValue is T result
+                ? result
+                : default;
+        }
+
+        /// <summary>
+        /// Gets field value from specified field location
+        /// </summary>
+        /// <typeparam name="T">Field type</typeparam>
+        /// <param name="fieldLocation">Field location</param>
+        /// <returns>Field value</returns>
+        public static T GetFieldValue<T>(string fieldLocation) {
+
+            if (string.IsNullOrEmpty(fieldLocation)) {
+                throw new NullReferenceException(nameof(fieldLocation));
+            }
+
+            if (!fieldLocation.Contains(".")) {
+                throw new ArgumentException(nameof(fieldLocation));
+            }
+
+            // Get class and field names
+            string[] parts = fieldLocation.Split('.');
+            string fieldName = parts[parts.Length - 1];
+            string className = fieldLocation.TrimEnd(fieldName.ToCharArray()).TrimEnd('.');
+
+            return GetFieldValue<T>(className, fieldName);
+        }
+
+        /// <summary>
+        /// Gets fields of specified type in a class
+        /// </summary>
+        /// <typeparam name="T">Field type</typeparam>
+        /// <param name="className">Class name</param>
+        /// <returns>An array of field values</returns>
+        public static T[] GetFieldValues<T>(string className) {
+
+            Queue<T> queue = new Queue<T>();
+
+            Type classType = Type.GetType(className);
+
+            if (classType == null) {
+                return queue.ToArray();
+            }
+
+            BindingFlags fieldFlags = BindingFlags.Instance |
+                                      BindingFlags.Static |
+                                      BindingFlags.Public |
+                                      BindingFlags.NonPublic;
+
+            foreach (FieldInfo subField in classType.GetFields(fieldFlags)) {
+                if (subField.FieldType == typeof(T) &&
+                    subField.GetValue(null).GetType() == typeof(T)) {
+                    queue.Enqueue((T)subField.GetValue(null));
+                }
+            }
+
+            return queue.ToArray();
+        }
+
+        /// <summary>
+        /// Initializes an existing mutex instance
+        /// </summary>
+        /// <param name="mutex">Mutex reference</param>
+        /// <param name="mutexName">Mutex name</param>
+        /// <returns><see langword="true"/> if <paramref name="mutex"/> is created or opened</returns>
+        public static bool CreateMutex(ref Mutex mutex, string mutexName) {
+
+            if (string.IsNullOrEmpty(mutexName)) {
+                throw new NullReferenceException(nameof(mutexName));
+            }
+
+            if (mutex == null) {
+                mutex = CreateMutex(mutexName);
+            }
+
+            return mutex != null;
+        }
+
+        /// <summary>
+        /// Initializes a new mutex instance
+        /// </summary>
+        /// <param name="mutexName">Mutex name</param>
+        /// <returns>Mutex instance</returns>
+        public static Mutex CreateMutex(string mutexName) {
+
+            try {
+                return new Mutex(false, mutexName);
+            }
+            catch (UnauthorizedAccessException) {
+                try {
+                    return Mutex.OpenExisting(mutexName);
+                }
+                catch {
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Blocks the current thread indefinitely until <paramref name="mutex"/> receives a signal 
+        /// </summary>
+        /// <param name="mutex">Mutex object</param>
+        /// <returns><see langword="true"/> if <paramref name="mutex"/> receives a signal</returns>
+        public static bool LockMutex(Mutex mutex) => 
+            LockMutex(mutex, -1);
+
+        /// <summary>
+        /// Blocks the current thread until <paramref name="mutex"/> receives a signal 
+        /// </summary>
+        /// <param name="mutex">Mutex object</param>
+        /// <param name="timeout">The number of milliseconds to wait, or (-1) to wait indefinitely</param>
+        /// <returns><see langword="true"/> if <paramref name="mutex"/> receives a signal</returns>
+        public static bool LockMutex(Mutex mutex, int timeout) {
+
+            if (mutex == null) {
+                return false;
+            }
+
+            // ArgumentOutOfRangeException fix
+            timeout = timeout < -1 ? -1 : timeout;
+
+            try {
+                return mutex.WaitOne(timeout);
+            }
+            catch (AbandonedMutexException) {
+                return true;
+            }
+            catch (ObjectDisposedException) {
+                return false;
+            }
+            catch (InvalidOperationException) {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Releases the <paramref name="mutex"/>
+        /// </summary>
+        /// <param name="mutex">Mutex object</param>
+        /// <returns><see langword="true"/> if <paramref name="mutex"/> has been released</returns>
+        public static bool UnlockMutex(Mutex mutex) {
+
+            if (mutex == null) {
+                return true;
+            }
+
+            try {
+                mutex.ReleaseMutex();
+                return true;
+            }
+            catch (ObjectDisposedException) {
+                return true;
+            }
+            catch (ApplicationException) {
+                return false;
+            }
         }
     }
 }
