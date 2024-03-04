@@ -29,7 +29,7 @@ namespace SpdReaderWriterCore {
         internal delegate bool LockHandleDelegate(bool state);
 
         // Info
-        internal delegate uint GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
+        internal delegate int GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
 
         // Read IO
         internal delegate byte ReadIoPortByteDelegate(ushort port);
@@ -95,25 +95,25 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadIoPortEx<T>(ushort port, out T output) {
 
-            object outputData = null;
-            bool result       = false;
-            output            = default;
+            object outputBuffer = null;
+            bool result         = false;
+            output              = default;
 
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                result = Driver.DriverInfo.ReadIoPortByteEx(port, out byte buffer);
-                outputData = buffer;
+            if (Data.GetDataSize(output) == Data.DataSize.Byte) {
+                result = Driver.Info.ReadIoPortByteEx(port, out byte buffer);
+                outputBuffer = buffer;
             }
-            else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                result = Driver.DriverInfo.ReadIoPortWordEx(port, out ushort buffer);
-                outputData = buffer;
+            else if (Data.GetDataSize(output) == Data.DataSize.Word) {
+                result = Driver.Info.ReadIoPortWordEx(port, out ushort buffer);
+                outputBuffer = buffer;
             }
-            else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                result = Driver.DriverInfo.ReadIoPortDwordEx(port, out uint buffer);
-                outputData = buffer;
+            else if (Data.GetDataSize(output) == Data.DataSize.Dword) {
+                result = Driver.Info.ReadIoPortDwordEx(port, out uint buffer);
+                outputBuffer = buffer;
             }
             
-            if (outputData != null) {
-                output = (T)outputData;
+            if (outputBuffer != null) {
+                output = (T)outputBuffer;
             }
 
             return result;
@@ -124,28 +124,28 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="port">Register offset</param>
-        /// <param name="value">Data value</param>
-        public static void WriteIoPort<T>(ushort port, T value) =>
-            WriteIoPortEx(port, value);
+        /// <param name="input">Input data value</param>
+        public static void WriteIoPort<T>(ushort port, T input) =>
+            WriteIoPortEx(port, input);
 
         /// <summary>
         /// Writes data to an I/O port register
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="port">Register offset</param>
-        /// <param name="value">Data value</param>
+        /// <param name="input">Input data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public static bool WriteIoPortEx<T>(ushort port, T value) {
+        public static bool WriteIoPortEx<T>(ushort port, T input) {
 
-            object input = value;
+            object inputBuffer = input;
 
             switch (Data.GetDataSize(input)) {
                 case Data.DataSize.Byte:
-                    return Driver.DriverInfo.WriteIoPortByteEx(port, (byte)input);
+                    return Driver.Info.WriteIoPortByteEx(port, (byte)inputBuffer);
                 case Data.DataSize.Word:
-                    return Driver.DriverInfo.WriteIoPortWordEx(port, (ushort)input);
+                    return Driver.Info.WriteIoPortWordEx(port, (ushort)inputBuffer);
                 case Data.DataSize.Dword:
-                    return Driver.DriverInfo.WriteIoPortDwordEx(port, (uint)input);
+                    return Driver.Info.WriteIoPortDwordEx(port, (uint)inputBuffer);
                 default:
                     return false;
             }
@@ -165,8 +165,8 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <returns>PCI register value</returns>
         public static T ReadPciConfig<T>(byte bus, byte device, byte function, ushort offset) {
-            ReadPciConfigEx(bus, device, function, offset, out T outputData);
-            return outputData;
+            ReadPciConfigEx(bus, device, function, offset, out T output);
+            return output;
         }
 
         /// <summary>
@@ -181,25 +181,25 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadPciConfigEx<T>(byte bus, byte device, byte function, ushort offset, out T output) {
 
-            object outputData = null;
-            bool result       = false;
-            output            = default;
+            object outputBuffer = null;
+            bool result         = false;
+            output              = default;
 
-            if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                result = Driver.DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
-                outputData = buffer;
+            if (Data.GetDataSize(output) == Data.DataSize.Byte) {
+                result = Driver.Info.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
+                outputBuffer = buffer;
             }
-            else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                result = Driver.DriverInfo.ReadPciConfigWordEx(bus, device, function, offset, out ushort buffer);
-                outputData = buffer;
+            else if (Data.GetDataSize(output) == Data.DataSize.Word) {
+                result = Driver.Info.ReadPciConfigWordEx(bus, device, function, offset, out ushort buffer);
+                outputBuffer = buffer;
             }
-            else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                result = Driver.DriverInfo.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
-                outputData = buffer;
+            else if (Data.GetDataSize(output) == Data.DataSize.Dword) {
+                result = Driver.Info.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
+                outputBuffer = buffer;
             }
 
-            if (outputData != null) {
-                output = (T)outputData;
+            if (outputBuffer != null) {
+                output = (T)outputBuffer;
             }
 
             return result;
@@ -213,9 +213,9 @@ namespace SpdReaderWriterCore {
         /// <param name="device">PCI device number</param>
         /// <param name="function">PCI function number</param>
         /// <param name="offset">Register offset</param>
-        /// <param name="value">Input value</param>
-        public static void WritePciConfig<T>(byte bus, byte device, byte function, ushort offset, T value) => 
-            WritePciConfigEx(bus, device, function, offset, value);
+        /// <param name="input">Input data value</param>
+        public static void WritePciConfig<T>(byte bus, byte device, byte function, ushort offset, T input) => 
+            WritePciConfigEx(bus, device, function, offset, input);
 
         /// <summary>
         /// Writes to PCI register
@@ -225,19 +225,19 @@ namespace SpdReaderWriterCore {
         /// <param name="device">PCI device number</param>
         /// <param name="function">PCI function number</param>
         /// <param name="offset">Register offset</param>
-        /// <param name="value">Input value</param>
+        /// <param name="input">Input value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public static bool WritePciConfigEx<T>(byte bus, byte device, byte function, ushort offset, T value) {
+        public static bool WritePciConfigEx<T>(byte bus, byte device, byte function, ushort offset, T input) {
 
-            object input = value;
+            object inputBuffer = input;
 
-            switch (Data.GetDataSize(typeof(T))) {
+            switch (Data.GetDataSize(input)) {
                 case Data.DataSize.Byte:
-                    return Driver.DriverInfo.WritePciConfigByteEx(bus, device, function, offset, (byte)input);
+                    return Driver.Info.WritePciConfigByteEx(bus, device, function, offset, (byte)inputBuffer);
                 case Data.DataSize.Word:
-                    return Driver.DriverInfo.WritePciConfigWordEx(bus, device, function, offset, (ushort)input);
+                    return Driver.Info.WritePciConfigWordEx(bus, device, function, offset, (ushort)inputBuffer);
                 case Data.DataSize.Dword:
-                    return Driver.DriverInfo.WritePciConfigDwordEx(bus, device, function, offset, (uint)input);
+                    return Driver.Info.WritePciConfigDwordEx(bus, device, function, offset, (uint)inputBuffer);
                 default:
                     return false;
             }
@@ -267,25 +267,25 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadMemoryEx<T>(uint address, out T output) {
 
-            object outputData = null;
-            bool result       = false;
-            output            = default;
+            object outputBuffer = null;
+            bool result         = false;
+            output              = default;
 
             if (Data.GetDataSize(typeof(T)) == Data.DataSize.Byte) {
-                result = Driver.DriverInfo.ReadMemoryByteEx(address, out byte buffer);
-                outputData = buffer;
+                result = Driver.Info.ReadMemoryByteEx(address, out byte buffer);
+                outputBuffer = buffer;
             }
             else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Word) {
-                result = Driver.DriverInfo.ReadMemoryWordEx(address, out ushort buffer);
-                outputData = buffer;
+                result = Driver.Info.ReadMemoryWordEx(address, out ushort buffer);
+                outputBuffer = buffer;
             }
             else if (Data.GetDataSize(typeof(T)) == Data.DataSize.Dword) {
-                result = Driver.DriverInfo.ReadMemoryDwordEx(address, out uint buffer);
-                outputData = buffer;
+                result = Driver.Info.ReadMemoryDwordEx(address, out uint buffer);
+                outputBuffer = buffer;
             }
 
-            if (outputData != null) {
-                output = (T)outputData;
+            if (outputBuffer != null) {
+                output = (T)outputBuffer;
             }
 
             return result;
