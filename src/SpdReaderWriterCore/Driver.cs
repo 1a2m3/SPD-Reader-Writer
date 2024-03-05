@@ -12,7 +12,6 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Threading;
@@ -31,46 +30,26 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Default driver to use
         /// </summary>
-        private static readonly Info DefaultDriver = GetDriverInfo("SpdReaderWriterCore.Drivers.CpuId.CpuZ", "CpuZInfo");
+        private static Info DefaultDriver {
+            get {
+                //return SpdReaderWriterCore.Drivers.CpuId.CpuZ.CpuZInfo;
 
-        /// <summary>
-        /// Gets driver info
-        /// </summary>
-        /// <param name="driverClass">Driver class</param>
-        /// <param name="fieldName">Driver info field name</param>
-        /// <returns>Driver info</returns>
-        private static Info GetDriverInfo(string driverClass, string fieldName) {
+                string className = "SpdReaderWriterCore.Drivers.CpuId.CpuZ";
+                string fieldName = "CpuZInfo";
 
-            Type driverType = Type.GetType(driverClass);
-
-            if (driverType == null) {
-                return new Info();
-            }
-
-            BindingFlags fieldFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
-
-            FieldInfo driverInfoField = driverType.GetField(fieldName, fieldFlags);
-
-            if (driverInfoField == null) {
-                foreach (FieldInfo fieldInfo in driverType.GetFields(fieldFlags)) {
-                    if (fieldInfo.FieldType != DriverInfo.GetType()) {
-                        continue;
-                    }
-
-                    driverInfoField = fieldInfo;
-                    break;
+                try {
+                    return Data.GetFieldValue<Info>(className, fieldName);
                 }
-            }
+                catch (MissingFieldException) {
+                    foreach (Info fieldValue in Data.GetFieldValues<Info>(className)) {
+                        if (fieldValue.Name == fieldName) {
+                            return fieldValue;
+                        }
+                    }
+                }
 
-            if (driverInfoField == null) {
                 return new Info();
             }
-
-            object driverInfoValue = driverInfoField.GetValue(null);
-
-            return driverInfoValue is Info driverInfo
-                ? driverInfo
-                : new Info();
         }
 
         /// <summary>
@@ -81,44 +60,46 @@ namespace SpdReaderWriterCore {
             set {
                 _driverInfo = value;
 
-                // Driver pre-init
-                if (!_driverInfo.Setup()) {
-                    throw new Exception($"{_driverInfo.ServiceName} setup failed");
-                }
+                int i = 0;
+                ulong methodStatusMask = 0;
 
                 // Check if all functions are present
-                if (_driverInfo.Setup                 == null) { throw new MissingMethodException(typeof(SetupDelegate).ToString()); }
-                if (_driverInfo.GetDriverVersion      == null) { throw new MissingMethodException(typeof(GetDriverVersionDelegate).ToString()); }
-                if (_driverInfo.ReadIoPortByte        == null) { throw new MissingMethodException(typeof(ReadIoPortByteDelegate).ToString()); }
-                if (_driverInfo.ReadIoPortByteEx      == null) { throw new MissingMethodException(typeof(ReadIoPortByteExDelegate).ToString()); }
-                if (_driverInfo.ReadIoPortWord        == null) { throw new MissingMethodException(typeof(ReadIoPortWordDelegate).ToString()); }
-                if (_driverInfo.ReadIoPortWordEx      == null) { throw new MissingMethodException(typeof(ReadIoPortWordExDelegate).ToString()); }
-                if (_driverInfo.ReadIoPortDword       == null) { throw new MissingMethodException(typeof(ReadIoPortDwordDelegate).ToString()); }
-                if (_driverInfo.ReadIoPortDwordEx     == null) { throw new MissingMethodException(typeof(ReadIoPortDwordExDelegate).ToString()); }
-                if (_driverInfo.WriteIoPortByte       == null) { throw new MissingMethodException(typeof(WriteIoPortByteDelegate).ToString()); }
-                if (_driverInfo.WriteIoPortByteEx     == null) { throw new MissingMethodException(typeof(WriteIoPortByteExDelegate).ToString()); }
-                if (_driverInfo.WriteIoPortWord       == null) { throw new MissingMethodException(typeof(WriteIoPortWordDelegate).ToString()); }
-                if (_driverInfo.WriteIoPortWordEx     == null) { throw new MissingMethodException(typeof(WriteIoPortWordExDelegate).ToString()); }
-                if (_driverInfo.WriteIoPortDword      == null) { throw new MissingMethodException(typeof(WriteIoPortDwordDelegate).ToString()); }
-                if (_driverInfo.WriteIoPortDwordEx    == null) { throw new MissingMethodException(typeof(WriteIoPortDwordExDelegate).ToString()); }
-                if (_driverInfo.ReadPciConfigByte     == null) { throw new MissingMethodException(typeof(ReadPciConfigByteDelegate).ToString()); }
-                if (_driverInfo.ReadPciConfigByteEx   == null) { throw new MissingMethodException(typeof(ReadPciConfigByteExDelegate).ToString()); }
-                if (_driverInfo.ReadPciConfigWord     == null) { throw new MissingMethodException(typeof(ReadPciConfigWordDelegate).ToString()); }
-                if (_driverInfo.ReadPciConfigWordEx   == null) { throw new MissingMethodException(typeof(ReadPciConfigWordExDelegate).ToString()); }
-                if (_driverInfo.ReadPciConfigDword    == null) { throw new MissingMethodException(typeof(ReadPciConfigDwordDelegate).ToString()); }
-                if (_driverInfo.ReadPciConfigDwordEx  == null) { throw new MissingMethodException(typeof(ReadPciConfigDwordExDelegate).ToString()); }
-                if (_driverInfo.WritePciConfigByte    == null) { throw new MissingMethodException(typeof(WritePciConfigByteDelegate).ToString()); }
-                if (_driverInfo.WritePciConfigByteEx  == null) { throw new MissingMethodException(typeof(WritePciConfigByteExDelegate).ToString()); }
-                if (_driverInfo.WritePciConfigWord    == null) { throw new MissingMethodException(typeof(WritePciConfigWordDelegate).ToString()); }
-                if (_driverInfo.WritePciConfigWordEx  == null) { throw new MissingMethodException(typeof(WritePciConfigWordExDelegate).ToString()); }
-                if (_driverInfo.WritePciConfigDword   == null) { throw new MissingMethodException(typeof(WritePciConfigDwordDelegate).ToString()); }
-                if (_driverInfo.WritePciConfigDwordEx == null) { throw new MissingMethodException(typeof(WritePciConfigDwordExDelegate).ToString()); }
-                if (_driverInfo.ReadMemoryByte        == null) { throw new MissingMethodException(typeof(ReadMemoryByteDelegate).ToString()); }
-                if (_driverInfo.ReadMemoryByteEx      == null) { throw new MissingMethodException(typeof(ReadMemoryByteDelegateEx).ToString()); }
-                if (_driverInfo.ReadMemoryWord        == null) { throw new MissingMethodException(typeof(ReadMemoryWordDelegate).ToString()); }
-                if (_driverInfo.ReadMemoryWordEx      == null) { throw new MissingMethodException(typeof(ReadMemoryWordDelegateEx).ToString()); }
-                if (_driverInfo.ReadMemoryDword       == null) { throw new MissingMethodException(typeof(ReadMemoryDwordDelegate).ToString()); }
-                if (_driverInfo.ReadMemoryDwordEx     == null) { throw new MissingMethodException(typeof(ReadMemoryDwordDelegateEx).ToString()); }
+                if (_driverInfo.Setup                 == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.GetDriverVersion      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortByte        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortByteEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortWord        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortWordEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortDword       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortDwordEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortByte       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortByteEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortWord       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortWordEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortDword      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortDwordEx    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigByte     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigByteEx   == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigWord     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigWordEx   == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigDword    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigDwordEx  == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigByte    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigByteEx  == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigWord    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigWordEx  == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigDword   == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigDwordEx == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryByte        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryByteEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryWord        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryWordEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryDword       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryDwordEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+
+                if (methodStatusMask > 0) {
+                    throw new MissingMethodException($"{_driverInfo.Name} {nameof(MissingMethodException)}: 0x{methodStatusMask:X16}");
+                }
             }
         }
 
@@ -126,6 +107,18 @@ namespace SpdReaderWriterCore {
         /// Kernel Driver Info struct
         /// </summary>
         public struct Info {
+
+            /// <summary>
+            /// Driver name
+            /// </summary>
+            public string Name;
+
+            /// <summary>
+            /// Info string
+            /// </summary>
+            /// <returns>Service name</returns>
+            public override string ToString() => !string.IsNullOrEmpty(ServiceName) ? ServiceName : "?";
+
             /// <summary>
             /// Driver service name
             /// </summary>
@@ -134,17 +127,17 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Driver file name
             /// </summary>
-            internal string FileName;
+            public string FileName;
 
             /// <summary>
             /// NT Device name
             /// </summary>
-            internal string DeviceName;
+            public string DeviceName;
 
             /// <summary>
             /// Driver file path
             /// </summary>
-            internal string FilePath;
+            public string FilePath;
 
             /// <summary>
             /// Binary driver file contents
@@ -203,9 +196,8 @@ namespace SpdReaderWriterCore {
         /// <param name="revision">Revision number</param>
         /// <param name="release">Release number</param>
         /// <returns>Driver version</returns>
-        public static uint GetDriverVersion(out byte major, out byte minor, out byte revision, out byte release) {
-            return DriverInfo.GetDriverVersion(out major, out minor, out revision, out release);
-        }
+        public static int GetDriverVersion(out byte major, out byte minor, out byte revision, out byte release) => 
+            DriverInfo.GetDriverVersion(out major, out minor, out revision, out release);
 
         /// <summary>
         /// Starts kernel driver
@@ -478,35 +470,27 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if driver handle is successfully closed</returns>
         private static bool CloseDriverHandle() {
-
             _driverHandle?.Close();
-            LockState = false;
+
             return !IsHandleOpen;
         }
 
         /// <summary>
         /// Locks driver object handle to prevent opening new handles
         /// </summary>
-        internal static void LockHandle() => LockState = LockHandle(true);
+        internal static bool LockHandle() => LockHandle(true);
 
         /// <summary>
         /// Unlocks driver object handle to allow opening new handles
         /// </summary>
-        internal static void UnlockHandle() => LockState = !LockHandle(false);
-
-        /// <summary>
-        /// Driver object handle lock state
-        /// </summary>
-        internal static bool LockState { get; private set; }
+        internal static bool UnlockHandle() => LockHandle(false);
 
         /// <summary>
         /// Sets handle lock status
         /// </summary>
         /// <param name="state">Handle lock state</param>
         /// <returns><see langword="true"/> if driver handle lock is successfully set</returns>
-        internal static bool LockHandle(bool state) {
-            return DriverInfo.LockHandle(state);
-        }
+        internal static bool LockHandle(bool state) => DriverInfo.LockHandle(state);
 
         /// <summary>
         /// Describes driver installation state
@@ -529,7 +513,8 @@ namespace SpdReaderWriterCore {
         public static bool IsRunning {
             get {
                 try {
-                    return Service?.Status == ServiceControllerStatus.Running;
+                    return IsInstalled &&
+                           Service?.Status == ServiceControllerStatus.Running;
                 }
                 catch {
                     return false;
@@ -549,7 +534,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="dwAccess">The access to the service control manager</param>
         /// <returns>If the function succeeds, the return value is a handle to the specified service control manager database. If the function fails, the return value is NULL</returns>
-        public static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => Advapi32.OpenSCManager(null, null, dwAccess);
+        private static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => Advapi32.OpenSCManager(null, null, dwAccess);
 
         /// <summary>
         /// Reads data from device
@@ -614,7 +599,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="deviceType">Identifies the device type.</param>
         /// <param name="function">Identifies the function to be performed by the driver.</param>
-        /// <param name="method">Indicates how the system will pass data between the caller of <see cref="Kernel32.DeviceIoControl"/> and the driver that handles the IRP.
+        /// <param name="method">Indicates how the system will pass data between the caller of <see cref="NativeFunctions.Kernel32.DeviceIoControl"/> and the driver that handles the IRP.
         /// Use one of the <see cref="IoctlMethod"/> constants.</param>
         /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
         /// <returns>An I/O control code</returns>
@@ -719,6 +704,5 @@ namespace SpdReaderWriterCore {
         /// IO device driver handle
         /// </summary>
         private static SafeFileHandle _driverHandle;
-
     }
 }
