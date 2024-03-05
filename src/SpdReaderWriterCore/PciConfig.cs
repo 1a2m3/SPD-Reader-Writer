@@ -12,47 +12,53 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using System.Threading;
 
 namespace SpdReaderWriterCore {
 
     /// <summary>
-    /// PCI Device class
+    /// PCI configuration space class
     /// </summary>
-    public class PciDevice {
+    public class PciConfig {
 
         /// <summary>
-        /// Initializes default PciDevice instance
+        /// Initializes default PCI config instance
         /// </summary>
-        public PciDevice() {
+        public PciConfig() {
             Location.Bus      = 0;
             Location.Device   = 0;
             Location.Function = 0;
         }
 
         /// <summary>
-        /// Initializes PciDevice instance based on its PCI location
+        /// Initializes a new Pci Config instance based on its PCI location
         /// </summary>
         /// <param name="bus">PCI bus number</param>
-        /// <param name="device">PCI device number</param>
-        /// <param name="function">PCI function number</param>
-        public PciDevice(byte bus, byte device, byte function) {
+        /// <param name="device">PCI configuration space device number</param>
+        /// <param name="function">PCI configuration space function number</param>
+        public PciConfig(byte bus, byte device, byte function) {
             Location.Bus      = bus;
             Location.Device   = device;
             Location.Function = function;
         }
 
         /// <summary>
-        /// Invalid PCI device instance
+        /// Copies existing PCI Config instance to a new PCI Config instance
         /// </summary>
-        public static PciDevice InvalidDevice => new PciDevice(byte.MaxValue, byte.MaxValue, byte.MaxValue);
+        /// <param name="pciConfig">Source PCI Config instance</param>
+        public PciConfig(PciConfig pciConfig) {
+            Location.Bus      = pciConfig.Bus;
+            Location.Device   = pciConfig.Device;
+            Location.Function = pciConfig.Function;
+        }
 
         /// <summary>
-        /// PCI device location info
+        /// PCI Config instance location info
         /// </summary>
         public LocationInfo Location;
 
         /// <summary>
-        /// PCI device bus number
+        /// PCI Config instance bus number
         /// </summary>
         public byte Bus {
             get => Location.Bus;
@@ -60,7 +66,7 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// PCI device device number
+        /// PCI Config instance device number
         /// </summary>
         public byte Device {
             get => Location.Device;
@@ -68,7 +74,7 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// PCI device function number
+        /// PCI device instance function number
         /// </summary>
         public byte Function {
             get => Location.Function;
@@ -76,27 +82,55 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// PCI device instance location
+        /// Sets PCI device instance new bus number
         /// </summary>
-        /// <returns>Readable PCI device instance location</returns>
-        public override string ToString() {
-            return $"{Location.Bus:D}/{Location.Device:D}/{Location.Function:D}";
+        /// <param name="bus">PCI device bus number</param>
+        /// <returns>PCI device instance with new <paramref name="bus"/> number</returns>
+        public PciConfig SetBus(byte bus) {
+            Bus = bus;
+            return this;
         }
+
+        /// <summary>
+        /// Sets PCI device instance new device number
+        /// </summary>
+        /// <param name="device">PCI device device number</param>
+        /// <returns>PCI device instance with new <paramref name="device"/> number</returns>
+        public PciConfig SetDevice(byte device) {
+            Device = device;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets PCI device instance new function number
+        /// </summary>
+        /// <param name="function">PCI device function number</param>
+        /// <returns>PCI device instance with new <paramref name="function"/> number</returns>
+        public PciConfig SetFunction(byte function) {
+            Function = function;
+            return this;
+        }
+
+        /// <summary>
+        /// PCI config instance description
+        /// </summary>
+        /// <returns>Readable PCI config instance description</returns>
+        public override string ToString() => Location.ToString();
 
         /// <summary>
         /// PCI device's vendor ID
         /// </summary>
-        public VendorId VendorId => Read<VendorId>(Register.VendorId);
+        public VendorId VendorId => (VendorId)Read<ushort>(Register.VendorId);
 
         /// <summary>
         /// PCI device's device ID
         /// </summary>
-        public DeviceId DeviceId => Read<DeviceId>(Register.DeviceId);
+        public DeviceId DeviceId => (DeviceId)Read<ushort>(Register.DeviceId);
 
         /// <summary>
         /// PCI device's Revision ID
         /// </summary>
-        public ushort RevisionId => Read<byte>(Register.RevisionId);
+        public byte RevisionId => Read<byte>(Register.RevisionId);
 
         /// <summary>
         /// PCI device's BaseClass
@@ -111,46 +145,89 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// PCI device's program interface
         /// </summary>
-        public byte ProgramInterface => Read<byte>(Register.ProgramInterface);
+        public ProgramIf ProgInterface => (ProgramIf)Read<byte>(Register.ProgramInterface);
 
         /// <summary>
-        /// Reads data from PCI device configuration space
+        /// Reads data from PCI configuration space
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <returns>Data value at <paramref name="offset"/> location</returns>
         public T Read<T>(ushort offset) {
-            Read(offset, out T output);
+
+            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+                return default;
+            }
+
+            ReadEx(offset, out T output);
+            Data.UnlockMutex(PciMutex);
+
             return output;
         }
 
         /// <summary>
-        /// Reads data from PCI device configuration space
+        /// Reads data from PCI configuration space
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <param name="output">Register value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool Read<T>(ushort offset, out T output) => 
-            Kernel.ReadPciConfigEx(Bus, Device, Function, offset, out output);
+        public bool ReadEx<T>(ushort offset, out T output) {
+
+            output = default;
+
+            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+                return false;
+            }
+
+            bool result = Kernel.ReadPciConfigEx(Bus, Device, Function, offset, out output);
+            Data.UnlockMutex(PciMutex);
+
+            return result;
+        }
 
         /// <summary>
-        /// Write data to PCI device configuration space
+        /// Writes data to PCI configuration space
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="offset">Register offset</param>
+        /// <param name="value">Data value</param>
+        public void Write<T>(ushort offset, T value) {
+            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+                return;
+            }
+
+            WriteEx(offset, value);
+            Data.UnlockMutex(PciMutex);
+        }
+
+        /// <summary>
+        /// Writes data to PCI configuration space
         /// </summary>
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool Write<T>(ushort offset, T value) => 
-            Kernel.WritePciConfigEx(Bus, Device, Function, offset, value);
+        public bool WriteEx<T>(ushort offset, T value) {
+
+            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+                return false;
+            }
+
+            bool result = Kernel.WritePciConfigEx(Bus, Device, Function, offset, value);
+            Data.UnlockMutex(PciMutex);
+
+            return result;
+        }
 
         /// <summary>
         /// Finds PCI device matching Vendor ID and Device ID
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
-        /// <returns>PCI Device matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static PciDevice FindDeviceById(VendorId vendorId, DeviceId deviceId) => 
+        /// <returns>PCI Device matching input <paramref name="vendorId">Vendor ID</paramref>
+        /// and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciConfig FindDeviceById(VendorId vendorId, DeviceId deviceId) =>
             FindDeviceById(vendorId, deviceId, 0);
 
         /// <summary>
@@ -159,20 +236,21 @@ namespace SpdReaderWriterCore {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <param name="index">Device index to find</param>
-        /// <returns>PCI Device matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static PciDevice FindDeviceById(VendorId vendorId, DeviceId deviceId, ushort index) {
+        /// <returns>PCI Device matching input <paramref name="vendorId">Vendor ID</paramref>
+        /// and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciConfig FindDeviceById(VendorId vendorId, DeviceId deviceId, ushort index) {
 
             if (index > MaxPciCount) {
                 throw new ArgumentOutOfRangeException();
             }
 
             if (vendorId == ushort.MinValue || vendorId == (VendorId)ushort.MaxValue) {
-                return InvalidDevice;
+                return null;
             }
 
-            PciDevice[] device = FindDevicesById(vendorId, deviceId);
+            PciConfig[] device = FindDevicesById(vendorId, deviceId, index);
 
-            return device.Length >= index + 1 ? device[index] : InvalidDevice;
+            return device.Length >= index + 1 ? device[index] : null;
         }
 
         /// <summary>
@@ -180,8 +258,9 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
-        /// <returns>An array of PCI Devices matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static PciDevice[] FindDevicesById(VendorId vendorId, DeviceId deviceId) => 
+        /// <returns>An array of PCI Devices matching input <paramref name="vendorId">Vendor ID</paramref>
+        /// and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciConfig[] FindDevicesById(VendorId vendorId, DeviceId deviceId) =>
             FindDevicesById(vendorId, deviceId, MaxPciCount);
 
         /// <summary>
@@ -190,59 +269,73 @@ namespace SpdReaderWriterCore {
         /// <param name="vendorId">Vendor ID</param>
         /// <param name="deviceId">Device ID</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
-        /// <returns>An array of PCI Devices matching input <paramref name="vendorId">Vendor ID</paramref> and <paramref name="deviceId">Device ID</paramref></returns>
-        public static PciDevice[] FindDevicesById(VendorId vendorId, DeviceId deviceId, int maxCount) {
+        /// <returns>An array of PCI Devices matching input <paramref name="vendorId">Vendor ID</paramref>
+        /// and <paramref name="deviceId">Device ID</paramref></returns>
+        public static PciConfig[] FindDevicesById(VendorId vendorId, DeviceId deviceId, int maxCount) {
 
             if (maxCount > MaxPciCount || maxCount == 0) {
                 throw new ArgumentOutOfRangeException(nameof(maxCount));
             }
 
-            uint count = 0;
+            Queue<PciConfig> result = new Queue<PciConfig>();
 
-            if (vendorId == default || deviceId == default) {
-                return new PciDevice[0];
-            }
+            bool stopFlag = false;
 
-            Queue<PciDevice> result = new Queue<PciDevice>();
-            
-            for (short bus = 0; bus <= _maxPciBusIndex; bus++) {
-                for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX; dev++) {
+            if (Data.LockMutex(PciMutex, PciMutexTimeout)) {
 
-                    DeviceId devId = Kernel.ReadPciConfig<DeviceId>((byte)bus, dev, 0, Register.DeviceId);
+                PciConfig pciConfig = new PciConfig();
 
-                    if (devId == ushort.MinValue || devId == DeviceId.Invalid) {
-                        continue;
-                    }
+                // Bus loop
+                for (short bus = 0; bus <= _maxPciBusIndex && !stopFlag; bus++) {
+                    // Device loop
+                    for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX && !stopFlag; dev++) {
 
-                    for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
+                        pciConfig.SetBus((byte)bus).SetDevice(dev).SetFunction(0);
 
-                        uint header = Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0);
+                        DeviceId devId = pciConfig.DeviceId;
 
-                        if (header != ((ushort)vendorId | (ushort)deviceId << 16)) {
+                        if (devId == ushort.MinValue ||
+                            devId == DeviceId.Invalid) {
                             continue;
                         }
 
-                        result.Enqueue(new PciDevice((byte)bus, dev, func));
+                        // Function loop
+                        for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
 
-                        if (++count == maxCount) {
-                            return result.ToArray();
+                            pciConfig.SetFunction(func);
+
+                            // Check header
+                            if (Kernel.ReadPciConfig<uint>((byte)bus, dev, func, Register.VendorId) !=
+                                (uint)((ushort)vendorId | ((ushort)deviceId << 16))) {
+                                continue;
+                            }
+
+                            result.Enqueue(new PciConfig(pciConfig));
+
+                            if (result.Count != maxCount) {
+                                continue;
+                            }
+
+                            stopFlag = true;
+                            break;
                         }
                     }
                 }
+
+                Data.UnlockMutex(PciMutex);
             }
 
             return result.ToArray();
         }
-        
+
         /// <summary>
         /// Finds PCI device by Device Class
         /// </summary>
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <returns>PCI Devices matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
-        public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass) {
-            return FindDeviceByClass(baseClass, subClass, 0);
-        }
+        public static PciConfig FindDeviceByClass(BaseClassType baseClass, SubClassType subClass) =>
+            FindDeviceByClass(baseClass, subClass, 0);
 
         /// <summary>
         /// Finds PCI device by Device Class
@@ -250,8 +343,9 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
-        /// <returns>PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) => 
+        /// <returns>PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>,
+        /// and <paramref name="programIf"/></returns>
+        public static PciConfig FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) =>
             FindDeviceByClass(baseClass, subClass, programIf, 0);
 
         /// <summary>
@@ -261,16 +355,17 @@ namespace SpdReaderWriterCore {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <param name="index">Device index to find</param>
-        /// <returns>PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public static PciDevice FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf, ushort index) {
+        /// <returns>PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>,
+        /// and <paramref name="programIf"/></returns>
+        public static PciConfig FindDeviceByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf, ushort index) {
 
             if (index > MaxPciCount) {
                 throw new ArgumentOutOfRangeException(nameof(index));
             }
 
-            PciDevice[] device = FindDevicesByClass(baseClass, subClass, programIf);
+            PciConfig[] device = FindDevicesByClass(baseClass, subClass, programIf);
 
-            return device.Length >= index + 1 ? device[index] : InvalidDevice;
+            return device.Length >= index + 1 ? device[index] : null;
         }
 
         /// <summary>
@@ -279,7 +374,7 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/> and <paramref name="subClass"/></returns>
-        public static PciDevice[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass) => 
+        public static PciConfig[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass) =>
             FindDevicesByClass(baseClass, subClass, 0);
 
         /// <summary>
@@ -288,8 +383,9 @@ namespace SpdReaderWriterCore {
         /// <param name="baseClass">Base Class</param>
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
-        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public static PciDevice[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) => 
+        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>,
+        /// and <paramref name="programIf"/></returns>
+        public static PciConfig[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf) =>
             FindDevicesByClass(baseClass, subClass, programIf, MaxPciCount);
 
         /// <summary>
@@ -299,40 +395,60 @@ namespace SpdReaderWriterCore {
         /// <param name="subClass">Sub Class</param>
         /// <param name="programIf">Program Interface</param>
         /// <param name="maxCount">Maximum number of devices to find</param>
-        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>, and <paramref name="programIf"/></returns>
-        public static PciDevice[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf, int maxCount) {
+        /// <returns>An array of PCI Devices matching input <paramref name="baseClass"/>, <paramref name="subClass"/>,
+        /// and <paramref name="programIf"/></returns>
+        public static PciConfig[] FindDevicesByClass(BaseClassType baseClass, SubClassType subClass, ProgramIf programIf, int maxCount) {
 
             if (maxCount > MaxPciCount || maxCount == 0) {
                 throw new ArgumentOutOfRangeException(nameof(maxCount));
             }
 
-            uint count = 0;
+            Queue<PciConfig> result = new Queue<PciConfig>();
 
-            Queue<PciDevice> result = new Queue<PciDevice>();
+            bool stopFlag = false;
 
-            for (short bus = 0; bus <= _maxPciBusIndex; bus++) {
-                for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX; dev++) {
+            if (Data.LockMutex(PciMutex, PciMutexTimeout)) {
 
-                    ushort devId = Kernel.ReadPciConfig<ushort>((byte)bus, dev, 0, 0x00);
+                PciConfig pciConfig = new PciConfig();
 
-                    if (devId == ushort.MinValue || devId == ushort.MaxValue) {
-                        continue;
-                    }
+                // Bus loop
+                for (short bus = 0; bus <= _maxPciBusIndex && !stopFlag; bus++) {
+                    // Device loop
+                    for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX && !stopFlag; dev++) {
 
-                    for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
+                        pciConfig.SetBus((byte)bus).SetDevice(dev).SetFunction(0);
 
-                        if ((Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0x08) & 0xFFFFFF00) !=
-                            (uint)((byte)baseClass << 24 | ((byte)subClass << 16) | (byte)programIf << 8)) {
+                        DeviceId devId = pciConfig.DeviceId;
+
+                        if (devId == ushort.MinValue ||
+                            devId == DeviceId.Invalid) {
                             continue;
                         }
 
-                        result.Enqueue(new PciDevice((byte)bus, dev, func));
+                        for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
 
-                        if (++count == maxCount) {
-                            return result.ToArray();
+                            pciConfig.SetFunction(func);
+
+                            if ((Kernel.ReadPciConfig<uint>((byte)bus, dev, func, 0x08) & 0xFFFFFF00) !=
+                                (uint)(((byte)baseClass << 24) | 
+                                       ((byte)subClass  << 16) |
+                                       ((byte)programIf <<  8))) {
+                                continue;
+                            }
+
+                            result.Enqueue(new PciConfig(pciConfig));
+
+                            if (result.Count != maxCount) {
+                                continue;
+                            }
+
+                            stopFlag = true;
+                            break;
                         }
                     }
                 }
+
+                Data.UnlockMutex(PciMutex);
             }
 
             return result.ToArray();
@@ -352,12 +468,14 @@ namespace SpdReaderWriterCore {
             public byte Bus;
             public byte Device;
             public byte Function;
+
+            public override string ToString() => $"{Bus:D}/{Device:D}/{Function:D}";
         }
 
         /// <summary>
         /// PCI Device info
         /// </summary>
-        public struct DeviceInfo {
+        public struct PciInfo {
             public VendorId VendorId;
             public DeviceId DeviceId;
 
@@ -368,8 +486,8 @@ namespace SpdReaderWriterCore {
 
                 StringBuilder sb = new StringBuilder();
 
-                sb.Append(Enum.IsDefined(typeof(VendorId), VendorId) 
-                    ? VendorId.ToString() 
+                sb.Append(Enum.IsDefined(typeof(VendorId), VendorId)
+                    ? VendorId.ToString()
                     : $"0x{VendorId:X4}".ToString());
 
                 sb.Append(" ");
@@ -385,7 +503,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// PCI Base Class codes
         /// </summary>
-        public enum BaseClassType {
+        public enum BaseClassType : byte {
             Obsolete        = 0x00,
             Storage         = 0x01,
             Network         = 0x02,
@@ -410,7 +528,7 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// PCI sub class codes
+        /// PCI Sub Class codes
         /// </summary>
         public enum SubClassType : byte {
             Isa   = 0x01,
@@ -458,5 +576,15 @@ namespace SpdReaderWriterCore {
         /// Absolute maximum number of PCI devices possible
         /// </summary>
         private static int MaxPciCount => (_maxPciBusIndex + 1) * 256 /*(MAX_PCI_DEVICE_INDEX + 1) * (MAX_PCI_FUNCTION_INDEX + 1)*/;
+
+        /// <summary>
+        /// Global PCI access mutex
+        /// </summary>
+        internal static Mutex PciMutex = Data.CreateMutex(@"Global\Access_PCI");
+
+        /// <summary>
+        /// Global PCI access mutex timeout
+        /// </summary>
+        internal static int PciMutexTimeout = 5000;
     }
 }

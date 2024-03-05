@@ -9,6 +9,8 @@
 
 */
 
+using System.Threading;
+
 namespace SpdReaderWriterCore {
 
     /// <summary>
@@ -19,17 +21,13 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// New IO port instance
         /// </summary>
-        public IoPort() {
-            BaseAddress = 0;
-        }
+        public IoPort() => BaseAddress = 0;
 
         /// <summary>
         /// New IO port instance
         /// </summary>
         /// <param name="address">Base address</param>
-        public IoPort(ushort address) {
-            BaseAddress = address;
-        }
+        public IoPort(ushort address) => BaseAddress = address;
 
         /// <summary>
         /// IO Port base address
@@ -40,9 +38,7 @@ namespace SpdReaderWriterCore {
         /// IO port instance description
         /// </summary>
         /// <returns>Readable IO port instance description</returns>
-        public override string ToString() {
-            return $"0x{BaseAddress:X4}";
-        }
+        public override string ToString() => $"0x{BaseAddress:X4}";
 
         /// <summary>
         /// Reads data from an IO port register
@@ -50,8 +46,17 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
-        public T Read<T>(ushort offset) => 
-            Kernel.ReadIoPort<T>((ushort)(BaseAddress + offset));
+        public T Read<T>(ushort offset) {
+
+            if (!Data.LockMutex(IsaMutex, IsaMutexTimeout)) {
+                return default;
+            }
+
+            ReadEx(offset, out T output);
+            Data.UnlockMutex(IsaMutex);
+
+            return output;
+        }
 
         /// <summary>
         /// Reads data from an IO port register
@@ -60,8 +65,19 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="output">Output reference</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool ReadEx<T>(ushort offset, out T output) => 
-            Kernel.ReadIoPortEx((ushort)(BaseAddress + offset), out output);
+        public bool ReadEx<T>(ushort offset, out T output) {
+
+            output = default;
+
+            if (!Data.LockMutex(IsaMutex, IsaMutexTimeout)) {
+                return false;
+            }
+
+            bool result = Kernel.ReadIoPortEx((ushort)(BaseAddress + offset), out output);
+            Data.UnlockMutex(IsaMutex);
+
+            return result;
+        }
 
         /// <summary>
         /// Writes data to an IO port register
@@ -70,7 +86,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         public void Write<T>(ushort offset, T value) => 
-            Kernel.WriteIoPortEx((ushort)(BaseAddress + offset), value);
+            WriteEx(offset, value);
 
         /// <summary>
         /// Writes data to an IO port register
@@ -79,7 +95,26 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         /// <returns><see langword="true"/> if the function succeeds</returns>
-        public bool WriteEx<T>(ushort offset, T value) => 
-            Kernel.WriteIoPortEx((ushort)(BaseAddress + offset), value);
+        public bool WriteEx<T>(ushort offset, T value) {
+
+            if (!Data.LockMutex(IsaMutex, IsaMutexTimeout)) {
+                return false;
+            }
+
+            bool result = Kernel.WriteIoPortEx((ushort)(BaseAddress + offset), value);
+            Data.UnlockMutex(IsaMutex);
+
+            return result;
+        }
+
+        /// <summary>
+        /// Global ISA access mutex
+        /// </summary>
+        internal static Mutex IsaMutex = Data.CreateMutex(@"Global\Access_ISABUS.HTP.Method");
+
+        /// <summary>
+        /// Global ISA access mutex timeout
+        /// </summary>
+        internal static int IsaMutexTimeout = 1000;
     }
 }
