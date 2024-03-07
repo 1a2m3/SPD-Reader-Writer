@@ -16,6 +16,7 @@ using System.Runtime.InteropServices;
 using System.ServiceProcess;
 using System.Threading;
 using Microsoft.Win32.SafeHandles;
+using static SpdReaderWriterCore.Data;
 using static SpdReaderWriterCore.Kernel;
 using static SpdReaderWriterCore.NativeFunctions;
 using static SpdReaderWriterCore.NativeFunctions.Advapi32;
@@ -38,10 +39,10 @@ namespace SpdReaderWriterCore {
                 string fieldName = "CpuZInfo";
 
                 try {
-                    return Data.GetFieldValue<Info>(className, fieldName);
+                    return GetFieldValue<Info>(className, fieldName);
                 }
                 catch (MissingFieldException) {
-                    foreach (Info fieldValue in Data.GetFieldValues<Info>(className)) {
+                    foreach (Info fieldValue in GetFieldValues<Info>(className)) {
                         if (fieldValue.Name == fieldName) {
                             return fieldValue;
                         }
@@ -64,38 +65,38 @@ namespace SpdReaderWriterCore {
                 ulong methodStatusMask = 0;
 
                 // Check if all functions are present
-                if (_driverInfo.Setup                 == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.GetDriverVersion      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadIoPortByte        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadIoPortByteEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadIoPortWord        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadIoPortWordEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadIoPortDword       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadIoPortDwordEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WriteIoPortByte       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WriteIoPortByteEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WriteIoPortWord       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WriteIoPortWordEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WriteIoPortDword      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WriteIoPortDwordEx    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadPciConfigByte     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadPciConfigByteEx   == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadPciConfigWord     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadPciConfigWordEx   == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadPciConfigDword    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadPciConfigDwordEx  == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WritePciConfigByte    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WritePciConfigByteEx  == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WritePciConfigWord    == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WritePciConfigWordEx  == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WritePciConfigDword   == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.WritePciConfigDwordEx == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadMemoryByte        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadMemoryByteEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadMemoryWord        == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadMemoryWordEx      == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadMemoryDword       == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
-                if (_driverInfo.ReadMemoryDwordEx     == null) { Data.SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.Setup                 == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.GetDriverVersion      == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortByte        == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortByteEx      == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortWord        == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortWordEx      == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortDword       == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadIoPortDwordEx     == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortByte       == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortByteEx     == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortWord       == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortWordEx     == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortDword      == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WriteIoPortDwordEx    == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigByte     == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigByteEx   == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigWord     == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigWordEx   == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigDword    == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadPciConfigDwordEx  == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigByte    == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigByteEx  == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigWord    == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigWordEx  == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigDword   == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.WritePciConfigDwordEx == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryByte        == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryByteEx      == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryWord        == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryWordEx      == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryDword       == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                if (_driverInfo.ReadMemoryDwordEx     == null) { SetBit(ref methodStatusMask, i, true); } i++;
 
                 if (methodStatusMask > 0) {
                     throw new MissingMethodException($"{_driverInfo.Name} {nameof(MissingMethodException)}: 0x{methodStatusMask:X16}");
@@ -219,7 +220,8 @@ namespace SpdReaderWriterCore {
 
             DriverInfo = DefaultDriver;
 
-            if (DriverInfo.Setup()) {
+            if (DriverInfo.Setup != null &&
+                DriverInfo.Setup()) {
                 return true;
             }
 
@@ -261,7 +263,7 @@ namespace SpdReaderWriterCore {
         private static bool ExtractDriver() {
 
             if (!(File.Exists(DriverInfo.FilePath) &&
-                  Data.CompareArray(DriverInfo.BinaryData, File.ReadAllBytes(DriverInfo.FilePath)))) {
+                  CompareArray(DriverInfo.BinaryData, File.ReadAllBytes(DriverInfo.FilePath)))) {
 
                 // Save driver to local file
                 try {
@@ -273,7 +275,7 @@ namespace SpdReaderWriterCore {
             }
 
             return File.Exists(DriverInfo.FilePath) &&
-                   Data.CompareArray(DriverInfo.BinaryData, File.ReadAllBytes(DriverInfo.FilePath));
+                   CompareArray(DriverInfo.BinaryData, File.ReadAllBytes(DriverInfo.FilePath));
         }
 
         /// <summary>
@@ -599,7 +601,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="deviceType">Identifies the device type.</param>
         /// <param name="function">Identifies the function to be performed by the driver.</param>
-        /// <param name="method">Indicates how the system will pass data between the caller of <see cref="NativeFunctions.Kernel32.DeviceIoControl"/> and the driver that handles the IRP.
+        /// <param name="method">Indicates how the system will pass data between the caller of <see cref="Kernel32.DeviceIoControl"/> and the driver that handles the IRP.
         /// Use one of the <see cref="IoctlMethod"/> constants.</param>
         /// <param name="access">Indicates the type of access that a caller must request when opening the file object that represents the device.</param>
         /// <returns>An I/O control code</returns>

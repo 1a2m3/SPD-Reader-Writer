@@ -10,6 +10,7 @@
 */
 
 using System.Threading;
+using static SpdReaderWriterCore.Data;
 
 namespace SpdReaderWriterCore {
 
@@ -47,14 +48,7 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <returns>Register value</returns>
         public T Read<T>(ushort offset) {
-
-            if (!Data.LockMutex(IsaMutex, IsaMutexTimeout)) {
-                return default;
-            }
-
             ReadEx(offset, out T output);
-            Data.UnlockMutex(IsaMutex);
-
             return output;
         }
 
@@ -69,12 +63,12 @@ namespace SpdReaderWriterCore {
 
             output = default;
 
-            if (!Data.LockMutex(IsaMutex, IsaMutexTimeout)) {
+            if (!LockMutex(IsaMutex, IsaMutexTimeout)) {
                 return false;
             }
 
             bool result = Kernel.ReadIoPortEx((ushort)(BaseAddress + offset), out output);
-            Data.UnlockMutex(IsaMutex);
+            UnlockMutex(IsaMutex);
 
             return result;
         }
@@ -97,12 +91,12 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool WriteEx<T>(ushort offset, T value) {
 
-            if (!Data.LockMutex(IsaMutex, IsaMutexTimeout)) {
+            if (!LockMutex(IsaMutex, IsaMutexTimeout)) {
                 return false;
             }
 
             bool result = Kernel.WriteIoPortEx((ushort)(BaseAddress + offset), value);
-            Data.UnlockMutex(IsaMutex);
+            UnlockMutex(IsaMutex);
 
             return result;
         }
@@ -110,7 +104,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Global ISA access mutex
         /// </summary>
-        internal static Mutex IsaMutex = Data.CreateMutex(@"Global\Access_ISABUS.HTP.Method");
+        internal static Mutex IsaMutex = CreateMutex(@"Global\Access_ISABUS.HTP.Method");
 
         /// <summary>
         /// Global ISA access mutex timeout

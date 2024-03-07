@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading;
+using static SpdReaderWriterCore.Data;
 
 namespace SpdReaderWriterCore {
 
@@ -155,12 +156,12 @@ namespace SpdReaderWriterCore {
         /// <returns>Data value at <paramref name="offset"/> location</returns>
         public T Read<T>(ushort offset) {
 
-            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+            if (!LockMutex(PciMutex, PciMutexTimeout)) {
                 return default;
             }
 
             ReadEx(offset, out T output);
-            Data.UnlockMutex(PciMutex);
+            UnlockMutex(PciMutex);
 
             return output;
         }
@@ -176,12 +177,12 @@ namespace SpdReaderWriterCore {
 
             output = default;
 
-            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+            if (!LockMutex(PciMutex, PciMutexTimeout)) {
                 return false;
             }
 
             bool result = Kernel.ReadPciConfigEx(Bus, Device, Function, offset, out output);
-            Data.UnlockMutex(PciMutex);
+            UnlockMutex(PciMutex);
 
             return result;
         }
@@ -193,12 +194,12 @@ namespace SpdReaderWriterCore {
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
         public void Write<T>(ushort offset, T value) {
-            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+            if (!LockMutex(PciMutex, PciMutexTimeout)) {
                 return;
             }
 
             WriteEx(offset, value);
-            Data.UnlockMutex(PciMutex);
+            UnlockMutex(PciMutex);
         }
 
         /// <summary>
@@ -210,12 +211,12 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public bool WriteEx<T>(ushort offset, T value) {
 
-            if (!Data.LockMutex(PciMutex, PciMutexTimeout)) {
+            if (!LockMutex(PciMutex, PciMutexTimeout)) {
                 return false;
             }
 
             bool result = Kernel.WritePciConfigEx(Bus, Device, Function, offset, value);
-            Data.UnlockMutex(PciMutex);
+            UnlockMutex(PciMutex);
 
             return result;
         }
@@ -281,7 +282,7 @@ namespace SpdReaderWriterCore {
 
             bool stopFlag = false;
 
-            if (Data.LockMutex(PciMutex, PciMutexTimeout)) {
+            if (LockMutex(PciMutex, PciMutexTimeout)) {
 
                 PciConfig pciConfig = new PciConfig();
 
@@ -322,7 +323,7 @@ namespace SpdReaderWriterCore {
                     }
                 }
 
-                Data.UnlockMutex(PciMutex);
+                UnlockMutex(PciMutex);
             }
 
             return result.ToArray();
@@ -407,7 +408,7 @@ namespace SpdReaderWriterCore {
 
             bool stopFlag = false;
 
-            if (Data.LockMutex(PciMutex, PciMutexTimeout)) {
+            if (LockMutex(PciMutex, PciMutexTimeout)) {
 
                 PciConfig pciConfig = new PciConfig();
 
@@ -448,7 +449,7 @@ namespace SpdReaderWriterCore {
                     }
                 }
 
-                Data.UnlockMutex(PciMutex);
+                UnlockMutex(PciMutex);
             }
 
             return result.ToArray();
@@ -580,7 +581,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Global PCI access mutex
         /// </summary>
-        internal static Mutex PciMutex = Data.CreateMutex(@"Global\Access_PCI");
+        internal static Mutex PciMutex = CreateMutex(@"Global\Access_PCI");
 
         /// <summary>
         /// Global PCI access mutex timeout
