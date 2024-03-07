@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20240120  // Firmware version number (YYYYMMDD)
+#define FW_VER 20240307  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -106,10 +106,18 @@ uint8_t responseLength;        // Output response body length and index
 
 // Device commands
 enum Command : uint8_t {
-  Get     = ((uint8_t)-1), // Gets current value
-  Disable = 0,             // Resets variable value to default
-  Enable,                  // Modifies variable value
+  // Command modifiers
+  Get     = ((uint8_t)-1), // Gets current property value
+  Disable = 0,             // Resets property value to default
+  Enable,                  // Modifies property value
 
+  // Diagnostics & info
+  Version,                 // Get Firmware version
+  Test,                    // Device Communication Test
+  Name,                    // Name controls
+  FactoryReset,            // Restore device settings to default
+
+  // Control commands
   SpdReadPage,             // Read SPD page
   SpdWriteByte,            // Write SPD byte
   SpdWritePage,            // Write SPD page
@@ -127,12 +135,8 @@ enum Command : uint8_t {
   PinReset,                // Reset config pins state to defaults
   Rswp,                    // RSWP operation
   Pswp,                    // PSWP operation
-  RswpReport,              // Report current RSWP capabilities
-  Version,                 // Get Firmware version
-  Test,                    // Device Communication Test
-  Name,                    // Name controls
-  Eeprom,                  // Internal EEPROM controls
-  FactoryReset,            // Restore device settings to default
+  RswpReport,              // Report current RSWP capabilities  
+  Eeprom,                  // Internal EEPROM controls  
 };
 
 // Config pin enum
@@ -167,7 +171,7 @@ void setup() {
   }
 
   // Reset config pins
-  resetPins();
+  resetPins(false);
 
   // Initiate and join the I2C bus as a master
   Wire.begin();
@@ -207,7 +211,7 @@ void setup() {
 
 void loop() {
 
-  resetPinsInternal();
+  resetPins(false);
 
   // Wait for input data
   if (PORT.available()) {
@@ -295,7 +299,7 @@ void parseCommand() {
 
     // Report supported RSWP capabilities
     case Command::RswpReport:
-      cmdRswpRespond();
+      cmdRswpReport();
       break;
 
     // DDR4 detection test
@@ -472,7 +476,7 @@ void cmdTest() {
   Respond(true);
 }
 
-void cmdRswpRespond() {
+void cmdRswpReport() {
   Respond(rswpSupportTest());
 }
 
@@ -796,7 +800,7 @@ void cmdPinControl() {
 }
 
 void cmdPinReset() {
-  Respond(resetPins());
+  Respond(resetPins(true));
 }
 
 /*  -=  Read/Write functions  =-  */
@@ -968,7 +972,7 @@ bool setRswp(uint8_t address, uint8_t block) {
     else {
       result = probeDeviceTypeId(cmd);
     }
-    resetPins();
+    resetPins(true);
   }
 
   return result;
@@ -993,7 +997,7 @@ bool getRswp(uint8_t address, uint8_t block) {
 
   bool status = probeDeviceTypeId(cmd);  // true/ack = not protected
 
-  resetPins();
+  resetPins(true);
 
   return !status;  // true = protected or rswp not supported; false = unprotected
 }
@@ -1014,7 +1018,7 @@ bool clearRswp(uint8_t address) {
 
   if (setHighVoltage(true)) {
     bool result = probeDeviceTypeId(CWP);
-    resetPins();
+    resetPins(true);
 
     return result;
   }
@@ -1026,7 +1030,7 @@ bool clearRswp(uint8_t address) {
 uint8_t rswpSupportTest() {
 
   // Reset config pins and HV state
-  resetPins();
+  resetPins(true);
 
   // Scan I2C bus
   if (!scanBus()) {
@@ -1051,7 +1055,7 @@ uint8_t rswpSupportTest() {
     }
   }
 
-  resetPins();
+  resetPins(true);
 
   return rswpSupport;
 }
@@ -1389,19 +1393,22 @@ bool getConfigPin(uint8_t pin) {
   return pin == SA1_EN ? scanBus() & A1_MASK : digitalRead(pin);
 }
 
-// Reset config pins w/ feedback
-bool resetPins() {
-  return setHighVoltage(ConfigPin[HV_SWITCH].defaultState) &&
-         setConfigPin(ConfigPin[SA1_SWITCH].name, ConfigPin[SA1_SWITCH].defaultState);
-}
-
-// Reset config pins w/o feedback
-void resetPinsInternal() {
+// Reset config pins
+bool resetPins(bool feedback) {
+  // With feedback
+  if (feedback) {
+    return setHighVoltage(ConfigPin[HV_SWITCH].defaultState) && 
+           setConfigPin(ConfigPin[SA1_SWITCH].name, ConfigPin[SA1_SWITCH].defaultState);
+  }
+  
+  // No feedback
   for (uint8_t i = 0; i < pinCount; i++) {
     if (ConfigPin[i].mode == OUTPUT) {
       digitalWrite(ConfigPin[i].name, ConfigPin[i].defaultState);
     }
   }
+
+  return true;
 }
 
 // Get DDR5 offline mode
@@ -1412,6 +1419,7 @@ bool ddr5GetOfflineMode() {
 // Tests if device address is present on I2C bus
 bool probeBusAddress(uint8_t address) {
   Wire.beginTransmission(address);
+
   return Wire.endTransmission(false) == 0;
 }
 
@@ -1433,26 +1441,21 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
   }
   status = Wire.endTransmission();
 
-  if (writeBit) {
-    return status == 0;
-  }
-
-  return Wire.requestFrom(cmd, (uint8_t)1) > 0;  // true when ACK is received after control byte
+  return writeBit ? status == 0 : Wire.requestFrom(cmd, (uint8_t)1) > 0;  // true when ACK is received after control byte
 }
 
 // DDR4 detection test (address)
 bool ddr4Detect(uint8_t address) {
-  if (!address) {
-    return ddr4Detect();
-  }
-
-  return probeBusAddress(address) && ddr4Detect() && !ddr5Detect(address);
+  return address 
+    ? probeBusAddress(address) && ddr4Detect() && !ddr5Detect(address) 
+    : ddr4Detect();
 }
 
 // DDR4 detection test (generic)
 bool ddr4Detect() {
   // Only SPA0 is tested, RPA returns NACK after SPA1 regardless of RAM type
   setDdr4PageAddress(0);
+
   return getQuantity() > 0 && getPageAddress(true) == 0;
 }
 
@@ -1470,6 +1473,7 @@ bool ddr5Detect(uint8_t address) {
   
   if (readSpd5HubReg(address, MR0, false) == highByte(SPD5_TS)) {
     uint8_t mr1 = readSpd5HubReg(address, MR1, false);
+
     return mr1 == lowByte(SPD5_TS) || mr1 == lowByte(SPD5_NO);
   }
 
