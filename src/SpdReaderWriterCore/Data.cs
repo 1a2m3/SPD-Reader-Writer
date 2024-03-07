@@ -20,6 +20,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+using static System.String;
 
 namespace SpdReaderWriterCore {
 
@@ -110,7 +111,16 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Sets specified bit in a byte at specified offset position
+        /// Sets specified bit in an object at specified offset position
+        /// </summary>
+        /// <typeparam name="T">Input data type</typeparam>
+        /// <param name="input">Input data to set bit in</param>
+        /// <param name="position">Bit position to set</param>
+        /// <param name="value">Boolean bit value, set <see langword="true"/> for <value>1</value>, or <see langword="false"/> for <value>0</value></param>
+        public static void SetBit<T>(ref T input, int position, bool value) => input = SetBit(input, position, value);
+
+        /// <summary>
+        /// Sets specified bit in an object at specified offset position
         /// </summary>
         /// <typeparam name="T">Input data type</typeparam>
         /// <param name="input">Input data to set bit in</param>
@@ -452,9 +462,9 @@ namespace SpdReaderWriterCore {
         /// <param name="inputString">The string to search in</param>
         /// <param name="substring">The substring to search for in the <paramref name="inputString"/></param>
         /// <returns><see langword="true"/> if <paramref name="substring"/> is part of <paramref name="inputString"/></returns>
-        public static bool StringContains(string inputString, string substring) {
-            return inputString.IndexOf(substring, 0, StringComparison.CurrentCultureIgnoreCase) != -1;
-        }
+        public static bool StringContains(string inputString, string substring) =>
+            !IsNullOrEmpty(substring) &&
+            inputString.IndexOf(substring, 0, StringComparison.CurrentCultureIgnoreCase) != -1;
 
         /// <summary>
         /// Determines if input string contains HEX values (0-9,A-F)
@@ -463,13 +473,13 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(string input) {
 
-            try {
-                int.Parse(input, System.Globalization.NumberStyles.AllowHexSpecifier);
-                return true;
+            foreach (char c in input) {
+                if (!ValidateHex(c)) {
+                    return false;
+                }
             }
-            catch {
-                return false;
-            }
+
+            return true;
         }
 
         /// <summary>
@@ -477,11 +487,9 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="input">Input char to validate</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
-        public static bool ValidateHex(char input) {
-
-            return ('A' <= (input & ~0x20) && (input & ~0x20) <= 'F') ||
-                   ('0' <= input && input <= '9');
-        }
+        public static bool ValidateHex(char input) =>
+            ('A' <= (input & ~0x20) && (input & ~0x20) <= 'F') ||
+            ('0' <= input && input <= '9');
 
         /// <summary>
         /// Converts hex string to number
@@ -1240,11 +1248,11 @@ namespace SpdReaderWriterCore {
         /// <returns>Field value</returns>
         public static T GetFieldValue<T>(string className, string fieldName) {
 
-            if (string.IsNullOrEmpty(className)) {
+            if (IsNullOrEmpty(className)) {
                 throw new NullReferenceException(nameof(className));
             }
 
-            if (string.IsNullOrEmpty(fieldName)) {
+            if (IsNullOrEmpty(fieldName)) {
                 throw new NullReferenceException(nameof(fieldName));
             }
 
@@ -1280,7 +1288,7 @@ namespace SpdReaderWriterCore {
         /// <returns>Field value</returns>
         public static T GetFieldValue<T>(string fieldLocation) {
 
-            if (string.IsNullOrEmpty(fieldLocation)) {
+            if (IsNullOrEmpty(fieldLocation)) {
                 throw new NullReferenceException(nameof(fieldLocation));
             }
 
@@ -1328,6 +1336,97 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// File struct
+        /// </summary>
+        public struct DataFile {
+
+            /// <summary>
+            /// File name
+            /// </summary>
+            public string Name;
+
+            /// <summary>
+            /// File contents
+            /// </summary>
+            public byte[] RawData;
+
+            /// <summary>
+            /// Initializes new DataFile instance with a name and contents
+            /// </summary>
+            /// <param name="name">File name</param>
+            /// <param name="data">File contents</param>
+            public DataFile(string name, byte[] data) {
+                Name = name;
+                RawData = data;
+
+                if (!IsCompressed) {
+                    RawData = Compress();
+                }
+            }
+
+            /// <summary>
+            /// Initializes new DataFile instance with contents and blank name
+            /// </summary>
+            /// <param name="data">File contents</param>
+            public DataFile(byte[] data) => this = new DataFile("", data);
+
+            /// <summary>
+            /// Initializes new DataFile instance with a name and empty contents
+            /// </summary>
+            /// <param name="name">File contents</param>
+            public DataFile(string name) => this = new DataFile(name, new byte[0]);
+
+            /// <summary>
+            /// Gets data file contents
+            /// </summary>
+            /// <returns>File contents</returns>
+            public byte[] GetData() => IsCompressed ? Decompress() : RawData;
+
+            /// <summary>
+            /// Compressed flag
+            /// </summary>
+            public bool IsCompressed => 
+                CompareArray(SubArray(RawData, 0, 4), new byte[] { 0x1F, 0x8B, 0x08, 0x08 });
+
+            /// <summary>
+            /// Saves file data to file
+            /// </summary>
+            /// <param name="path">Destination file path</param>
+            /// <returns><see langword="true"/> if file is saved</returns>
+            public bool SaveAs(string path) {
+                try {
+                    File.WriteAllBytes(path, GetData());
+                    return true;
+                }
+                catch {
+                    return false;
+                }
+            }
+
+            /// <summary>
+            /// Saves file data to specified directory
+            /// </summary>
+            /// <param name="directory">Directory path</param>
+            /// <returns><see langword="true"/> if file is saved</returns>
+            public bool SaveTo(string directory) => 
+                Directory.Exists(directory) && SaveAs($"{directory}\\{Name}");
+
+            /// <summary>
+            /// Compresses file contents
+            /// </summary>
+            /// <returns>Compressed file contents</returns>
+            private byte[] Compress() => Gzip(RawData, GzipMethod.Compress);
+
+            /// <summary>
+            /// Decompresses file contents
+            /// </summary>
+            /// <returns>Decompressed file contents</returns>
+            private byte[] Decompress() => IsCompressed
+                ? Gzip(RawData, GzipMethod.Decompress)
+                : throw new Exception("Data is not compressed");
+        }
+
+        /// <summary>
         /// Initializes an existing mutex instance
         /// </summary>
         /// <param name="mutex">Mutex reference</param>
@@ -1335,7 +1434,7 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if <paramref name="mutex"/> is created or opened</returns>
         public static bool CreateMutex(ref Mutex mutex, string mutexName) {
 
-            if (string.IsNullOrEmpty(mutexName)) {
+            if (IsNullOrEmpty(mutexName)) {
                 throw new NullReferenceException(nameof(mutexName));
             }
 
@@ -1371,8 +1470,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="mutex">Mutex object</param>
         /// <returns><see langword="true"/> if <paramref name="mutex"/> receives a signal</returns>
-        public static bool LockMutex(Mutex mutex) => 
-            LockMutex(mutex, -1);
+        public static bool LockMutex(Mutex mutex) => LockMutex(mutex, -1);
 
         /// <summary>
         /// Blocks the current thread until <paramref name="mutex"/> receives a signal 
