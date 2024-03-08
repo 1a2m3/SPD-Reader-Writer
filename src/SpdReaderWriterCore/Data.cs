@@ -138,7 +138,11 @@ namespace SpdReaderWriterCore {
             }
 
             int mask = 1 << position;
-            ulong inputData = Convert.ToUInt64((T)Convert.ChangeType(input, typeof(T)));
+            ulong inputData = ConvertTo<ulong>(input);
+
+            return ConvertTo<T>(value
+                ? inputData | (uint)mask
+                : inputData & (ulong)~mask);
 
             return (T)Convert.ChangeType(
                 value
@@ -195,10 +199,10 @@ namespace SpdReaderWriterCore {
             }
 
             // Convert input
-            object inputData = Convert.ChangeType(input, typeof(T));
+            object inputData = ConvertTo<T>(input);
 
             // Generate bit mask
-            object mask = Convert.ChangeType(GenerateBitmask<T>(count), typeof(T));
+            object mask = ConvertTo<T>(GenerateBitmask<T>(count));
 
             // Calculate shift position for the input
             int shift = position - count + 1;
@@ -232,10 +236,10 @@ namespace SpdReaderWriterCore {
             }
 
             if (result != null) {
-                return (T)Convert.ChangeType(result, typeof(T));
+                return ConvertTo<T>(result);
             }
 
-            throw new InvalidDataException($"{MethodBase.GetCurrentMethod()?.Name}:{typeof(T)}");
+            throw new InvalidDataException(nameof(input));
         }
 
         /// <summary>
@@ -251,7 +255,7 @@ namespace SpdReaderWriterCore {
             }
 
             try {
-                return Marshal.SizeOf(input) * 8;
+                return (int)GetDataSize<int>(input) * 8;
             }
             catch {
                 return 0;
@@ -277,18 +281,14 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="count">Number of bits</param>
         /// <returns>Bitmask with a number of bits specified in <paramref name="count"/> parameter</returns>
-        public static T GenerateBitmask<T>(int count) {
-            return (T)Convert.ChangeType(Math.Pow(2, count) - 1, typeof(T));
-        }
+        public static T GenerateBitmask<T>(int count) => ConvertTo<T>(Math.Pow(2, count) - 1);
 
         /// <summary>
         /// Converts boolean value to a number
         /// </summary>
         /// <param name="input">Boolean input</param>
         /// <returns><value>1</value> if the input is <see langword="true"/>, or <value>0</value>, when the input is <see langword="false"/></returns>
-        public static T BoolToNum<T>(bool input) {
-            return (T)Convert.ChangeType(input ? 1 : 0, typeof(T));
-        }
+        public static T BoolToNum<T>(bool input) => ConvertTo<T>(input ? 1 : 0);
 
         /// <summary>
         /// Indicates whether the value of input number is an even number
@@ -398,7 +398,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input data</param>
         /// <returns>Input data size in bytes</returns>
-        public static DataSize GetDataSize<T>(T input) =>
+        public static DataSize GetDataSize<T>(object input) =>
             input == null
                 ? DataSize.Null
                 : GetDataSize(Type.GetTypeCode(input.GetType()));
@@ -441,7 +441,12 @@ namespace SpdReaderWriterCore {
                 case TypeCode.Empty:
                     return DataSize.Null;
                 default:
-                    return (DataSize)Marshal.SizeOf(t);
+                    try {
+                        return (DataSize)Marshal.SizeOf(t);
+                    }
+                    catch (ArgumentNullException) {
+                        return DataSize.Null;
+                    }
             }
         }
 
@@ -472,6 +477,10 @@ namespace SpdReaderWriterCore {
         /// <param name="input">Input string to validate</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is in a HEX format</returns>
         public static bool ValidateHex(string input) {
+
+            if (IsNullOrEmpty(input)) {
+                return false;
+            }
 
             foreach (char c in input) {
                 if (!ValidateHex(c)) {
@@ -507,7 +516,7 @@ namespace SpdReaderWriterCore {
                 }
             }
 
-            return (T)Convert.ChangeType(Convert.ToUInt64(input, 16), typeof(T));
+            return ConvertTo<T>(Convert.ToUInt64(input, 16));
         }
 
         /// <summary>
@@ -628,7 +637,7 @@ namespace SpdReaderWriterCore {
             StringBuilder sbOutput = new StringBuilder();
 
             for (int i = 0; i < input.Length; i++) {
-                char c = (char)Convert.ChangeType(input[i], typeof(char));
+                char c = ConvertTo<char>(input[i]);
                 sbOutput.Append(c.ToString());
             }
 
@@ -646,7 +655,7 @@ namespace SpdReaderWriterCore {
                 throw new NullReferenceException(nameof(input));
             }
 
-            byte b = (byte)Convert.ChangeType(input, typeof(byte));
+            byte b = ConvertTo<byte>(input);
 
             return 0x20 <= b && b <= 0x7E;
         }
@@ -701,10 +710,10 @@ namespace SpdReaderWriterCore {
             ulong output = default;
 
             for (int i = 0; i < dataSize; i++) {
-                output += (ulong)((((ulong)Convert.ChangeType(input, Type.GetTypeCode(typeof(ulong))) >> (4 * i)) & 0xF) * Math.Pow(10, i));
+                output += (ulong)(((ConvertTo<ulong>(input) >> (4 * i)) & 0xF) * Math.Pow(10, i));
             }
 
-            return (T)Convert.ChangeType(output, Type.GetTypeCode(typeof(T)));
+            return ConvertTo<T>(output);
         }
 
         /// <summary>
@@ -720,7 +729,7 @@ namespace SpdReaderWriterCore {
                 throw new InvalidDataException(nameof(input));
             }
 
-            ulong number = (ulong)Convert.ChangeType(input, Type.GetTypeCode(typeof(ulong)));
+            ulong number = ConvertTo<ulong>(input);
 
             if (number > 0x9999_9999_9999_9999) {
                 throw new ArgumentOutOfRangeException(nameof(input));
@@ -741,7 +750,7 @@ namespace SpdReaderWriterCore {
                 output |= quotient << i * 4;
             }
 
-            return (T)Convert.ChangeType(output, typeof(T));
+            return ConvertTo<T>(output);
         }
 
         /// <summary>
@@ -760,13 +769,13 @@ namespace SpdReaderWriterCore {
 
             if (start < stop) {
                 do {
-                    numbers.Enqueue((T)Convert.ChangeType(i, typeof(T)));
+                    numbers.Enqueue(ConvertTo<T>(i));
                     i += step;
                 } while (i <= stop);
             }
             else {
                 do {
-                    numbers.Enqueue((T)Convert.ChangeType(i, typeof(T)));
+                    numbers.Enqueue(ConvertTo<T>(i));
                     i -= step;
                 } while (i >= stop);
             }
@@ -1156,7 +1165,7 @@ namespace SpdReaderWriterCore {
                     arrayQueue.Enqueue(item);
                 }
                 else {
-                    outputQueue.Enqueue((T)Convert.ChangeType(item, typeof(T)));
+                    outputQueue.Enqueue(ConvertTo<T>(item));
                 }
             }
 
@@ -1223,6 +1232,14 @@ namespace SpdReaderWriterCore {
                 Marshal.FreeHGlobal(ptr);
             }
         }
+
+        /// <summary>
+        /// Converts input object into specified data type
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="input">Input object</param>
+        /// <returns>Object data type value</returns>
+        public static T ConvertTo<T>(object input) => (T)Convert.ChangeType(input, typeof(T));
 
         /// <summary>
         /// Gets description attribute of an Enum member
