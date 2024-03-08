@@ -220,9 +220,8 @@ namespace SpdReaderWriterCore {
 
             DriverInfo = DefaultDriver;
 
-            if (DriverInfo.Setup != null &&
-                DriverInfo.Setup()) {
-                return true;
+            if (DriverInfo.Setup != null) {
+                return DriverInfo.Setup();
             }
 
             if (OpenDriverHandle(out IntPtr handle)) {
@@ -245,6 +244,11 @@ namespace SpdReaderWriterCore {
         /// Deinitializes kernel driver instance
         /// </summary>
         public static void Dispose() {
+
+            if (DriverInfo.UninstallDriver != null) {
+                DriverInfo.UninstallDriver();
+                return;
+            }
 
             _driverHandle?.Close();
 
@@ -401,7 +405,7 @@ namespace SpdReaderWriterCore {
                 return DriverInfo.StopDriver();
             }
 
-            if (IsInstalled && Service.Status != ServiceControllerStatus.Stopped) {
+            if (IsRunning) {
                 try {
                     Service.Stop();
                 }
