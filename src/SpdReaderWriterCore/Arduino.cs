@@ -10,16 +10,18 @@
 */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using static System.String;
+using static SpdReaderWriterCore.Data;
 
 namespace SpdReaderWriterCore {
 
@@ -78,8 +80,8 @@ namespace SpdReaderWriterCore {
         /// Arduino device instance string
         /// </summary>
         /// <returns>Arduino device instance string</returns>
-        public override string ToString() => 
-            PortName == null ? "N/A" : $"{PortName}:{PortSettings.BaudRate}";
+        public override string ToString() =>
+            IsNullOrEmpty(PortName) ? "N/A" : $"{PortName}:{PortSettings.BaudRate}";
 
         /// <summary>
         /// Arduino device instance destructor
@@ -123,7 +125,7 @@ namespace SpdReaderWriterCore {
             /// </summary>
             /// <returns>Serial port settings string</returns>
             public override string ToString() {
-                return $"{BaudRate}";
+                return $"{BaudRate:D}";
             }
         }
 
@@ -210,7 +212,7 @@ namespace SpdReaderWriterCore {
                     }
                     catch {
                         Dispose();
-                        throw new Exception("Device failed to pass communication test");
+                        throw new Exception($"Device {PortName} failed to pass communication test");
                     }
                 }
                 catch (Exception ex) {
@@ -228,7 +230,7 @@ namespace SpdReaderWriterCore {
         public bool Disconnect() {
             lock (_portLock) {
                 if (!IsConnected) {
-                    return !IsConnected;
+                    return false;
                 }
 
                 try {
@@ -263,7 +265,7 @@ namespace SpdReaderWriterCore {
                 }
 
                 _addresses       = null;
-                _rswpTypeSupport = -1;
+                _rswpTypeSupport = 0;
             }
         }
 
@@ -276,8 +278,8 @@ namespace SpdReaderWriterCore {
                 try {
                     return ExecuteCommand<bool>(Command.Test);
                 }
-                catch {
-                    throw new Exception($"Unable to test {PortName}");
+                catch (Exception e) {
+                    throw new Exception($"Unable to test {PortName} ({e.Message})");
                 }
             }
         }
@@ -314,7 +316,7 @@ namespace SpdReaderWriterCore {
             int value = _sp.ReadByte();
             
             if (value != -1) {
-                return (byte)value;
+                return (byte)(value & 0xFF);
             }
 
             throw new EndOfStreamException("No data to read");
@@ -325,9 +327,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         public byte[] Addresses {
             get {
-                if (_addresses == null) {
-                    _addresses = Scan();
-                }
+                _addresses = Scan();
 
                 if (_addresses.Length == 0) {
                     I2CAddress = 0;
@@ -354,7 +354,7 @@ namespace SpdReaderWriterCore {
                         }
 
                         for (byte i = 0; i <= 7; i++) {
-                            if (Data.GetBit(response, i)) {
+                            if (GetBit(response, i)) {
                                 addresses.Enqueue((byte)(80 + i));
                             }
                         }
@@ -540,15 +540,15 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Probes specified EEPROM address
         /// </summary>
-        /// <param name="address">EEPROM address</param>
+        /// <param name="busAddress">EEPROM address</param>
         /// <returns><see langword="true"/> if EEPROM is detected at the specified <see cref="I2CAddress"/></returns>
-        public bool ProbeAddress(byte address) {
+        public bool ProbeAddress(byte busAddress) {
             lock (_portLock) {
                 try {
-                    return ExecuteCommand<bool>(Command.ProbeAddress, address);
+                    return ExecuteCommand<bool>(Command.ProbeAddress, busAddress);
                 }
                 catch {
-                    throw new Exception($"Unable to probe address {address} on {PortName}");
+                    throw new Exception($"Unable to probe address {busAddress} on {PortName}");
                 }
             }
         }
@@ -611,13 +611,15 @@ namespace SpdReaderWriterCore {
         /// <returns>Included firmware version number</returns>
         private static int GetIncludedFirmwareVersion() {
             try {
-                byte[] fwHeader         = Data.GzipPeek(Resources.Firmware.SpdReaderWriter_ino, 1024);
-                int versionLength       = Data.CountBytes(typeof(int)) * 2;
+                byte[] fwHeader         = GzipPeek(Resources.Firmware.FirmwareFile.RawData, 1024);
+                int versionLength       = CountBytes(typeof(int)) * 2;
                 Regex versionPattern    = new Regex($@"([\d]{{{versionLength}}})"); // ([\d]{8})
-                MatchCollection matches = versionPattern.Matches(Data.BytesToString(fwHeader));
+                MatchCollection matches = versionPattern.Matches(BytesToString(fwHeader));
 
-                if (matches.Count > 0 && matches[0].Length == versionLength) {
-                    return int.Parse(matches[0].Value);
+                if (matches.Count > 0 && 
+                    matches[0].Length == versionLength &&
+                    int.TryParse(matches[0].Value, out int includedFwVersion)) {
+                    return includedFwVersion;
                 }
 
                 throw new Exception();
@@ -668,7 +670,7 @@ namespace SpdReaderWriterCore {
                     // Prepare a byte array containing cmd byte + name length + name
                     byte[] command = { (byte)Command.Name, (byte)newName.Length };
 
-                    return ExecuteCommand<bool>(Data.MergeArray(command, Encoding.ASCII.GetBytes(newName)));
+                    return ExecuteCommand<bool>(MergeArray(command, Encoding.ASCII.GetBytes(newName)));
                 }
                 catch {
                     throw new Exception($"Unable to assign name to {PortName}");
@@ -685,8 +687,30 @@ namespace SpdReaderWriterCore {
                 try {
                     return ExecuteCommand<string>(Command.Name, Command.Get).Trim();
                 }
-                catch {
-                    throw new Exception($"Unable to get {PortName} name");
+                catch (Exception e) {
+                    throw new Exception($"Unable to get {PortName} name ({e.Message})");
+                }
+            }
+        }
+
+        /// <summary>
+        /// Reads Arduino's internal EEPROM memory
+        /// </summary>
+        /// <param name="offset">EEPROM offset</param>
+        /// <param name="length">Number of bytes to read</param>
+        /// <returns>Device's EEPROM contents at <paramref name="offset"/></returns>
+        public byte[] ReadEeprom(ushort offset, ushort length) {
+            lock (_portLock) {
+                try {
+                    return ExecuteCommand<byte[]>(
+                        Command.Eeprom, 
+                        Command.Get, 
+                        offset >> 8, offset & 0xFF, // offset MSB and LSB
+                        length >> 8, length & 0xFF  // length MSB and LSB
+                    );
+                }
+                catch (Exception e) {
+                    throw new Exception($"Unable to read EEPROM on {PortName} ({e.Message})");
                 }
             }
         }
@@ -694,6 +718,20 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Finds Arduinos connected to computer
         /// </summary>
+        /// <param name="baudRate">Serial port baud rate</param>
+        /// <returns>An array of Arduinos</returns>
+        public static Arduino[] Find(int baudRate) {
+            SerialPortSettings spSettings = new SerialPortSettings {
+                BaudRate = baudRate
+            };
+
+            return Find(spSettings);
+        }
+
+        /// <summary>
+        /// Finds Arduinos connected to computer
+        /// </summary>
+        /// <param name="settings">Serial port settings</param>
         /// <returns>An array of Arduinos</returns>
         public static Arduino[] Find(SerialPortSettings settings) {
             Stack<Arduino> result = new Stack<Arduino>();
@@ -705,6 +743,7 @@ namespace SpdReaderWriterCore {
                     try {
                         if (device.Connect()) {
                             result.Push(device);
+                            device.Disconnect();
                         }
                     }
                     catch {
@@ -833,8 +872,8 @@ namespace SpdReaderWriterCore {
             set {
                 _i2CAddress = value;
 
-                if (IsConnected &&
-                    (Eeprom.ValidateEepromAddress(_i2CAddress) || Eeprom.ValidatePmicAddress(_i2CAddress))) {
+                if (IsConnected && (Eeprom.ValidateEepromAddress(_i2CAddress) || 
+                                    Eeprom.ValidatePmicAddress(_i2CAddress))) {
                     MaxSpdSize = GetSpdSize();
                 }
             }
@@ -880,9 +919,7 @@ namespace SpdReaderWriterCore {
         public byte RswpTypeSupport {
             get {
                 try {
-                    if (_rswpTypeSupport == -1) {
-                        _rswpTypeSupport = GetRswpSupport();
-                    }
+                    _rswpTypeSupport = GetRswpSupport();
 
                     return (byte)_rswpTypeSupport;
                 }
@@ -1078,50 +1115,59 @@ namespace SpdReaderWriterCore {
         public T ExecuteCommand<T>(object command, object p1, object p2, object p3, object p4) => ExecuteCommand<T>(new[] { command, p1, p2, p3, p4 });
 
         /// <summary>
+        /// Executes a command with five parameters on the device
+        /// </summary>
+        /// <typeparam name="T">Response data type</typeparam>
+        /// <param name="command">Command to be executed on the device</param>
+        /// <param name="p1">First parameter</param>
+        /// <param name="p2">Second parameter</param>
+        /// <param name="p3">Third parameter</param>
+        /// <param name="p4">Fourth parameter</param>
+        /// <param name="p5">Fifth parameter</param>
+        /// <returns>Data type value</returns>
+        public T ExecuteCommand<T>(object command, object p1, object p2, object p3, object p4, object p5) => ExecuteCommand<T>(new[] { command, p1, p2, p3, p4, p5 });
+
+        /// <summary>
         /// Executes a multi byte command on the device
         /// </summary>
         /// <typeparam name="T">Response data type</typeparam>
         /// <param name="command">Command and parameters to be executed on the device</param>
         /// <returns>Data type value</returns>
-        public T ExecuteCommand<T>(object[] command) {
+        private T ExecuteCommand<T>(IEnumerable command) {
 
             Queue<byte> rawBytes = new Queue<byte>();
 
-            foreach (byte c in Data.ConvertObjectArray<byte>(command)) {
-                rawBytes.Enqueue(c);
+            foreach (byte b in ConvertToArray<byte>(command)) {
+                rawBytes.Enqueue(b);
             }
 
             byte[] response = ExecuteCommand(rawBytes.ToArray());
 
-            if (typeof(T).IsArray) {
-                return (T)Convert.ChangeType(response, typeof(T));
+            if (response.Length == 1) {
+                return ConvertTo<T>(response[0]);
             }
 
             Type t = typeof(T);
             TypeCode typeCode = Type.GetTypeCode(t);
 
-            if (Data.IsNumeric(typeCode)) {
-                response = Data.SubArray(response, 0, (uint)Marshal.SizeOf(t));
+            if (t.IsArray) {
+                return ConvertTo<T>(response);
             }
 
             if (typeCode == TypeCode.String) {
-                return (T)Convert.ChangeType(Data.BytesToString(response), t);
+                return ConvertTo<T>(BytesToString(response));
             }
 
-            switch (Data.GetDataSize(t)) {
-                case Data.DataSize.Byte:
-                    return (T)Convert.ChangeType(response[0], t);
-                case Data.DataSize.Word:
-                    return (T)Convert.ChangeType(BitConverter.ToInt16(response, 0), typeCode);
-                case Data.DataSize.Dword:
-                    return (T)Convert.ChangeType(BitConverter.ToInt32(response, 0), typeCode);
-                case Data.DataSize.Qword:
-                    return (T)Convert.ChangeType(BitConverter.ToInt64(response, 0), typeCode);
-                case Data.DataSize.Null:
-                    return (T)Convert.ChangeType(null, t);
-                default:
-                    return (T)Convert.ChangeType(response[0], t);
+            if (IsNumeric(typeCode)) {
+                ulong outputBuffer = 0;
+                for (int i = 0; i < (int)GetDataSize(typeCode); i++) {
+                    outputBuffer = (ulong)((response[i] << (8 * i)) | (int)outputBuffer);
+                }
+
+                return ConvertTo<T>(outputBuffer);
             }
+
+            return default;
         }
 
         /// <summary>
@@ -1169,7 +1215,7 @@ namespace SpdReaderWriterCore {
                     return _response.Body;
                 }
                 catch (Exception e) {
-                    throw new IOException($"{PortName} failed to execute command 0x{Data.BytesToHexString(command)} ({e.Message})");
+                    throw new IOException($"{PortName} failed to execute command 0x{BytesToHexString(command)} ({e.Message})");
                 }
                 finally {
                     _response = new PacketData();
@@ -1211,7 +1257,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Bitmask value representing RSWP type supported defined in <see cref="RswpSupport"/> enum
         /// </summary>
-        private int _rswpTypeSupport = -1;
+        private int _rswpTypeSupport;
 
         /// <summary>
         /// PortLock object used to prevent other threads from acquiring the lock
@@ -1238,6 +1284,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         internal enum Command : byte {
 
+            #region Command modifiers
+
             /// <summary>
             /// Gets current variable value
             /// </summary>
@@ -1253,25 +1301,53 @@ namespace SpdReaderWriterCore {
             /// </summary>
             Enable,
 
+            #endregion
+
+            #region Diagnostics & info
+
             /// <summary>
-            /// Read byte
+            /// Get Firmware version
             /// </summary>
-            ReadByte,
+            Version,
+
+            /// <summary>
+            /// Device Communication Test
+            /// </summary>
+            Test,
+
+            /// <summary>
+            /// Name controls
+            /// </summary>
+            Name,
+
+            /// <summary>
+            /// Restore device settings to default
+            /// </summary>
+            FactoryReset,
+
+            #endregion
+
+            #region Control commands
+
+            /// <summary>
+            /// Read SPD byte or page
+            /// </summary>
+            SpdReadPage,
 
             /// <summary>
             /// Write byte
             /// </summary>
-            WriteByte,
+            SpdWriteByte,
 
             /// <summary>
             /// Write page
             /// </summary>
-            WritePage,
+            SpdWritePage,
 
             /// <summary>
             /// Write protection test
             /// </summary>
-            WriteTest,
+            SpdWriteTest,
 
             /// <summary>
             /// DDR4 detection
@@ -1309,6 +1385,16 @@ namespace SpdReaderWriterCore {
             ProbeAddress,
 
             /// <summary>
+            /// Read from I2C slave device
+            /// </summary>
+            I2cRead,
+
+            /// <summary>
+            /// Write to I2C slave device
+            /// </summary>
+            I2cWrite,
+
+            /// <summary>
             /// Config pin control
             /// </summary>
             PinControl,
@@ -1334,24 +1420,11 @@ namespace SpdReaderWriterCore {
             RswpReport,
 
             /// <summary>
-            /// Get Firmware version
+            /// Internal EEPROM controls
             /// </summary>
-            Version,
+            Eeprom,
 
-            /// <summary>
-            /// Device Communication Test
-            /// </summary>
-            Test,
-
-            /// <summary>
-            /// Name controls
-            /// </summary>
-            Name,
-
-            /// <summary>
-            /// Restore device settings to default
-            /// </summary>
-            FactoryReset,
+            #endregion
         }
 
         /// <summary>
@@ -1381,7 +1454,7 @@ namespace SpdReaderWriterCore {
                 get => _rawBytes;
                 set {
                     if (MaxSize < value.Length || value.Length < MinSize) {
-                        throw new ArgumentOutOfRangeException();
+                        throw new ArgumentOutOfRangeException(value.Length.ToString());
                     }
 
                     _rawBytes = value;
@@ -1428,7 +1501,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Packet body contents
             /// </summary>
-            public byte[] Body => Data.SubArray(_rawBytes, MinSize, Length);
+            public byte[] Body => SubArray(_rawBytes, MinSize, Length);
 
             /// <summary>
             /// Packet body checksum
@@ -1438,7 +1511,7 @@ namespace SpdReaderWriterCore {
             /// <summary>
             /// Data checksum state
             /// </summary>
-            public bool IsChecksumValid => Data.Crc(Body) == Checksum;
+            public bool IsChecksumValid => Crc(Body) == Checksum;
         }
 
         /// <summary>
