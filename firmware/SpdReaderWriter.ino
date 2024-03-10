@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20240307  // Firmware version number (YYYYMMDD)
+#define FW_VER 20240309  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -418,7 +418,7 @@ void cmdReadSpdPage() {
   // Output buffer
   uint8_t data[length];
   // Fill the data buffer
-  readByte(address, offset, length, data);
+  readSpdByte(address, offset, length, data);
 
   Respond(data, sizeof(data));
 }
@@ -435,7 +435,7 @@ void cmdWriteSpdByte() {
   // Input byte value
   uint8_t data    = buffer[3];
 
-  Respond(writeByte(address, offset, data));
+  Respond(writeSpdByte(address, offset, data));
 }
 
 void cmdWriteSpdPage() {
@@ -465,7 +465,7 @@ void cmdWriteSpdPage() {
     return;
   }
 
-  Respond(writePage(address, offset, length, data));
+  Respond(writeSpdPage(address, offset, length, data));
 }
 
 void cmdScanBus() {
@@ -566,7 +566,7 @@ void cmdSize() {
   if (!size) {
     // Read byte 0x02
     uint8_t keyByte[1] = { 0 };
-    readByte(address, 0x02, 1, keyByte);
+    readSpdByte(address, 0x02, 1, keyByte);
     if (0x0C <= keyByte[0] && keyByte[0] <= 0x11) {
       // DDR4, DDR4E, LPDDR3, LPDDR4, and LPDDR4X
       size = 512;  // 2
@@ -750,7 +750,7 @@ void cmdWriteTest() {
   uint16_t offset = buffer[1] << 8 | buffer[2];
 
   uint8_t data[1];
-  Respond(readByte(address, offset, 1, data) && writeByte(address, offset, data[0]));
+  Respond(readSpdByte(address, offset, 1, data) && writeSpdByte(address, offset, data[0]));
 }
 
 void cmdPinControl() {
@@ -806,7 +806,7 @@ void cmdPinReset() {
 /*  -=  Read/Write functions  =-  */
 
 // Reads bytes from EEPROM into data buffer
-bool readByte(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
+bool readSpdByte(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
 
   uint8_t _offset = lowByte(offset);
 
@@ -837,14 +837,14 @@ bool readByte(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
 }
 
 // Writes a single byte to EEPROM
-bool writeByte(uint8_t address, uint16_t offset, uint8_t data) {
+bool writeSpdByte(uint8_t address, uint16_t offset, uint8_t data) {
 
   uint8_t input[1] = { data };
-  return writePage(address, offset, 1, input);
+  return writeSpdPage(address, offset, 1, input);
 }
 
 // Writes a page (multiple bytes) to EEPROM
-bool writePage(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
+bool writeSpdPage(uint8_t address, uint16_t offset, uint8_t length, uint8_t* data) {
 
   // Check offset and length to avoid page or block boundary overlapping
   if ((offset % 16 + length) > 16) {
@@ -1390,7 +1390,9 @@ bool setConfigPin(uint8_t pin, bool state) {
 
 // Get config pin state
 bool getConfigPin(uint8_t pin) {
-  return pin == SA1_EN ? scanBus() & A1_MASK : digitalRead(pin);
+  return pin == SA1_EN
+    ? scanBus() & A1_MASK
+    : digitalRead(pin);
 }
 
 // Reset config pins
@@ -1441,14 +1443,16 @@ bool probeDeviceTypeId(uint8_t deviceSelectCode) {
   }
   status = Wire.endTransmission();
 
-  return writeBit ? status == 0 : Wire.requestFrom(cmd, (uint8_t)1) > 0;  // true when ACK is received after control byte
+  return writeBit
+    ? status == 0
+    : Wire.requestFrom(cmd, (uint8_t)1) > 0;  // true when ACK is received after control byte
 }
 
 // DDR4 detection test (address)
 bool ddr4Detect(uint8_t address) {
-  return address 
-    ? probeBusAddress(address) && ddr4Detect() && !ddr5Detect(address) 
-    : ddr4Detect();
+  return validateEepromAddress(address) && probeBusAddress(address)
+    ? !ddr5Detect(address) && ddr4Detect()
+    : false;
 }
 
 // DDR4 detection test (generic)
