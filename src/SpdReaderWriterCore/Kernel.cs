@@ -16,24 +16,11 @@ using static SpdReaderWriterCore.Driver;
 namespace SpdReaderWriterCore {
 
     /// <summary>
-    /// Kernel class
+    /// Low level kernel access class
     /// </summary>
     public class Kernel {
 
         #region Delegates
-
-        // Setup
-        internal delegate bool SetupDelegate();
-
-        // Controls
-        internal delegate bool InstallDriverDelegate();
-        internal delegate bool UninstallDriverDelegate();
-        internal delegate bool StartDriverDelegate();
-        internal delegate bool StopDriverDelegate();
-        internal delegate bool LockHandleDelegate(bool state);
-
-        // Info
-        internal delegate int GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
 
         // Read IO
         internal delegate byte ReadIoPortByteDelegate(ushort port);

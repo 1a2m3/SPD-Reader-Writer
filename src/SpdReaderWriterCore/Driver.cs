@@ -20,6 +20,7 @@ using static SpdReaderWriterCore.Data;
 using static SpdReaderWriterCore.Kernel;
 using static SpdReaderWriterCore.NativeFunctions;
 using static SpdReaderWriterCore.NativeFunctions.Advapi32;
+using static SpdReaderWriterCore.NativeFunctions.Advapi32.SystemError;
 using static SpdReaderWriterCore.NativeFunctions.Kernel32;
 
 namespace SpdReaderWriterCore {
@@ -27,6 +28,57 @@ namespace SpdReaderWriterCore {
     /// Driver class
     /// </summary>
     public class Driver {
+
+        #region Delegates
+
+        /// <summary>
+        /// Driver initialization and setup procedure
+        /// </summary>
+        /// <returns></returns>
+        internal delegate bool SetupDelegate();
+
+        /// <summary>
+        /// Driver installation procedure
+        /// </summary>
+        /// <returns><see langword="true"/> if driver is successfully installed</returns>
+        internal delegate bool InstallDriverDelegate();
+
+        /// <summary>
+        /// Driver uninstallation procedure
+        /// </summary>
+        /// <returns><see langword="true"/> if driver is successfully uninstalled</returns>
+        internal delegate bool UninstallDriverDelegate();
+
+        /// <summary>
+        /// Driver service start procedure
+        /// </summary>
+        /// <returns><see langword="true"/> if driver is successfully started</returns>
+        internal delegate bool StartDriverDelegate();
+
+        /// <summary>
+        /// Driver service stop procedure
+        /// </summary>
+        /// <returns><see langword="true"/> if driver is successfully stopped</returns>
+        internal delegate bool StopDriverDelegate();
+
+        /// <summary>
+        /// Driver handle locking procedure
+        /// </summary>
+        /// <param name="state">Driver handle state</param>
+        /// <returns><see langword="true"/> if driver handle state is successfully set</returns>
+        internal delegate bool LockHandleDelegate(bool state);
+
+        /// <summary>
+        /// Driver version info procedure
+        /// </summary>
+        /// <param name="major">Major version number</param>
+        /// <param name="minor">Minor version number</param>
+        /// <param name="revision">Revision number</param>
+        /// <param name="release">Release number</param>
+        /// <returns>Encoded version number</returns>
+        internal delegate int GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
+
+        #endregion
 
         /// <summary>
         /// Default driver to use
@@ -65,7 +117,7 @@ namespace SpdReaderWriterCore {
                 ulong methodStatusMask = 0;
 
                 // Check if all functions are present
-                if (_driverInfo.Setup                 == null) { SetBit(ref methodStatusMask, i, true); } i++;
+                //if (_driverInfo.Setup               == null) { SetBit(ref methodStatusMask, i, true); } i++;
                 if (_driverInfo.GetDriverVersion      == null) { SetBit(ref methodStatusMask, i, true); } i++;
                 if (_driverInfo.ReadIoPortByte        == null) { SetBit(ref methodStatusMask, i, true); } i++;
                 if (_driverInfo.ReadIoPortByteEx      == null) { SetBit(ref methodStatusMask, i, true); } i++;
@@ -99,7 +151,7 @@ namespace SpdReaderWriterCore {
                 if (_driverInfo.ReadMemoryDwordEx     == null) { SetBit(ref methodStatusMask, i, true); } i++;
 
                 if (methodStatusMask > 0) {
-                    throw new MissingMethodException($"{_driverInfo.Name} {nameof(MissingMethodException)}: 0x{methodStatusMask:X16}");
+                    throw new MissingMethodException($"{_driverInfo} {nameof(MissingMethodException)}: 0x{methodStatusMask:X16}");
                 }
             }
         }
@@ -118,7 +170,12 @@ namespace SpdReaderWriterCore {
             /// Info string
             /// </summary>
             /// <returns>Service name</returns>
-            public override string ToString() => !string.IsNullOrEmpty(ServiceName) ? ServiceName : "?";
+            public override string ToString() =>
+                !string.IsNullOrEmpty(Name)
+                    ? Name
+                    : !string.IsNullOrEmpty(ServiceName)
+                        ? ServiceName
+                        : "?";
 
             /// <summary>
             /// Driver service name
@@ -146,7 +203,7 @@ namespace SpdReaderWriterCore {
             internal byte[] BinaryData;
 
             /// <summary>
-            /// Driver specific setup procedure
+            /// Driver specific initialization and setup procedure
             /// </summary>
             internal SetupDelegate Setup { get; set; }
             internal InstallDriverDelegate InstallDriver { get; set; }
@@ -454,9 +511,9 @@ namespace SpdReaderWriterCore {
                     status = Marshal.GetLastWin32Error();
 
                     switch (status) {
-                        case SystemError.ErrorFileNotFound:
+                        case ErrorFileNotFound:
                             return false;
-                        case SystemError.ErrorAccessDenied:
+                        case ErrorAccessDenied:
                             Thread.Sleep(10);
                             continue;
                     }
@@ -468,7 +525,7 @@ namespace SpdReaderWriterCore {
                 _sw.Stop();
             }
 
-            return status == SystemError.Success;
+            return status == Success;
         }
 
         /// <summary>
@@ -556,7 +613,7 @@ namespace SpdReaderWriterCore {
 
             lock (_driverLock) {
 
-                uint inputSize = (uint)(inputData == null ? 0 : Marshal.SizeOf(inputData));
+                uint inputSize = (uint)GetDataSize<uint>(inputData);
                 object outputBuffer = outputData;
                 IntPtr deviceHandle = default;
 
