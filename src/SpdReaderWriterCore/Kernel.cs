@@ -99,30 +99,26 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadIoPortEx<T>(ushort port, out T output) {
 
-            object outputBuffer = null;
-            bool result         = false;
-            
+            bool result = false;
+            output = default;
+
             switch (GetDataSize(typeof(T))) {
                 case Byte: {
                     result = DriverInfo.ReadIoPortByteEx(port, out byte buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
                 case Word: {
                     result = DriverInfo.ReadIoPortWordEx(port, out ushort buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
                 case Dword: {
                     result = DriverInfo.ReadIoPortDwordEx(port, out uint buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
             }
-
-            output = outputBuffer != null
-                ? ConvertTo<T>(outputBuffer)
-                : default;
 
             return result;
         }
@@ -145,15 +141,13 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool WriteIoPortEx<T>(ushort port, T input) {
 
-            object inputBuffer = input;
-
             switch (GetDataSize(typeof(T))) {
                 case Byte:
-                    return DriverInfo.WriteIoPortByteEx(port, (byte)inputBuffer);
+                    return DriverInfo.WriteIoPortByteEx(port, ConvertTo<byte>(input));
                 case Word:
-                    return DriverInfo.WriteIoPortWordEx(port, (ushort)inputBuffer);
+                    return DriverInfo.WriteIoPortWordEx(port, ConvertTo<ushort>(input));
                 case Dword:
-                    return DriverInfo.WriteIoPortDwordEx(port, (uint)inputBuffer);
+                    return DriverInfo.WriteIoPortDwordEx(port, ConvertTo<uint>(input));
                 default:
                     return false;
             }
@@ -189,30 +183,26 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadPciConfigEx<T>(byte bus, byte device, byte function, ushort offset, out T output) {
 
-            object outputBuffer = null;
-            bool result         = false;
+            bool result = false;
+            output = default;
 
             switch (GetDataSize(typeof(T))) {
                 case Byte: {
                     result = DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
                 case Word: {
                     result = DriverInfo.ReadPciConfigWordEx(bus, device, function, offset, out ushort buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
                 case Dword: {
                     result = DriverInfo.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
             }
-
-            output = outputBuffer != null
-                ? ConvertTo<T>(outputBuffer)
-                : default;
 
             return result;
         }
@@ -241,15 +231,13 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool WritePciConfigEx<T>(byte bus, byte device, byte function, ushort offset, T input) {
 
-            object inputBuffer = input;
-
             switch (GetDataSize(typeof(T))) {
                 case Byte:
-                    return DriverInfo.WritePciConfigByteEx(bus, device, function, offset, (byte)inputBuffer);
+                    return DriverInfo.WritePciConfigByteEx(bus, device, function, offset, ConvertTo<byte>(input));
                 case Word:
-                    return DriverInfo.WritePciConfigWordEx(bus, device, function, offset, (ushort)inputBuffer);
+                    return DriverInfo.WritePciConfigWordEx(bus, device, function, offset, ConvertTo<ushort>(input));
                 case Dword:
-                    return DriverInfo.WritePciConfigDwordEx(bus, device, function, offset, (uint)inputBuffer);
+                    return DriverInfo.WritePciConfigDwordEx(bus, device, function, offset, ConvertTo<uint>(input));
                 default:
                     return false;
             }
@@ -279,30 +267,26 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the function succeeds</returns>
         public static bool ReadMemoryEx<T>(uint address, out T output) {
 
-            object outputBuffer = null;
-            bool result         = false;
-            
+            bool result = false;
+            output = default;
+
             switch (GetDataSize(typeof(T))) {
                 case Byte: {
                     result = DriverInfo.ReadMemoryByteEx(address, out byte buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
                 case Word: {
                     result = DriverInfo.ReadMemoryWordEx(address, out ushort buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
                 case Dword: {
                     result = DriverInfo.ReadMemoryDwordEx(address, out uint buffer);
-                    outputBuffer = buffer;
+                    output = ConvertTo<T>(buffer);
                     break;
                 }
             }
-
-            output = outputBuffer != null
-                ? (T)outputBuffer
-                : default;
 
             return result;
         }
