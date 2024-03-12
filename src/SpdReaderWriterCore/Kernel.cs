@@ -101,24 +101,28 @@ namespace SpdReaderWriterCore {
 
             object outputBuffer = null;
             bool result         = false;
-            output              = default;
-
-            if (GetDataSize(output) == Byte) {
-                result = DriverInfo.ReadIoPortByteEx(port, out byte buffer);
-                outputBuffer = buffer;
-            }
-            else if (GetDataSize(output) == Word) {
-                result = DriverInfo.ReadIoPortWordEx(port, out ushort buffer);
-                outputBuffer = buffer;
-            }
-            else if (GetDataSize(output) == Dword) {
-                result = DriverInfo.ReadIoPortDwordEx(port, out uint buffer);
-                outputBuffer = buffer;
-            }
             
-            if (outputBuffer != null) {
-                output = (T)outputBuffer;
+            switch (GetDataSize(typeof(T))) {
+                case Byte: {
+                    result = DriverInfo.ReadIoPortByteEx(port, out byte buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+                case Word: {
+                    result = DriverInfo.ReadIoPortWordEx(port, out ushort buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+                case Dword: {
+                    result = DriverInfo.ReadIoPortDwordEx(port, out uint buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
             }
+
+            output = outputBuffer != null
+                ? ConvertTo<T>(outputBuffer)
+                : default;
 
             return result;
         }
@@ -143,7 +147,7 @@ namespace SpdReaderWriterCore {
 
             object inputBuffer = input;
 
-            switch (GetDataSize(input)) {
+            switch (GetDataSize(typeof(T))) {
                 case Byte:
                     return DriverInfo.WriteIoPortByteEx(port, (byte)inputBuffer);
                 case Word:
@@ -187,24 +191,28 @@ namespace SpdReaderWriterCore {
 
             object outputBuffer = null;
             bool result         = false;
-            output              = default;
 
-            if (GetDataSize(output) == Byte) {
-                result = DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
-                outputBuffer = buffer;
-            }
-            else if (GetDataSize(output) == Word) {
-                result = DriverInfo.ReadPciConfigWordEx(bus, device, function, offset, out ushort buffer);
-                outputBuffer = buffer;
-            }
-            else if (GetDataSize(output) == Dword) {
-                result = DriverInfo.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
-                outputBuffer = buffer;
+            switch (GetDataSize(typeof(T))) {
+                case Byte: {
+                    result = DriverInfo.ReadPciConfigByteEx(bus, device, function, offset, out byte buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+                case Word: {
+                    result = DriverInfo.ReadPciConfigWordEx(bus, device, function, offset, out ushort buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+                case Dword: {
+                    result = DriverInfo.ReadPciConfigDwordEx(bus, device, function, offset, out uint buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
             }
 
-            if (outputBuffer != null) {
-                output = (T)outputBuffer;
-            }
+            output = outputBuffer != null
+                ? ConvertTo<T>(outputBuffer)
+                : default;
 
             return result;
         }
@@ -235,7 +243,7 @@ namespace SpdReaderWriterCore {
 
             object inputBuffer = input;
 
-            switch (GetDataSize(input)) {
+            switch (GetDataSize(typeof(T))) {
                 case Byte:
                     return DriverInfo.WritePciConfigByteEx(bus, device, function, offset, (byte)inputBuffer);
                 case Word:
@@ -273,24 +281,28 @@ namespace SpdReaderWriterCore {
 
             object outputBuffer = null;
             bool result         = false;
-            output              = default;
+            
+            switch (GetDataSize(typeof(T))) {
+                case Byte: {
+                    result = DriverInfo.ReadMemoryByteEx(address, out byte buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+                case Word: {
+                    result = DriverInfo.ReadMemoryWordEx(address, out ushort buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+                case Dword: {
+                    result = DriverInfo.ReadMemoryDwordEx(address, out uint buffer);
+                    outputBuffer = buffer;
+                    break;
+                }
+            }
 
-            if (GetDataSize(typeof(T)) == Byte) {
-                result = DriverInfo.ReadMemoryByteEx(address, out byte buffer);
-                outputBuffer = buffer;
-            }
-            else if (GetDataSize(typeof(T)) == Word) {
-                result = DriverInfo.ReadMemoryWordEx(address, out ushort buffer);
-                outputBuffer = buffer;
-            }
-            else if (GetDataSize(typeof(T)) == Dword) {
-                result = DriverInfo.ReadMemoryDwordEx(address, out uint buffer);
-                outputBuffer = buffer;
-            }
-
-            if (outputBuffer != null) {
-                output = (T)outputBuffer;
-            }
+            output = outputBuffer != null
+                ? (T)outputBuffer
+                : default;
 
             return result;
         }
