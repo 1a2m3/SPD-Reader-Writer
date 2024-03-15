@@ -22,14 +22,13 @@ using static SpdReaderWriterCore.NativeFunctions;
 using static SpdReaderWriterCore.NativeFunctions.Advapi32;
 using static SpdReaderWriterCore.NativeFunctions.Advapi32.SystemError;
 using static SpdReaderWriterCore.NativeFunctions.Kernel32;
+using TimeoutException = System.TimeoutException;
 
 namespace SpdReaderWriterCore {
     /// <summary>
     /// Driver class
     /// </summary>
     public class Driver {
-
-        #region Delegates
 
         /// <summary>
         /// Driver initialization and setup procedure
@@ -77,8 +76,6 @@ namespace SpdReaderWriterCore {
         /// <param name="release">Release number</param>
         /// <returns>Encoded version number</returns>
         internal delegate int GetDriverVersionDelegate(out byte major, out byte minor, out byte revision, out byte release);
-
-        #endregion
 
         /// <summary>
         /// Default driver to use
@@ -175,7 +172,7 @@ namespace SpdReaderWriterCore {
                     ? Name
                     : !string.IsNullOrEmpty(ServiceName)
                         ? ServiceName
-                        : "?";
+                        : nameof(Driver);
 
             /// <summary>
             /// Driver service name
@@ -553,7 +550,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="state">Handle lock state</param>
         /// <returns><see langword="true"/> if driver handle lock is successfully set</returns>
-        internal static bool LockHandle(bool state) => DriverInfo.LockHandle(state);
+        private static bool LockHandle(bool state) => DriverInfo.LockHandle(state);
 
         /// <summary>
         /// Describes driver installation state
@@ -600,7 +597,7 @@ namespace SpdReaderWriterCore {
         private static IntPtr OpenSCManager(ServiceAccessRights dwAccess) => Advapi32.OpenSCManager(null, null, dwAccess);
 
         /// <summary>
-        /// Reads data from device
+        /// Sends a control code directly to a specified device driver, causing the corresponding device to perform the corresponding operation
         /// </summary>
         /// <typeparam name="T">Output data type</typeparam>
         /// <param name="ioControlCode">IOCTL code</param>
@@ -619,14 +616,14 @@ namespace SpdReaderWriterCore {
 
                 _sw.Restart();
 
-                while (_sw.ElapsedMilliseconds < Timeout && !OpenDriverHandle(out deviceHandle)) {
+                while (!OpenDriverHandle(out deviceHandle) && _sw.ElapsedMilliseconds < Timeout) {
                     KeepAlive();
                 }
 
                 _sw.Stop();
 
                 if (_sw.ElapsedMilliseconds >= Timeout) {
-                    throw new Exception($"Unable to open {DriverInfo.ServiceName} handle");
+                    throw new TimeoutException($"Unable to open {DriverInfo.ServiceName} handle");
                 }
 
                 if (_driverHandle == null || _driverHandle.IsClosed) {

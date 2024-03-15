@@ -23,7 +23,7 @@ namespace SpdReaderWriterCore {
     public class PciConfig {
 
         /// <summary>
-        /// Initializes default PCI config instance
+        /// Initializes default PCI Config instance
         /// </summary>
         public PciConfig() {
             Location.Bus      = 0;
@@ -32,7 +32,7 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Initializes a new Pci Config instance based on its PCI location
+        /// Initializes a new PCI Config instance based on its PCI location
         /// </summary>
         /// <param name="bus">PCI bus number</param>
         /// <param name="device">PCI configuration space device number</param>
@@ -289,7 +289,7 @@ namespace SpdReaderWriterCore {
                 // Bus loop
                 for (short bus = 0; bus <= _maxPciBusIndex && !stopFlag; bus++) {
                     // Device loop
-                    for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX && !stopFlag; dev++) {
+                    for (byte dev = 0; dev <= MaxPciDeviceIndex && !stopFlag; dev++) {
 
                         pciConfig.SetBus((byte)bus).SetDevice(dev).SetFunction(0);
 
@@ -301,7 +301,7 @@ namespace SpdReaderWriterCore {
                         }
 
                         // Function loop
-                        for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
+                        for (byte func = 0; func <= MaxPciFunctionIndex; func++) {
 
                             pciConfig.SetFunction(func);
 
@@ -415,7 +415,7 @@ namespace SpdReaderWriterCore {
                 // Bus loop
                 for (short bus = 0; bus <= _maxPciBusIndex && !stopFlag; bus++) {
                     // Device loop
-                    for (byte dev = 0; dev <= MAX_PCI_DEVICE_INDEX && !stopFlag; dev++) {
+                    for (byte dev = 0; dev <= MaxPciDeviceIndex && !stopFlag; dev++) {
 
                         pciConfig.SetBus((byte)bus).SetDevice(dev).SetFunction(0);
 
@@ -426,7 +426,7 @@ namespace SpdReaderWriterCore {
                             continue;
                         }
 
-                        for (byte func = 0; func <= MAX_PCI_FUNCTION_INDEX; func++) {
+                        for (byte func = 0; func <= MaxPciFunctionIndex; func++) {
 
                             pciConfig.SetFunction(func);
 
@@ -470,7 +470,18 @@ namespace SpdReaderWriterCore {
             public byte Device;
             public byte Function;
 
-            public override string ToString() => $"{Bus:D}/{Device:D}/{Function:D}";
+            /// <summary>
+            /// PCI config instance description
+            /// </summary>
+            /// <returns>PCI config location</returns>
+            public override string ToString() => ToString("D");
+
+            /// <summary>
+            /// PCI config instance description
+            /// </summary>
+            /// <param name="format">Numeric format</param>
+            /// <returns>PCI config location</returns>
+            public string ToString(string format) => $"{Bus.ToString(format)}/{Device.ToString(format)}/{Function.ToString(format)}";
         }
 
         /// <summary>
@@ -566,12 +577,12 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Maximum PCI <see cref="Device">device</see> index per <see cref="Bus">bus</see>
         /// </summary>
-        private const byte MAX_PCI_DEVICE_INDEX = 31;
+        internal static readonly byte MaxPciDeviceIndex = 31;
 
         /// <summary>
         /// Maximum PCI <see cref="Function">function</see> index per <see cref="Device">device</see>
         /// </summary>
-        private const byte MAX_PCI_FUNCTION_INDEX = 7;
+        internal static readonly byte MaxPciFunctionIndex = 7;
 
         /// <summary>
         /// Absolute maximum number of PCI devices possible
