@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Reflection;
@@ -74,7 +75,7 @@ namespace SpdReaderWriterCore {
         public static byte GetParity(object input, Parity parityType) {
 
             int bitCount = CountBits(input);
-            ulong value  = Convert.ToUInt64(input) & GenerateBitmask<ulong>(bitCount);
+            ulong value  = ConvertTo<ulong>(input) & GenerateBitmask<ulong>(bitCount);
 
             byte result = 0;
 
@@ -89,8 +90,8 @@ namespace SpdReaderWriterCore {
         /// Parity type
         /// </summary>
         public enum Parity : byte {
-            Odd  = 0,
-            Even = 1
+            Odd,
+            Even
         }
 
         /// <summary>
@@ -105,7 +106,7 @@ namespace SpdReaderWriterCore {
                 throw new InvalidDataException(nameof(input));
             }
 
-            long value = Convert.ToInt64(input) & GenerateBitmask<long>(CountBits(input));
+            long value = ConvertTo<long>(input) & GenerateBitmask<long>(CountBits(input));
 
             return ((value >> position) & 1) == 1;
         }
@@ -143,12 +144,6 @@ namespace SpdReaderWriterCore {
             return ConvertTo<T>(value
                 ? inputData | (uint)mask
                 : inputData & (ulong)~mask);
-
-            return (T)Convert.ChangeType(
-                value
-                    ? inputData | (uint)mask
-                    : inputData & (ulong)~mask
-                , typeof(T));
         }
 
 
@@ -267,14 +262,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="input">Input type</param>
         /// <returns>Number of bits in input type</returns>
-        public static int CountBytes(Type input) {
-
-            if (input == typeof(bool)) {
-                return 1;
-            }
-
-            return Marshal.SizeOf(input);
-        }
+        public static int CountBytes(Type input) => input == typeof(bool) ? 1 : Marshal.SizeOf(input);
 
         /// <summary>
         /// Generates bitmask
@@ -295,14 +283,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="input">Input integer</param>
         /// <returns><see langword="true"/> if <param name="input"/> is an even number, or <see langword="false"/> if it is an odd number</returns>
-        public static bool IsEven<T>(T input) {
-
-            if (!IsNumeric(input)) {
-                throw new InvalidDataException(nameof(input));
-            }
-
-            return !GetBit(input, 0);
-        }
+        public static bool IsEven<T>(T input) => !IsOdd(input);
 
         /// <summary>
         /// Indicates whether the value of input number is an odd number
@@ -330,7 +311,7 @@ namespace SpdReaderWriterCore {
                 throw new InvalidDataException(nameof(input));
             }
 
-            return Convert.ToInt32(input) + (IsEven(input) ? 0 : (int)dir);
+            return ConvertTo<int>(input) + (IsEven(input) ? 0 : (int)dir);
         }
 
         /// <summary>
@@ -345,7 +326,7 @@ namespace SpdReaderWriterCore {
                 throw new InvalidDataException(nameof(input));
             }
 
-            return Convert.ToInt32(input) + (IsOdd(input) ? 0 : (int)dir);
+            return ConvertTo<int>(input) + (IsOdd(input) ? 0 : (int)dir);
         }
 
         /// <summary>
@@ -541,9 +522,8 @@ namespace SpdReaderWriterCore {
         /// <param name="input">Input data</param>
         /// <param name="method">Gzip method</param>
         /// <returns>Data byte array</returns>
-        public static byte[] Gzip(byte[] input, GzipMethod method) {
-            return method == GzipMethod.Compress ? CompressGzip(input) : DecompressGzip(input);
-        }
+        public static byte[] Gzip(byte[] input, GzipMethod method) =>
+            method == GzipMethod.Compress ? CompressGzip(input) : DecompressGzip(input);
 
         /// <summary>
         /// Gzip Data Methods
@@ -559,9 +539,8 @@ namespace SpdReaderWriterCore {
         /// <param name="input">GZip contents byte array</param>
         /// <param name="outputSize">Number of bytes to read</param>
         /// <returns>Decompressed header byte array</returns>
-        public static byte[] GzipPeek(byte[] input, int outputSize) {
-            return DecompressGzip(input, outputSize, true);
-        }
+        public static byte[] GzipPeek(byte[] input, int outputSize) =>
+            DecompressGzip(input, outputSize, true);
 
         /// <summary>
         /// Compresses contents to GZip
@@ -592,9 +571,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="input">GZip contents byte array</param>
         /// <returns>Decompressed byte array</returns>
-        private static byte[] DecompressGzip(byte[] input) {
-            return DecompressGzip(input, 16384, false);
-        }
+        private static byte[] DecompressGzip(byte[] input) =>
+            DecompressGzip(input, 16384, false);
 
         /// <summary>
         /// Decompresses GZip contents
@@ -634,7 +612,7 @@ namespace SpdReaderWriterCore {
         /// <returns>Text string from <paramref name="input"/></returns>
         public static string BytesToString<T>(T[] input) {
 
-            StringBuilder sbOutput = new StringBuilder();
+            StringBuilder sbOutput = new StringBuilder(input.Length);
 
             for (int i = 0; i < input.Length; i++) {
                 char c = ConvertTo<char>(input[i]);
@@ -1151,7 +1129,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input array</param>
         /// <returns>Data type array</returns>
-        public static T[] ConvertObjectArray<T>(object input) {
+        public static T[] ObjectToArray<T>(object input) {
 
             if (input == null) {
                 throw new NullReferenceException(nameof(input));
@@ -1239,7 +1217,26 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input object</param>
         /// <returns>Object data type value</returns>
-        public static T ConvertTo<T>(object input) => (T)Convert.ChangeType(input, typeof(T));
+        public static T ConvertTo<T>(object input) =>
+            (T)Convert.ChangeType(input, typeof(T));
+
+        /// <summary>
+        /// Converts input object into specified data type
+        /// </summary>
+        /// <param name="input">Input object</param>
+        /// <param name="t">Output data type</param>
+        /// <returns>Object value</returns>
+        public static object ConvertTo(object input, Type t) =>
+            Convert.ChangeType(input, t);
+
+        /// <summary>
+        /// Converts input object into an object of output data type
+        /// </summary>
+        /// <param name="input">Input object</param>
+        /// <param name="outputType">Output object</param>
+        /// <returns><paramref name="input">Input</paramref> object value as object of <paramref name="outputType">output</paramref> type</returns>
+        public static object ConvertTo(object input, object outputType) =>
+            Convert.ChangeType(input, outputType.GetType());
 
         /// <summary>
         /// Gets description attribute of an Enum member
@@ -1442,6 +1439,20 @@ namespace SpdReaderWriterCore {
                 ? Gzip(RawData, GzipMethod.Decompress)
                 : throw new Exception("Data is not compressed");
         }
+
+        /// <summary>
+        /// File version
+        /// </summary>
+        /// <param name="path">File path</param>
+        /// <returns>File version</returns>
+        public static string FileVersion(string path) => File.Exists(path) ? FileVersionInfo.GetVersionInfo(path).FileVersion : "not found";
+
+        /// <summary>
+        /// Product version
+        /// </summary>
+        /// <param name="path">File path</param>
+        /// <returns>Product version</returns>
+        public static string ProductVersion(string path) => File.Exists(path) ? FileVersionInfo.GetVersionInfo(path).ProductVersion : "not found";
 
         /// <summary>
         /// Initializes an existing mutex instance
