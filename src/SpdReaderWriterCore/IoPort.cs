@@ -39,7 +39,14 @@ namespace SpdReaderWriterCore {
         /// IO port instance description
         /// </summary>
         /// <returns>Readable IO port instance description</returns>
-        public override string ToString() => $"0x{BaseAddress:X4}";
+        public override string ToString() => $"0x{ToString("X4")}";
+
+        /// <summary>
+        /// IO port instance description
+        /// </summary>
+        /// <param name="format">Numeric format</param>
+        /// <returns>String representing IO port instance base address</returns>
+        public string ToString(string format) => BaseAddress.ToString(format);
 
         /// <summary>
         /// Reads data from an IO port register
