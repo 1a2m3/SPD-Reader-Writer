@@ -517,6 +517,25 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Converts input string into a number
+        /// </summary>
+        /// <typeparam name="T">Output data type</typeparam>
+        /// <param name="input">Input string</param>
+        /// <returns>A numeric representation of <paramref name="input"/></returns>
+        public static T StringToNum<T>(string input) {
+
+            if (input.StartsWith("0x")) {
+                return HexStringToNumber<T>(input.Replace("0x", "").Trim());
+            }
+
+            if (ulong.TryParse(input, out var output)) {
+                return ConvertTo<T>(output);
+            }
+
+            throw new InvalidDataException(nameof(input));
+        }
+
+        /// <summary>
         /// Compresses any data or decompresses Gzip data
         /// </summary>
         /// <param name="input">Input data</param>
@@ -730,6 +749,15 @@ namespace SpdReaderWriterCore {
 
             return ConvertTo<T>(output);
         }
+
+        /// <summary>
+        /// Returns a consecutive array of numbers based on input criteria
+        /// </summary>
+        /// <typeparam name="T">Data type</typeparam>
+        /// <param name="start">First number in array</param>
+        /// <param name="stop">Last number in array</param>
+        /// <returns>A consecutive array of numbers between <see cref="start"/> and <see cref="stop"/> with an interval of 1</returns>
+        public static T[] ConsecutiveArray<T>(int start, int stop) => ConsecutiveArray<T>(start, stop, 1);
 
         /// <summary>
         /// Returns a consecutive array of numbers based on input criteria
