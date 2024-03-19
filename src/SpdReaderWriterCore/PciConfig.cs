@@ -154,17 +154,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <returns>Data value at <paramref name="offset"/> location</returns>
-        public T Read<T>(ushort offset) {
-
-            if (!LockMutex(PciMutex, PciMutexTimeout)) {
-                return default;
-            }
-
-            ReadEx(offset, out T output);
-            UnlockMutex(PciMutex);
-
-            return output;
-        }
+        public T Read<T>(ushort offset) => ReadEx(offset, out T output) ? output : default;
 
         /// <summary>
         /// Reads data from PCI configuration space
@@ -193,14 +183,7 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="offset">Register offset</param>
         /// <param name="value">Data value</param>
-        public void Write<T>(ushort offset, T value) {
-            if (!LockMutex(PciMutex, PciMutexTimeout)) {
-                return;
-            }
-
-            WriteEx(offset, value);
-            UnlockMutex(PciMutex);
-        }
+        public void Write<T>(ushort offset, T value) => WriteEx(offset, value);
 
         /// <summary>
         /// Writes data to PCI configuration space
