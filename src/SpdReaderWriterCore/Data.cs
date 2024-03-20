@@ -501,6 +501,32 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Converts input string into a number
+        /// </summary>
+        /// <typeparam name="T">Output data type</typeparam>
+        /// <param name="input">Input string</param>
+        /// <returns>A numeric representation of <paramref name="input"/></returns>
+        /// <remarks>Input value examples:
+        /// <example><i>0x2E1A</i></example>,
+        /// <example><i>0x19A</i></example>,
+        /// <example><i>213h</i></example></remarks>
+        public static T StringToNum<T>(string input) {
+
+            string hexPrefix = "0x";
+            string hexSuffix = "h";
+
+            if (input.StartsWith(hexPrefix) || input.EndsWith(hexSuffix)) {
+                return HexStringToNumber<T>(input.Replace(hexPrefix, "").Replace(hexSuffix, "").Trim());
+            }
+
+            if (ulong.TryParse(input, out var output)) {
+                return ConvertTo<T>(output);
+            }
+
+            throw new InvalidDataException(nameof(input));
+        }
+
+        /// <summary>
         /// Converts byte array to hex string
         /// </summary>
         /// <param name="input">Input byte array</param>
@@ -514,25 +540,6 @@ namespace SpdReaderWriterCore {
             }
 
             return hex.ToString();
-        }
-
-        /// <summary>
-        /// Converts input string into a number
-        /// </summary>
-        /// <typeparam name="T">Output data type</typeparam>
-        /// <param name="input">Input string</param>
-        /// <returns>A numeric representation of <paramref name="input"/></returns>
-        public static T StringToNum<T>(string input) {
-
-            if (input.StartsWith("0x")) {
-                return HexStringToNumber<T>(input.Replace("0x", "").Trim());
-            }
-
-            if (ulong.TryParse(input, out var output)) {
-                return ConvertTo<T>(output);
-            }
-
-            throw new InvalidDataException(nameof(input));
         }
 
         /// <summary>
@@ -1123,6 +1130,28 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Randomizes array elements order
+        /// </summary>
+        /// <typeparam name="T">Array element type</typeparam>
+        /// <param name="array">Input array</param>
+        /// <returns>Array with shuffled elements</returns>
+        public static T[] ShuffleArray<T>(T[] array) {
+
+            if (array == null) {
+                throw new ArgumentNullException(nameof(array));
+            }
+
+            Random random = new Random();
+
+            for (int i = 0; i < array.Length; i++) {
+                int randomNumber = random.Next(i, array.Length);
+                Swap(ref array[i], ref array[randomNumber]);
+            }
+
+            return array;
+        }
+
+        /// <summary>
         /// Checks if input array contains specified element
         /// </summary>
         /// <param name="input">Input array</param>
@@ -1237,6 +1266,18 @@ namespace SpdReaderWriterCore {
             finally {
                 Marshal.FreeHGlobal(ptr);
             }
+        }
+
+        /// <summary>
+        /// Swaps two items
+        /// </summary>
+        /// <typeparam name="T">Item data type</typeparam>
+        /// <param name="item1">First item</param>
+        /// <param name="item2">Second item</param>
+        public static void Swap<T>(ref T item1, ref T item2) {
+            T tempValue = item1;
+            item1 = item2;
+            item2 = tempValue;
         }
 
         /// <summary>
