@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20240309  // Firmware version number (YYYYMMDD)
+#define FW_VER 20240321  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -75,6 +75,7 @@
 #define A1_MASK 0b11001100  // ScanBus() bitmask response when SA1 is high: 82-83, 86-87
 
 // Device alerts
+#define READY    '!'
 #define SLAVEINC '+'
 #define SLAVEDEC '-'
 #define CLOCKINC '/'
@@ -204,27 +205,20 @@ void setup() {
   while (true) {}
   #endif
 
-  // Send a true response when the device is ready
-  Respond(true);
-  OutputResponse();
+  // Send an alert when the device is ready
+  Alert(READY);
 }
 
 void loop() {
-
   resetPins(false);
-
-  // Wait for input data
-  if (PORT.available()) {
-    parseCommand();
-  }
-
-  // Monitor I2C bus
+  parseCommand();
   i2cMonitor();
 }
 
 // Process input commands and data
 void parseCommand() {
 
+  // Wait for input data
   if (!PORT.available()) {
     cmdExecuting = false;
     return;
@@ -398,6 +392,12 @@ void OutputResponse() {
     // Clear response array
     memset(responseBuffer, 0x00, sizeof(responseBuffer));
   }
+}
+
+// Sends an alert
+void Alert(uint8_t alertCode) {
+  PORT.write(ALERT);
+  PORT.write(alertCode);
 }
 
 
@@ -1343,8 +1343,7 @@ void i2cMonitor() {
     slaveCountCurrent = getQuantity();
 
     if (slaveCountCurrent != slaveCountLast) {
-      uint8_t buffer[] = { ALERT, (uint8_t)(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC) };
-      PORT.write(buffer, sizeof(buffer));
+      Alert(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC);
       slaveCountLast = slaveCountCurrent;
       i2cPause = true;
     }
@@ -1354,8 +1353,7 @@ void i2cMonitor() {
   i2cClockCurrent = getI2cClockMode();
 
   if (i2cClockCurrent != i2cClockLast) {
-    uint8_t buffer[] = { ALERT, (uint8_t)(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC) };
-    PORT.write(buffer, sizeof(buffer));
+    Alert(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC);
     i2cClockLast = i2cClockCurrent;
   }
 

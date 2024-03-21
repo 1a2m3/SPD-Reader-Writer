@@ -13,6 +13,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
 using System.Linq;
@@ -49,6 +50,19 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Initializes Arduino device instance
         /// </summary>
+        /// <param name="portName">Serial port name</param>
+        /// <param name="baudRate">Serial port baud rate</param>
+        public Arduino(string portName, int baudRate) {
+            SerialPortSettings ps = new SerialPortSettings {
+                BaudRate = baudRate
+            };
+            PortSettings = ps;
+            PortName = portName;
+        }
+
+        /// <summary>
+        /// Initializes Arduino device instance
+        /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         public Arduino(SerialPortSettings portSettings) {
             PortSettings = portSettings;
@@ -69,11 +83,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="portSettings">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
-        /// <param name="i2cAddress">EEPROM address on the device's i2c bus</param>
-        public Arduino(SerialPortSettings portSettings, string portName, byte i2cAddress) {
+        /// <param name="i2CAddress">EEPROM address on the device's i2c bus</param>
+        public Arduino(SerialPortSettings portSettings, string portName, byte i2CAddress) {
             PortSettings = portSettings;
             PortName     = portName;
-            I2CAddress   = i2cAddress;
+            I2CAddress   = i2CAddress;
         }
 
         /// <summary>
@@ -167,6 +181,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if the connection is established</returns>
         public bool Connect() {
+
             lock (_portLock) {
                 if (IsConnected) {
                     return IsConnected;
@@ -188,31 +203,39 @@ namespace SpdReaderWriterCore {
 
                 // Event to handle Errors
                 _sp.ErrorReceived += ErrorReceivedHandler;
-
-                // Test the connection
+                
                 try {
-                    // Establish a connection
+                    // Establish connection
                     _sp.Open();
 
                     // Reset stats
                     _bytesSent     = 0;
                     _bytesReceived = 0;
 
-                    try {
-                        if (Test()) {
-                            new Thread(ConnectionMonitor) {
-#if DEBUG
-                                Name = "ConnectionMonitor",
-#endif
-                                Priority = ThreadPriority.BelowNormal,
-                            }.Start();
-
-                            _connectionEstablished.Set();
-                        }
+                    // Wait till ready signal
+                    Stopwatch sw = Stopwatch.StartNew();
+                    while (!IsReady && sw.ElapsedMilliseconds < PortSettings.Timeout * 1000) {
+                        Thread.Sleep(10);
                     }
-                    catch {
+
+                    if (!IsReady) {
+                        return false;
+                    }
+
+                    // Test the device
+                    if (Test()) {
+                        new Thread(ConnectionMonitor) {
+#if DEBUG
+                            Name = "ConnectionMonitor",
+#endif
+                            Priority = ThreadPriority.BelowNormal,
+                        }.Start();
+
+                        _connectionEstablished.Set();
+                    }
+                    else {
                         Dispose();
-                        throw new Exception($"Device {PortName} failed to pass communication test");
+                        return false;
                     }
                 }
                 catch (Exception ex) {
@@ -264,6 +287,7 @@ namespace SpdReaderWriterCore {
                     _sp = null;
                 }
 
+                IsReady          = false;
                 _addresses       = null;
                 _rswpTypeSupport = 0;
             }
@@ -589,8 +613,8 @@ namespace SpdReaderWriterCore {
                 try {
                     return ExecuteCommand<int>(Command.Version);
                 }
-                catch {
-                    throw new Exception($"Unable to get firmware version on {PortName}");
+                catch (Exception ex) {
+                    throw new Exception($"Unable to get firmware version on {PortName}: {ex.Message}");
                 }
             }
         }
@@ -612,7 +636,7 @@ namespace SpdReaderWriterCore {
         private static int GetIncludedFirmwareVersion() {
             try {
                 byte[] fwHeader         = GzipPeek(Resources.Firmware.FirmwareFile.RawData, 1024);
-                int versionLength       = CountBytes(typeof(int)) * 2;
+                int versionLength       = (int)DataSize.Dword * 2;
                 Regex versionPattern    = new Regex($@"([\d]{{{versionLength}}})"); // ([\d]{8})
                 MatchCollection matches = versionPattern.Matches(BytesToString(fwHeader));
 
@@ -738,12 +762,23 @@ namespace SpdReaderWriterCore {
 
             string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
 
+            // Sort results in numeric order
+            int[] portsNumbers = new int[ports.Length];
+            for (int i = 0; i < ports.Length; i++) {
+                portsNumbers[i] = StringToNum<int>(ports[i].Replace("COM", ""));
+            }
+
+            Array.Sort(portsNumbers);
+
+            for (int i = 0; i < ports.Length; i++) {
+                ports[i] = $"COM{portsNumbers[i]}";
+            }
+
             Parallel.ForEach(ports, portName => {
                 using (Arduino device = new Arduino(settings, portName)) {
                     try {
                         if (device.Connect()) {
                             result.Push(device);
-                            device.Disconnect();
                         }
                     }
                     catch {
@@ -768,6 +803,11 @@ namespace SpdReaderWriterCore {
                 }
             }
         }
+
+        /// <summary>
+        /// Describes device's ready state
+        /// </summary>
+        public bool IsReady { get; private set; }
 
         /// <summary>
         /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="I2CAddress"/>
@@ -1017,11 +1057,17 @@ namespace SpdReaderWriterCore {
                 Notification = message
             });
 
-            // Update capabilities properties
-            if (message == Alert.SLAVEDEC ||
-                message == Alert.SLAVEINC) {
-                _addresses       = Scan();
-                _rswpTypeSupport = _addresses.Length > 0 ? GetRswpSupport() : 0;
+            switch (message) {
+                case Alert.SLAVEDEC:
+                case Alert.SLAVEINC:
+                    // Update capabilities properties
+                    _addresses       = Scan();
+                    _rswpTypeSupport = _addresses.Length > 0 ? GetRswpSupport() : 0;
+                    break;
+                case Alert.READY:
+                    // Set ready flag
+                    IsReady = true;
+                    break;
             }
         }
 
@@ -1137,7 +1183,7 @@ namespace SpdReaderWriterCore {
 
             Queue<byte> rawBytes = new Queue<byte>();
 
-            foreach (byte b in ConvertToArray<byte>(command)) {
+            foreach (byte b in ObjectToArray<byte>(command)) {
                 rawBytes.Enqueue(b);
             }
 
@@ -1160,8 +1206,14 @@ namespace SpdReaderWriterCore {
 
             if (IsNumeric(typeCode)) {
                 ulong outputBuffer = 0;
-                for (int i = 0; i < (int)GetDataSize(typeCode); i++) {
-                    outputBuffer = (ulong)((response[i] << (8 * i)) | (int)outputBuffer);
+
+                int dataSize = (int)GetDataSize(typeCode);
+                int dataSizeLimit = response.Length >= dataSize
+                    ? dataSize
+                    : response.Length;
+
+                for (int i = 0; i < dataSizeLimit; i++) {
+                    outputBuffer |= (uint)(response[i] << (8 * i));
                 }
 
                 return ConvertTo<T>(outputBuffer);
@@ -1181,7 +1233,7 @@ namespace SpdReaderWriterCore {
             }
 
             if (!IsConnected) {
-                throw new InvalidOperationException("Device is not connected");
+                throw new InvalidOperationException($"{PortName} is not connected");
             }
 
             lock (_portLock) {
@@ -1535,7 +1587,7 @@ namespace SpdReaderWriterCore {
         public struct RswpSupport {
 
             /// <summary>
-            /// Value describing the device supports VHV and SA1 controls for DDR3 and below RSWP support
+            /// Value describing the device supports VHV and SA1 controls for DDR3 and older RAM RSWP support
             /// </summary>
             public const byte DDR3 = 1 << 3;
 
@@ -1570,6 +1622,11 @@ namespace SpdReaderWriterCore {
         /// Alerts received from Arduino
         /// </summary>
         public enum Alert {
+
+            /// <summary>
+            /// Notification the device is ready to receive commands
+            /// </summary>
+            READY    = '!',
 
             /// <summary>
             /// Notification the number of slave addresses on the Arduino's I2C bus has increased
