@@ -57,7 +57,7 @@ namespace SpdReaderWriterCore {
                 BaudRate = baudRate
             };
             PortSettings = ps;
-            PortName = portName;
+            PortName     = portName;
         }
 
         /// <summary>
@@ -218,12 +218,9 @@ namespace SpdReaderWriterCore {
                         Thread.Sleep(10);
                     }
 
-                    if (!IsReady) {
-                        return false;
-                    }
-
                     // Test the device
-                    if (Test()) {
+                    if (IsReady && Test()) {
+                        // Start connection monitor thread
                         new Thread(ConnectionMonitor) {
 #if DEBUG
                             Name = "ConnectionMonitor",
@@ -232,9 +229,10 @@ namespace SpdReaderWriterCore {
                         }.Start();
 
                         _connectionEstablished.Set();
+                        IsReady = true;
                     }
                     else {
-                        Dispose();
+                        Disconnect();
                         return false;
                     }
                 }
@@ -243,7 +241,7 @@ namespace SpdReaderWriterCore {
                 }
             }
 
-            return IsConnected;
+            return IsReady;
         }
 
         /// <summary>
@@ -256,10 +254,14 @@ namespace SpdReaderWriterCore {
                     return false;
                 }
 
+                _sp.Close();
+                _connectionEstablished.Reset();
+
+                _isReady         = false;
+                _addresses       = null;
+                _rswpTypeSupport = 0;
+
                 try {
-                    // Remove handlers
-                    _sp.DataReceived  -= DataReceivedHandler;
-                    _sp.ErrorReceived -= ErrorReceivedHandler;
                     Dispose();
                 }
                 catch (Exception ex) {
@@ -274,23 +276,20 @@ namespace SpdReaderWriterCore {
         /// Disposes device instance
         /// </summary>
         public void Dispose() {
-            lock (_portLock) {
-                if (IsConnected) {
-                    _sp.Close();
-                }
 
-                _connectionEstablished.Reset();
-
-                if (_sp != null) {
-                    _sp.DataReceived  -= DataReceivedHandler;
-                    _sp.ErrorReceived -= ErrorReceivedHandler;
-                    _sp = null;
-                }
-
-                IsReady          = false;
-                _addresses       = null;
-                _rswpTypeSupport = 0;
+            if (IsReady) {
+                return;
             }
+
+            if (_sp != null) {
+                // Remove handlers
+                _sp.DataReceived  -= DataReceivedHandler;
+                _sp.ErrorReceived -= ErrorReceivedHandler;
+                _sp.Dispose();
+            }
+
+            _connectionEstablished.Dispose();
+            _isReady = false;
         }
 
         /// <summary>
@@ -807,7 +806,11 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Describes device's ready state
         /// </summary>
-        public bool IsReady { get; private set; }
+        public bool IsReady {
+            get => IsConnected && _isReady;
+            private set => _isReady = value;
+        }
+        private bool _isReady;
 
         /// <summary>
         /// Detects if DDR4 RAM is present on the device's I2C bus at specified <see cref="I2CAddress"/>
@@ -1094,7 +1097,7 @@ namespace SpdReaderWriterCore {
                 OnConnectionLost(EventArgs.Empty);
             }
 
-            Dispose();
+            Disconnect();
         }
 
         /// <summary>
