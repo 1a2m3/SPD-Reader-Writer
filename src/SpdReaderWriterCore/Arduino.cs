@@ -183,8 +183,8 @@ namespace SpdReaderWriterCore {
         public bool Connect() {
 
             lock (_portLock) {
-                if (IsConnected) {
-                    return IsConnected;
+                if (IsReady) {
+                    return IsReady;
                 }
 
                 _sp = new SerialPort {
@@ -205,7 +205,13 @@ namespace SpdReaderWriterCore {
                 _sp.ErrorReceived += ErrorReceivedHandler;
                 
                 try {
+                    // Native USB Arduino soft reset
+                    _sp.BaudRate = 1200;
+                    _sp.Open();
+                    _sp.Close();
+
                     // Establish connection
+                    _sp.BaudRate = PortSettings.BaudRate;
                     _sp.Open();
 
                     // Reset stats
@@ -217,9 +223,10 @@ namespace SpdReaderWriterCore {
                     while (!IsReady && sw.ElapsedMilliseconds < PortSettings.Timeout * 1000) {
                         Thread.Sleep(10);
                     }
+                    sw.Stop();
 
                     // Test the device
-                    if (IsReady && Test()) {
+                    if (IsReady) {
                         // Start connection monitor thread
                         new Thread(ConnectionMonitor) {
 #if DEBUG
@@ -282,6 +289,7 @@ namespace SpdReaderWriterCore {
             }
 
             if (_sp != null) {
+                ClearBuffer();
                 // Remove handlers
                 _sp.DataReceived  -= DataReceivedHandler;
                 _sp.ErrorReceived -= ErrorReceivedHandler;
@@ -761,23 +769,12 @@ namespace SpdReaderWriterCore {
 
             string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
 
-            // Sort results in numeric order
-            int[] portsNumbers = new int[ports.Length];
-            for (int i = 0; i < ports.Length; i++) {
-                portsNumbers[i] = StringToNum<int>(ports[i].Replace("COM", ""));
-            }
-
-            Array.Sort(portsNumbers);
-
-            for (int i = 0; i < ports.Length; i++) {
-                ports[i] = $"COM{portsNumbers[i]}";
-            }
-
             Parallel.ForEach(ports, portName => {
                 using (Arduino device = new Arduino(settings, portName)) {
                     try {
                         if (device.Connect()) {
                             result.Push(device);
+                            device.Disconnect();
                         }
                     }
                     catch {
@@ -785,6 +782,22 @@ namespace SpdReaderWriterCore {
                     }
                 }
             });
+
+            // Get port numbers
+            int[] portsNumbers = new int[result.Count];
+            for (int i = 0; i < portsNumbers.Length; i++) {
+                portsNumbers[i] = StringToNum<int>(result.Pop().PortName.Replace("COM", ""));
+            }
+
+            // Sort results in numeric order
+            Array.Sort(portsNumbers);
+            Array.Reverse(portsNumbers);
+            result.Clear();
+
+            for (int i = 0; i < portsNumbers.Length; i++) {
+                ports[i] = $"COM{portsNumbers[i]}";
+                result.Push(new Arduino(settings, ports[i]));
+            }
 
             return result.ToArray();
         }
