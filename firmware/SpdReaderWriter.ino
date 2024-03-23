@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20240321  // Firmware version number (YYYYMMDD)
+#define FW_VER 20240322  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -205,8 +205,9 @@ void setup() {
   while (true) {}
   #endif
 
-  // Send an alert when the device is ready
-  Alert(READY);
+  // Send a true response when the device is ready
+  respond(true);
+  outputResponse();
 }
 
 void loop() {
@@ -333,7 +334,7 @@ void parseCommand() {
   }
 
   // Output response
-  OutputResponse();
+  outputResponse();
 
   cmdExecuting = false;
 }
@@ -342,34 +343,34 @@ void parseCommand() {
 /*  -=  Response handlers  =-  */
 
 // Put single byte into response
-void Respond(uint8_t inputData) {
+void respond(uint8_t inputData) {
   responseBuffer[responseLength] = inputData;
   responseLength++;
 }
 
 // Put byte array into response
-void Respond(uint8_t* inputData, size_t length) {
+void respond(uint8_t* inputData, size_t length) {
   for (uint8_t i = 0; i < length; i++) {
-    Respond(inputData[i]);
+    respond(inputData[i]);
   }
 }
 
 // Put string into response
-void Respond(String inputData) {
+void respond(String inputData) {
 
   // Blank name
   if (inputData.length() == 0) {
-    Respond(0);
+    respond(0);
     return;
   }
 
   for (uint8_t i = 0; i < inputData.length(); i++) {
-    Respond(inputData[i]);
+    respond(inputData[i]);
   }
 }
 
 // Output response header, size, contents, and checksum
-void OutputResponse() {
+void outputResponse() {
   if (responseLength > 0) {
 
     // Calculate checksum
@@ -395,7 +396,7 @@ void OutputResponse() {
 }
 
 // Sends an alert
-void Alert(uint8_t alertCode) {
+void alert(uint8_t alertCode) {
   PORT.write(ALERT);
   PORT.write(alertCode);
 }
@@ -420,7 +421,7 @@ void cmdReadSpdPage() {
   // Fill the data buffer
   readSpdByte(address, offset, length, data);
 
-  Respond(data, sizeof(data));
+  respond(data, sizeof(data));
 }
 
 void cmdWriteSpdByte() {
@@ -435,7 +436,7 @@ void cmdWriteSpdByte() {
   // Input byte value
   uint8_t data    = buffer[3];
 
-  Respond(writeSpdByte(address, offset, data));
+  respond(writeSpdByte(address, offset, data));
 }
 
 void cmdWriteSpdPage() {
@@ -452,7 +453,7 @@ void cmdWriteSpdPage() {
 
   // Validate input length
   if (length == 0) {
-    Respond(0);
+    respond(0);
     return;
   }
 
@@ -461,23 +462,23 @@ void cmdWriteSpdPage() {
   PORT.readBytes(data, sizeof(data));
 
   if (length > 16) {
-    Respond(false);
+    respond(false);
     return;
   }
 
-  Respond(writeSpdPage(address, offset, length, data));
+  respond(writeSpdPage(address, offset, length, data));
 }
 
 void cmdScanBus() {
-  Respond(scanBus());
+  respond(scanBus());
 }
 
 void cmdTest() {
-  Respond(true);
+  respond(true);
 }
 
 void cmdRswpReport() {
-  Respond(rswpSupportTest());
+  respond(rswpSupportTest());
 }
 
 void cmdDdr4Detect() {
@@ -486,7 +487,7 @@ void cmdDdr4Detect() {
   PORT.readBytes(buffer, sizeof(buffer));
 
   uint8_t address = buffer[0];  // I2C address
-  Respond(ddr4Detect(address));
+  respond(ddr4Detect(address));
 }
 
 void cmdDdr5Detect() {
@@ -495,7 +496,7 @@ void cmdDdr5Detect() {
   PORT.readBytes(buffer, sizeof(buffer));
 
   uint8_t address = buffer[0];  // I2C address
-  Respond(ddr5Detect(address));
+  respond(ddr5Detect(address));
 }
 
 void cmdSpd5Hub() {
@@ -508,7 +509,7 @@ void cmdSpd5Hub() {
   uint8_t command = buffer[2];  // command
 
   if (!ddr5Detect(address)) {
-    Respond(false);
+    respond(false);
   }
 
   // Write to register
@@ -516,15 +517,15 @@ void cmdSpd5Hub() {
     // Data buffer
     uint8_t data[1] = { 0 };  // Byte value
     PORT.readBytes(data, sizeof(data));
-    Respond(writeSpd5HubReg(address, memReg, data[0]));
+    respond(writeSpd5HubReg(address, memReg, data[0]));
   }
   // Read from register
   else if (command == Command::Get) {
-    Respond(readSpd5HubReg(address, memReg));
+    respond(readSpd5HubReg(address, memReg));
   }
   // Unrecognized command
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
@@ -576,12 +577,12 @@ void cmdSize() {
   // Return bit position matching SpdReaderWriterDll.Spd.DataLength.Length array index
   for (uint8_t i = 0; i <= 3; i++) {
     if(bitRead(highByte(size), i)) {
-      Respond(i + 1);
+      respond(i + 1);
       return;
     }
   }
 
-  Respond(0);
+  respond(0);
 }
 
 void cmdVersion() {
@@ -593,7 +594,7 @@ void cmdVersion() {
     data[i - 1] = FW_VER >> (8 * (i - 1));
   }
 
-  Respond(data, verLength);
+  respond(data, verLength);
 }
 
 void cmdName() {
@@ -603,7 +604,7 @@ void cmdName() {
 
   // Get name
   if (buffer[0] == Command::Get) {
-    Respond(getName());
+    respond(getName());
   }
   // Set name
   else if (buffer[0] > 0 && buffer[0] <= NAMELENGTH) {
@@ -614,11 +615,11 @@ void cmdName() {
     // set last byte to \0 where the string ends
     name[buffer[0]] = 0;
 
-    Respond(setName(name));
+    respond(setName(name));
   }
   // Invalid command
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
@@ -642,13 +643,13 @@ void cmdEeprom() {
       data[i] = EEPROM.read(i + offset);
     }
 
-    Respond(data, sizeof(data));
+    respond(data, sizeof(data));
   }
   else if (command == Command::Enable) {
     //TODO
   }
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
@@ -658,7 +659,7 @@ void cmdProbeBusAddress() {
   PORT.readBytes(buffer, sizeof(buffer));
 
   uint8_t address = buffer[0];  // I2C address
-  Respond(probeBusAddress(address));
+  respond(probeBusAddress(address));
 }
 
 void cmdBusClock() {
@@ -669,20 +670,20 @@ void cmdBusClock() {
   // Set I2C clock
   if (buffer[0] == FASTMODE || buffer[0] == STDMODE) {
     setI2cClockMode(buffer[0]);
-    Respond(getI2cClockMode() == buffer[0]);
+    respond(getI2cClockMode() == buffer[0]);
   }
   // Get current I2C clock
   else if (buffer[0] == Command::Get) {
-    Respond(getI2cClockMode());
+    respond(getI2cClockMode());
   }
   // Unrecognized command
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
 void cmdFactoryReset() {
-  Respond(factoryReset());
+  respond(factoryReset());
 }
 
 void cmdRSWP() {
@@ -699,19 +700,19 @@ void cmdRSWP() {
 
   // enable RSWP
   if (state == Command::Enable) {
-    Respond(setRswp(address, block));
+    respond(setRswp(address, block));
   }
   // clear RSWP (all blocks)
   else if (state == Command::Disable) {
-    Respond(clearRswp(address));
+    respond(clearRswp(address));
   }
   // get RSWP status
   else if (state == Command::Get) {
-    Respond(getRswp(address, block));
+    respond(getRswp(address, block));
   }
   // unrecognized RSWP command
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
@@ -727,15 +728,15 @@ void cmdPSWP() {
 
   // enable PSWP
   if (state == Command::Enable) {
-    Respond(setPswp(address));
+    respond(setPswp(address));
   }
   // read PSWP
   else if (state == Command::Get) {
-    Respond(getPswp(address));
+    respond(getPswp(address));
   }
   // unknown state
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
@@ -750,7 +751,9 @@ void cmdWriteTest() {
   uint16_t offset = buffer[1] << 8 | buffer[2];
 
   uint8_t data[1];
-  Respond(readSpdByte(address, offset, 1, data) && writeSpdByte(address, offset, data[0]));
+  respond(readSpdByte(address, offset, 1, data) && 
+          writeSpdByte(address, offset, ~data[0]) && 
+          writeSpdByte(address, offset, data[0]));
 }
 
 void cmdPinControl() {
@@ -767,40 +770,40 @@ void cmdPinControl() {
   if (pin == SA1_SWITCH) {
     // Toggle SA1 state
     if (state == Command::Enable || state == Command::Disable) {
-      Respond(setConfigPin(SA1_EN, state));
+      respond(setConfigPin(SA1_EN, state));
     }
     // Get SA1 state
     else if (state == Command::Get) {
-      Respond(getConfigPin(SA1_EN));
+      respond(getConfigPin(SA1_EN));
     }
     // Unknown state
     else {
-      Respond(false);
+      respond(false);
     }
   }
   // VHV 9V controls
   else if (pin == HV_SWITCH) {
     // Toggle HV state
     if (state == Command::Enable || state == Command::Disable) {
-      Respond(setHighVoltage(state));
+      respond(setHighVoltage(state));
     }
     // Get HV state
     else if (state == Command::Get) {
-      Respond(getHighVoltage());
+      respond(getHighVoltage());
     }
     // Unknown state
     else {
-      Respond(0);
+      respond(0);
     }
   }
   // Unknown pin
   else {
-    Respond(false);
+    respond(false);
   }
 }
 
 void cmdPinReset() {
-  Respond(resetPins(true));
+  respond(resetPins(true));
 }
 
 /*  -=  Read/Write functions  =-  */
@@ -1130,10 +1133,10 @@ bool getPswp(uint8_t address) {
 /*  -=  EEPROM Page functions  =-  */
 
 // Get active DDR4 page address
-uint8_t getPageAddress(bool lowLevel = false) {
+uint8_t getPageAddress(bool lowLevel) {
 
   if (!lowLevel) {
-    return eepromPageAddress;
+    return getPageAddress();
   }
 
   int8_t status = -1;
@@ -1177,6 +1180,11 @@ uint8_t getPageAddress(bool lowLevel = false) {
     case 0x48: return 1;
     default: return status;
   }
+}
+
+// Get active DDR4 page address (generic)
+uint8_t getPageAddress() {
+  return eepromPageAddress;
 }
 
 // Sets DDR4 page address to access lower or upper 256 bytes of DDR4 SPD
@@ -1343,7 +1351,7 @@ void i2cMonitor() {
     slaveCountCurrent = getQuantity();
 
     if (slaveCountCurrent != slaveCountLast) {
-      Alert(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC);
+      alert(slaveCountCurrent < slaveCountLast ? SLAVEDEC : SLAVEINC);
       slaveCountLast = slaveCountCurrent;
       i2cPause = true;
     }
@@ -1353,7 +1361,7 @@ void i2cMonitor() {
   i2cClockCurrent = getI2cClockMode();
 
   if (i2cClockCurrent != i2cClockLast) {
-    Alert(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC);
+    alert(i2cClockCurrent < i2cClockLast ? CLOCKDEC : CLOCKINC);
     i2cClockLast = i2cClockCurrent;
   }
 
@@ -1457,8 +1465,7 @@ bool ddr4Detect(uint8_t address) {
 bool ddr4Detect() {
   // Only SPA0 is tested, RPA returns NACK after SPA1 regardless of RAM type
   setDdr4PageAddress(0);
-
-  return getQuantity() > 0 && getPageAddress(true) == 0;
+  return getQuantity() > 0 && getPageAddress(true) == 0;;
 }
 
 // DDR5 detection test (address)
