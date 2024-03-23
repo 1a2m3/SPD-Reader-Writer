@@ -13,10 +13,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
-using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -44,19 +42,6 @@ namespace SpdReaderWriterCore {
         /// <param name="portName">Serial port name</param>
         public Arduino(string portName) {
             PortSettings = new SerialPortSettings();
-            PortName     = portName;
-        }
-
-        /// <summary>
-        /// Initializes Arduino device instance
-        /// </summary>
-        /// <param name="portName">Serial port name</param>
-        /// <param name="baudRate">Serial port baud rate</param>
-        public Arduino(string portName, int baudRate) {
-            SerialPortSettings ps = new SerialPortSettings {
-                BaudRate = baudRate
-            };
-            PortSettings = ps;
             PortName     = portName;
         }
 
@@ -95,7 +80,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>Arduino device instance string</returns>
         public override string ToString() =>
-            IsNullOrEmpty(PortName) ? "N/A" : $"{PortName}:{PortSettings.BaudRate}";
+            !IsNullOrEmpty(PortName) ? $"{PortName}:{PortSettings.BaudRate}" : "N/A";
 
         /// <summary>
         /// Arduino device instance destructor
@@ -181,14 +166,13 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if the connection is established</returns>
         public bool Connect() {
-
             lock (_portLock) {
-                if (IsReady) {
-                    return IsReady;
+                if (IsConnected) {
+                    return IsConnected;
                 }
 
+                // New connection settings
                 _sp = new SerialPort {
-                    // New connection settings
                     PortName               = PortName,
                     BaudRate               = PortSettings.BaudRate,
                     DtrEnable              = PortSettings.DtrEnable,
@@ -203,47 +187,33 @@ namespace SpdReaderWriterCore {
 
                 // Event to handle Errors
                 _sp.ErrorReceived += ErrorReceivedHandler;
-                
+
                 try {
-                    // Native USB Arduino soft reset
-                    _sp.BaudRate = 1200;
-                    _sp.Open();
-                    _sp.Close();
-
-                    // Establish connection
-                    _sp.BaudRate = PortSettings.BaudRate;
+                    // Establish a connection
                     _sp.Open();
 
-                    // Reset stats
-                    _bytesSent     = 0;
-                    _bytesReceived = 0;
+                    // Test the response
+                    if (Test()) {
+                        // Reset stats
+                        _bytesSent     = 0;
+                        _bytesReceived = 0;
 
-                    // Wait till ready signal
-                    Stopwatch sw = Stopwatch.StartNew();
-                    while (!IsReady && sw.ElapsedMilliseconds < PortSettings.Timeout * 1000) {
-                        Thread.Sleep(10);
-                    }
-                    sw.Stop();
+                        ClearBuffer();
 
-                    // Test the device
-                    if (IsReady) {
-                        // Start connection monitor thread
+                        IsReady = true;
+
+                        _connectionEstablished.Set();
+
                         new Thread(ConnectionMonitor) {
 #if DEBUG
                             Name = "ConnectionMonitor",
 #endif
                             Priority = ThreadPriority.BelowNormal,
                         }.Start();
-
-                        _connectionEstablished.Set();
-                        IsReady = true;
-                    }
-                    else {
-                        Disconnect();
-                        return false;
                     }
                 }
                 catch (Exception ex) {
+                    Dispose();
                     throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
                 }
             }
@@ -260,9 +230,6 @@ namespace SpdReaderWriterCore {
                 if (!IsConnected) {
                     return false;
                 }
-
-                _sp.Close();
-                _connectionEstablished.Reset();
 
                 _isReady         = false;
                 _addresses       = null;
@@ -283,21 +250,20 @@ namespace SpdReaderWriterCore {
         /// Disposes device instance
         /// </summary>
         public void Dispose() {
+            lock (_portLock) {
+                if (_sp == null) {
+                    return;
+                }
 
-            if (IsReady) {
-                return;
-            }
+                if (IsConnected) {
+                    _sp.Close();
+                }
 
-            if (_sp != null) {
-                ClearBuffer();
                 // Remove handlers
                 _sp.DataReceived  -= DataReceivedHandler;
                 _sp.ErrorReceived -= ErrorReceivedHandler;
-                _sp.Dispose();
+                _sp = null;
             }
-
-            _connectionEstablished.Dispose();
-            _isReady = false;
         }
 
         /// <summary>
@@ -765,17 +731,19 @@ namespace SpdReaderWriterCore {
         /// <param name="settings">Serial port settings</param>
         /// <returns>An array of Arduinos</returns>
         public static Arduino[] Find(SerialPortSettings settings) {
-            Stack<Arduino> result = new Stack<Arduino>();
 
-            string[] ports = SerialPort.GetPortNames().Distinct().ToArray();
+            SortedList<int, Arduino> sortedArduinoList = new SortedList<int, Arduino>();
+
+            string[] ports = UniqueArray(SerialPort.GetPortNames());
 
             Parallel.ForEach(ports, portName => {
                 using (Arduino device = new Arduino(settings, portName)) {
                     try {
-                        if (device.Connect()) {
-                            result.Push(device);
-                            device.Disconnect();
+                        if (!device.Connect()) {
+                            return;
                         }
+                        sortedArduinoList.Add(device.PortNumber, device);
+                        device.Disconnect();
                     }
                     catch {
                         return;
@@ -783,23 +751,10 @@ namespace SpdReaderWriterCore {
                 }
             });
 
-            // Get port numbers
-            int[] portsNumbers = new int[result.Count];
-            for (int i = 0; i < portsNumbers.Length; i++) {
-                portsNumbers[i] = StringToNum<int>(result.Pop().PortName.Replace("COM", ""));
-            }
+            Arduino[] arduinoArray = new Arduino[sortedArduinoList.Count];
+            sortedArduinoList.Values.CopyTo(arduinoArray, 0);
 
-            // Sort results in numeric order
-            Array.Sort(portsNumbers);
-            Array.Reverse(portsNumbers);
-            result.Clear();
-
-            for (int i = 0; i < portsNumbers.Length; i++) {
-                ports[i] = $"COM{portsNumbers[i]}";
-                result.Push(new Arduino(settings, ports[i]));
-            }
-
-            return result.ToArray();
+            return arduinoArray;
         }
 
         /// <summary>
@@ -921,6 +876,11 @@ namespace SpdReaderWriterCore {
         public string PortName { get; }
 
         /// <summary>
+        /// Serial port number without the "COM" part
+        /// </summary>
+        public int PortNumber => StringToNum<int>(PortName.Replace("COM", ""));
+
+        /// <summary>
         /// EEPROM address
         /// </summary>
         public byte I2CAddress {
@@ -928,8 +888,8 @@ namespace SpdReaderWriterCore {
             set {
                 _i2CAddress = value;
 
-                if (IsConnected && (Eeprom.ValidateEepromAddress(_i2CAddress) || 
-                                    Eeprom.ValidatePmicAddress(_i2CAddress))) {
+                if (IsReady && (Eeprom.ValidateEepromAddress(_i2CAddress) || 
+                                Eeprom.ValidatePmicAddress(_i2CAddress))) {
                     MaxSpdSize = GetSpdSize();
                 }
             }
@@ -1077,7 +1037,7 @@ namespace SpdReaderWriterCore {
                 case Alert.SLAVEDEC:
                 case Alert.SLAVEINC:
                     // Update capabilities properties
-                    _addresses       = Scan();
+                    _addresses = Scan();
                     _rswpTypeSupport = _addresses.Length > 0 ? GetRswpSupport() : 0;
                     break;
                 case Alert.READY:
@@ -1248,8 +1208,13 @@ namespace SpdReaderWriterCore {
                 throw new ArgumentException("Value cannot be null or whitespace.", nameof(command));
             }
 
-            if (!IsConnected) {
-                throw new InvalidOperationException($"{PortName} is not connected");
+            if (!IsReady) {
+                try {
+                    Connect();
+                }
+                catch {
+                    throw new InvalidOperationException("Device is not connected");
+                }
             }
 
             lock (_portLock) {
