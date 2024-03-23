@@ -118,7 +118,8 @@ namespace SpdReaderWriterCore {
         /// <param name="input">Input data to set bit in</param>
         /// <param name="position">Bit position to set</param>
         /// <param name="value">Boolean bit value, set <see langword="true"/> for <value>1</value>, or <see langword="false"/> for <value>0</value></param>
-        public static void SetBit<T>(ref T input, int position, bool value) => input = SetBit(input, position, value);
+        public static void SetBit<T>(ref T input, int position, bool value) =>
+            input = SetBit(input, position, value);
 
         /// <summary>
         /// Sets specified bit in an object at specified offset position
@@ -262,28 +263,32 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="input">Input type</param>
         /// <returns>Number of bits in input type</returns>
-        public static int CountBytes(Type input) => input == typeof(bool) ? 1 : Marshal.SizeOf(input);
+        public static int CountBytes(Type input) =>
+            input == typeof(bool) ? 1 : Marshal.SizeOf(input);
 
         /// <summary>
         /// Generates bitmask
         /// </summary>
         /// <param name="count">Number of bits</param>
         /// <returns>Bitmask with a number of bits specified in <paramref name="count"/> parameter</returns>
-        public static T GenerateBitmask<T>(int count) => ConvertTo<T>(Math.Pow(2, count) - 1);
+        public static T GenerateBitmask<T>(int count) =>
+            ConvertTo<T>(Math.Pow(2, count) - 1);
 
         /// <summary>
         /// Converts boolean value to a number
         /// </summary>
         /// <param name="input">Boolean input</param>
         /// <returns><value>1</value> if the input is <see langword="true"/>, or <value>0</value>, when the input is <see langword="false"/></returns>
-        public static T BoolToNum<T>(bool input) => ConvertTo<T>(input ? 1 : 0);
+        public static T BoolToNum<T>(bool input) =>
+            ConvertTo<T>(input ? 1 : 0);
 
         /// <summary>
         /// Indicates whether the value of input number is an even number
         /// </summary>
         /// <param name="input">Input integer</param>
         /// <returns><see langword="true"/> if <param name="input"/> is an even number, or <see langword="false"/> if it is an odd number</returns>
-        public static bool IsEven<T>(T input) => !IsOdd(input);
+        public static bool IsEven<T>(T input) =>
+            !IsOdd(input);
 
         /// <summary>
         /// Indicates whether the value of input number is an odd number
@@ -345,9 +350,8 @@ namespace SpdReaderWriterCore {
         /// <typeparam name="T">Data type</typeparam>
         /// <param name="input">Input data</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> is a number</returns>
-        public static bool IsNumeric<T>(T input) {
-            return IsNumeric(Type.GetTypeCode(input.GetType()));
-        }
+        public static bool IsNumeric<T>(T input) =>
+            IsNumeric(Type.GetTypeCode(input.GetType()));
 
         /// <summary>
         /// Determines whether an input data type code is a numeric type
@@ -764,7 +768,8 @@ namespace SpdReaderWriterCore {
         /// <param name="start">First number in array</param>
         /// <param name="stop">Last number in array</param>
         /// <returns>A consecutive array of numbers between <see cref="start"/> and <see cref="stop"/> with an interval of 1</returns>
-        public static T[] ConsecutiveArray<T>(int start, int stop) => ConsecutiveArray<T>(start, stop, 1);
+        public static T[] ConsecutiveArray<T>(int start, int stop) =>
+            ConsecutiveArray<T>(start, stop, 1);
 
         /// <summary>
         /// Returns a consecutive array of numbers based on input criteria
@@ -870,9 +875,8 @@ namespace SpdReaderWriterCore {
         /// <param name="source">Source byte array</param>
         /// <param name="pattern">Matching pattern</param>
         /// <returns>First index of <paramref name="source"/> array matching pattern array</returns>
-        public static int FindArray<T>(T[] source, T[] pattern) {
-            return FindArray(source, pattern, 0);
-        }
+        public static int FindArray<T>(T[] source, T[] pattern) =>
+            FindArray(source, pattern, 0);
 
         /// <summary>
         /// Returns first index of source array matching input pattern array starting from specified position
@@ -1152,12 +1156,58 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
+        /// Removed duplicate entries from an array
+        /// </summary>
+        /// <typeparam name="T">Input array element type</typeparam>
+        /// <param name="input">Input array</param>
+        /// <returns>Array whose elements are unique</returns>
+        public static T[] UniqueArray<T>(T[] input) {
+
+            Stack<T> stack = new Stack<T>();
+
+            // Start from the last element
+            for (int i = input.Length - 1; i >= 0; i--) {
+                if (i == 0 || !ArrayContains(input, input[i], 0, i - 1)) {
+                    stack.Push(input[i]);
+                }
+            }
+
+            return stack.ToArray();
+        }
+
+        /// <summary>
         /// Checks if input array contains specified element
         /// </summary>
+        /// <typeparam name="T">Input array element type</typeparam>
         /// <param name="input">Input array</param>
         /// <param name="item">Element to look for</param>
         /// <returns><see langword="true"/> if <paramref name="input"/> contains <paramref name="item"/></returns>
-        public static bool ArrayContains<T>(T[] input, T item) {
+        public static bool ArrayContains<T>(T[] input, T item) =>
+            ArrayContains(input, item, 0);
+
+        /// <summary>
+        /// Checks if input array contains specified element
+        /// </summary>
+        /// <typeparam name="T">Input array element type</typeparam>
+        /// <param name="input">Input array</param>
+        /// <param name="item">Element to look for</param>
+        /// <param name="startIndex">First element index</param>
+        /// <returns><see langword="true"/> if <paramref name="input"/> contains <paramref name="item"/>
+        /// starting from <paramref name="startIndex"/></returns>
+        public static bool ArrayContains<T>(T[] input, T item, int startIndex) =>
+            ArrayContains(input, item, startIndex, input.Length - 1);
+
+        /// <summary>
+        /// Checks if input array contains specified element
+        /// </summary>
+        /// <typeparam name="T">Input array element type</typeparam>
+        /// <param name="input">Input array</param>
+        /// <param name="item">Element to look for</param>
+        /// <param name="startIndex">First element index</param>
+        /// <param name="endIndex">Last element index</param>
+        /// <returns><see langword="true"/> if <paramref name="input"/> contains <paramref name="item"/>
+        /// within <paramref name="startIndex"/> and <paramref name="endIndex"/></returns>
+        public static bool ArrayContains<T>(T[] input, T item, int startIndex, int endIndex) {
 
             if (input == null) {
                 throw new NullReferenceException(nameof(input));
@@ -1167,12 +1217,20 @@ namespace SpdReaderWriterCore {
                 throw new NullReferenceException(nameof(item));
             }
 
+            if (startIndex > endIndex) {
+                throw new IndexOutOfRangeException($"{nameof(startIndex)} cannot be greater than {nameof(endIndex)}");
+            }
+
+            if (endIndex >= input.Length) {
+                throw new IndexOutOfRangeException($"{nameof(endIndex)} cannot be greater than or equal to {nameof(input)} length");
+            }
+
             if (input.Length == 0) {
                 return false;
             }
 
-            foreach (T member in input) {
-                if (member.Equals(item)) {
+            for (int i = startIndex; i <= endIndex; i++) {
+                if (input[i].Equals(item)) {
                     return true;
                 }
             }
@@ -1451,24 +1509,27 @@ namespace SpdReaderWriterCore {
             /// Initializes new DataFile instance with contents and blank name
             /// </summary>
             /// <param name="data">File contents</param>
-            public DataFile(byte[] data) => this = new DataFile("", data);
+            public DataFile(byte[] data) =>
+                this = new DataFile("", data);
 
             /// <summary>
             /// Initializes new DataFile instance with a name and empty contents
             /// </summary>
             /// <param name="name">File contents</param>
-            public DataFile(string name) => this = new DataFile(name, new byte[0]);
+            public DataFile(string name) =>
+                this = new DataFile(name, new byte[0]);
 
             /// <summary>
             /// Gets data file contents
             /// </summary>
             /// <returns>File contents</returns>
-            public byte[] GetData() => IsCompressed ? Decompress() : RawData;
+            public byte[] GetData() =>
+                IsCompressed ? Decompress() : RawData;
 
             /// <summary>
             /// Compressed flag
             /// </summary>
-            public bool IsCompressed => 
+            public bool IsCompressed =>
                 CompareArray(SubArray(RawData, 0, 4), new byte[] { 0x1F, 0x8B, 0x08, 0x08 });
 
             /// <summary>
@@ -1491,20 +1552,22 @@ namespace SpdReaderWriterCore {
             /// </summary>
             /// <param name="directory">Directory path</param>
             /// <returns><see langword="true"/> if file is saved</returns>
-            public bool SaveTo(string directory) => 
+            public bool SaveTo(string directory) =>
                 Directory.Exists(directory) && SaveAs($"{directory}\\{Name}");
 
             /// <summary>
             /// Compresses file contents
             /// </summary>
             /// <returns>Compressed file contents</returns>
-            private byte[] Compress() => Gzip(RawData, GzipMethod.Compress);
+            private byte[] Compress() =>
+                Gzip(RawData, GzipMethod.Compress);
 
             /// <summary>
             /// Decompresses file contents
             /// </summary>
             /// <returns>Decompressed file contents</returns>
-            private byte[] Decompress() => IsCompressed
+            private byte[] Decompress() =>
+                IsCompressed
                 ? Gzip(RawData, GzipMethod.Decompress)
                 : throw new Exception("Data is not compressed");
         }
@@ -1514,14 +1577,20 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="path">File path</param>
         /// <returns>File version</returns>
-        public static string FileVersion(string path) => File.Exists(path) ? FileVersionInfo.GetVersionInfo(path).FileVersion : "not found";
+        public static string FileVersion(string path) =>
+            File.Exists(path) 
+                ? FileVersionInfo.GetVersionInfo(path).FileVersion 
+                : "not found";
 
         /// <summary>
         /// Product version
         /// </summary>
         /// <param name="path">File path</param>
         /// <returns>Product version</returns>
-        public static string ProductVersion(string path) => File.Exists(path) ? FileVersionInfo.GetVersionInfo(path).ProductVersion : "not found";
+        public static string ProductVersion(string path) =>
+            File.Exists(path) 
+                ? FileVersionInfo.GetVersionInfo(path).ProductVersion 
+                : "not found";
 
         /// <summary>
         /// Initializes an existing mutex instance
@@ -1567,7 +1636,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="mutex">Mutex object</param>
         /// <returns><see langword="true"/> if <paramref name="mutex"/> receives a signal</returns>
-        public static bool LockMutex(Mutex mutex) => LockMutex(mutex, -1);
+        public static bool LockMutex(Mutex mutex) =>
+            LockMutex(mutex, -1);
 
         /// <summary>
         /// Blocks the current thread until <paramref name="mutex"/> receives a signal 
