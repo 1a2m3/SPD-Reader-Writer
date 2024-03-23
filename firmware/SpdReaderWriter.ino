@@ -1465,7 +1465,7 @@ bool ddr4Detect(uint8_t address) {
 bool ddr4Detect() {
   // Only SPA0 is tested, RPA returns NACK after SPA1 regardless of RAM type
   setDdr4PageAddress(0);
-  return getQuantity() > 0 && getPageAddress(true) == 0;;
+  return getQuantity() > 0 && getPageAddress(true) == 0;
 }
 
 // DDR5 detection test (address)
