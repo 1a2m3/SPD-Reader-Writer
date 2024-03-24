@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20240322  // Firmware version number (YYYYMMDD)
+#define FW_VER 20240324  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -115,6 +115,7 @@ enum Command : uint8_t {
   // Diagnostics & info
   Version,                 // Get Firmware version
   Test,                    // Device Communication Test
+  Ping,                    // Ping device
   Name,                    // Name controls
   FactoryReset,            // Restore device settings to default
 
@@ -181,8 +182,9 @@ void setup() {
   Wire.setWireTimeout(10000, true);
 
   // Setup I2C clock
-  Wire.setClock(clock[getI2cClockMode()]);
-  i2cClockCurrent = clock[getI2cClockMode()];
+  uint32_t i2cClock = clock[getI2cClockMode()];
+  Wire.setClock(i2cClock);
+  i2cClockCurrent = i2cClock;
   i2cClockLast = i2cClockCurrent;
 
   // Scan I2C bus
@@ -204,10 +206,6 @@ void setup() {
   PORT.write(UNKNOWN);
   while (true) {}
   #endif
-
-  // Send a true response when the device is ready
-  respond(true);
-  outputResponse();
 }
 
 void loop() {
@@ -229,17 +227,17 @@ void parseCommand() {
 
   switch ((uint8_t)PORT.read()) {
 
-    // Read byte
+    // Read SPD byte
     case Command::SpdReadPage:
       cmdReadSpdPage();
       break;
 
-    // Write byte
+    // Write SPD byte
     case Command::SpdWriteByte:
       cmdWriteSpdByte();
       break;
 
-    // Write page
+    // Write SPD page
     case Command::SpdWritePage:
       cmdWriteSpdPage();
       break;
@@ -264,6 +262,7 @@ void parseCommand() {
       cmdPinControl();
       break;
 
+    // Reset config pins to defaults
     case Command::PinReset:
       cmdPinReset();
       break;
@@ -278,6 +277,7 @@ void parseCommand() {
       cmdPSWP();
       break;
 
+    // Write protection check
     case Command::SpdWriteTest:
       cmdWriteTest();
       break;
@@ -290,6 +290,11 @@ void parseCommand() {
     // Device Communication Test
     case Command::Test:
       cmdTest();
+      break;
+
+    // Device ping test
+    case Command::Ping:
+      cmdPing();
       break;
 
     // Report supported RSWP capabilities
@@ -360,7 +365,7 @@ void respond(String inputData) {
 
   // Blank name
   if (inputData.length() == 0) {
-    respond(0);
+    respond(false);
     return;
   }
 
@@ -399,6 +404,7 @@ void outputResponse() {
 void alert(uint8_t alertCode) {
   PORT.write(ALERT);
   PORT.write(alertCode);
+  PORT.flush();
 }
 
 
@@ -453,7 +459,7 @@ void cmdWriteSpdPage() {
 
   // Validate input length
   if (length == 0) {
-    respond(0);
+    respond(false);
     return;
   }
 
@@ -475,6 +481,10 @@ void cmdScanBus() {
 
 void cmdTest() {
   respond(true);
+}
+
+void cmdPing() {
+  PORT.write(READY);
 }
 
 void cmdRswpReport() {
@@ -793,7 +803,7 @@ void cmdPinControl() {
     }
     // Unknown state
     else {
-      respond(0);
+      respond(false);
     }
   }
   // Unknown pin

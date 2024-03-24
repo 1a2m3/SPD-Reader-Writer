@@ -13,6 +13,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Ports;
 using System.Text;
@@ -33,7 +34,7 @@ namespace SpdReaderWriterCore {
         /// Initializes default Arduino device instance
         /// </summary>
         public Arduino() {
-            PortSettings = new SerialPortSettings();
+            PortParameters = new SerialPortParameters();
         }
 
         /// <summary>
@@ -41,38 +42,26 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="portName">Serial port name</param>
         public Arduino(string portName) {
-            PortSettings = new SerialPortSettings();
-            PortName     = portName;
+            PortName       = portName;
+            PortParameters = new SerialPortParameters();
         }
 
         /// <summary>
         /// Initializes Arduino device instance
         /// </summary>
-        /// <param name="portSettings">Serial port settings</param>
-        public Arduino(SerialPortSettings portSettings) {
-            PortSettings = portSettings;
+        /// <param name="portParameters">Serial port settings</param>
+        public Arduino(SerialPortParameters portParameters) {
+            PortParameters = portParameters;
         }
 
         /// <summary>
         /// Initializes Arduino device instance
         /// </summary>
-        /// <param name="portSettings">Serial port settings</param>
+        /// <param name="portParameters">Serial port settings</param>
         /// <param name="portName">Serial port name</param>
-        public Arduino(SerialPortSettings portSettings, string portName) {
-            PortSettings = portSettings;
-            PortName     = portName;
-        }
-
-        /// <summary>
-        /// Initializes Arduino device instance
-        /// </summary>
-        /// <param name="portSettings">Serial port settings</param>
-        /// <param name="portName">Serial port name</param>
-        /// <param name="i2CAddress">EEPROM address on the device's i2c bus</param>
-        public Arduino(SerialPortSettings portSettings, string portName, byte i2CAddress) {
-            PortSettings = portSettings;
-            PortName     = portName;
-            I2CAddress   = i2CAddress;
+        public Arduino(string portName, SerialPortParameters portParameters) {
+            PortName       = portName;
+            PortParameters = portParameters;
         }
 
         /// <summary>
@@ -80,7 +69,7 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>Arduino device instance string</returns>
         public override string ToString() =>
-            !IsNullOrEmpty(PortName) ? $"{PortName}:{PortSettings.BaudRate}" : "N/A";
+            !IsNullOrEmpty(PortName) ? $"{PortName}:{PortParameters.BaudRate}" : "N/A";
 
         /// <summary>
         /// Arduino device instance destructor
@@ -92,7 +81,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Serial Port Settings class
         /// </summary>
-        public struct SerialPortSettings {
+        public struct SerialPortParameters {
             // Connection settings
             public int  BaudRate;
             public bool DtrEnable;
@@ -102,21 +91,40 @@ namespace SpdReaderWriterCore {
             public int Timeout;
 
             /// <summary>
-            /// Default port settings
+            /// Serial port parameters initializer
+            /// </summary>
+            /// <param name="baudRate">Baud rate</param>
+            public SerialPortParameters(int baudRate) {
+                BaudRate  = baudRate;
+                DtrEnable = true;
+                RtsEnable = true;
+                Timeout   = 10;
+            }
+
+            /// <summary>
+            /// Serial port parameters initializer
+            /// </summary>
+            /// <param name="baudRate">Baud rate</param>
+            /// <param name="timeout">Response timeout in seconds</param>
+            public SerialPortParameters(int baudRate, int timeout) {
+                BaudRate  = baudRate;
+                DtrEnable = true;
+                RtsEnable = true;
+                Timeout   = timeout;
+            }
+
+            /// <summary>
+            /// Serial port parameters initializer
             /// </summary>
             /// <param name="baudRate">Baud rate</param>
             /// <param name="dtrEnable">Enable DTR</param>
             /// <param name="rtsEnable">Enable RTS</param>
             /// <param name="timeout">Response timeout in seconds</param>
-            public SerialPortSettings(
-                int baudRate   = 115200,
-                bool dtrEnable = true,
-                bool rtsEnable = true,
-                int timeout    = 10) {
-                    BaudRate  = baudRate;
-                    DtrEnable = dtrEnable;
-                    RtsEnable = rtsEnable;
-                    Timeout   = timeout;
+            public SerialPortParameters(int baudRate, bool dtrEnable, bool rtsEnable, int timeout) {
+                BaudRate  = baudRate;
+                DtrEnable = dtrEnable;
+                RtsEnable = rtsEnable;
+                Timeout   = timeout;
             }
 
             /// <summary>
@@ -166,56 +174,82 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if the connection is established</returns>
         public bool Connect() {
-            lock (_portLock) {
-                if (IsConnected) {
-                    return IsConnected;
+
+            if (IsConnected) {
+                return IsConnected;
+            }
+
+            // New connection settings
+            _sp = new SerialPort {
+                PortName               = PortName,
+                BaudRate               = PortParameters.BaudRate,
+                DtrEnable              = PortParameters.DtrEnable,
+                RtsEnable              = PortParameters.RtsEnable,
+                ReadTimeout            = 1000,
+                WriteTimeout           = 1000,
+                ReceivedBytesThreshold = PacketData.MinSize,
+            };
+
+            try {
+                // Create and lock mutex
+                CreateMutex(ref _arduinoMutex, $"Global\\Arduino_{PortName}");
+                if (!LockMutex(_arduinoMutex, PortParameters.Timeout * 1000)) {
+                    return false;
                 }
 
-                // New connection settings
-                _sp = new SerialPort {
-                    PortName               = PortName,
-                    BaudRate               = PortSettings.BaudRate,
-                    DtrEnable              = PortSettings.DtrEnable,
-                    RtsEnable              = PortSettings.RtsEnable,
-                    ReadTimeout            = 1000,
-                    WriteTimeout           = 1000,
-                    ReceivedBytesThreshold = PacketData.MinSize,
-                };
+                // Establish a connection
+                _sp.Open();
 
-                // Event to handle Data Reception
-                _sp.DataReceived  += DataReceivedHandler;
+                Stopwatch sw = Stopwatch.StartNew();
 
-                // Event to handle Errors
-                _sp.ErrorReceived += ErrorReceivedHandler;
+                // Ping Arduino until response or timeout
+                while (!IsReady && sw.ElapsedMilliseconds < PortParameters.Timeout * 1000) {
+                    _sp.BaseStream.WriteByte((byte)Command.Ping);
+                    _sp.BaseStream.Flush();
 
-                try {
-                    // Establish a connection
-                    _sp.Open();
+                    Thread.Sleep(10);
 
-                    // Test the response
-                    if (Test()) {
-                        // Reset stats
-                        _bytesSent     = 0;
-                        _bytesReceived = 0;
+                    byte expectedResponse = (byte)Alert.READY; // 0x21 ('!')
 
-                        ClearBuffer();
-
-                        IsReady = true;
-
-                        _connectionEstablished.Set();
-
-                        new Thread(ConnectionMonitor) {
-#if DEBUG
-                            Name = "ConnectionMonitor",
-#endif
-                            Priority = ThreadPriority.BelowNormal,
-                        }.Start();
+                    if (BytesToRead < 1) {
+                        continue;
                     }
+
+                    IsReady = _sp.ReadByte() == expectedResponse;
                 }
-                catch (Exception ex) {
-                    Dispose();
-                    throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
+                sw.Stop();
+
+                // Proceed
+                if (IsReady) {
+
+                    ClearBuffer();
+
+                    // Event to handle Data Reception
+                    _sp.DataReceived  += DataReceivedHandler;
+
+                    // Event to handle Errors
+                    _sp.ErrorReceived += ErrorReceivedHandler;
+
+                    // Reset stats
+                    _bytesSent     = 0;
+                    _bytesReceived = 0;
+
+                    _connectionEstablished.Set();
+
+                    new Thread(ConnectionMonitor) {
+#if DEBUG
+                        Name = "ConnectionMonitor",
+#endif
+                        Priority = ThreadPriority.BelowNormal,
+                    }.Start();
                 }
+            }
+            catch (Exception ex) {
+                Dispose();
+                throw new Exception($"Unable to connect ({PortName}): {ex.Message}");
+            }
+            finally {
+                UnlockMutex(_arduinoMutex);
             }
 
             return IsReady;
@@ -226,44 +260,44 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> once the device is disconnected</returns>
         public bool Disconnect() {
-            lock (_portLock) {
-                if (!IsConnected) {
-                    return false;
-                }
 
-                _isReady         = false;
-                _addresses       = null;
-                _rswpTypeSupport = 0;
+            UnlockMutex(_arduinoMutex);
 
-                try {
-                    Dispose();
-                }
-                catch (Exception ex) {
-                    throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
-                }
-
-                return !IsConnected;
+            if (!IsConnected) {
+                return false;
             }
+
+            _isReady         = false;
+            _addresses       = null;
+            _rswpTypeSupport = 0;
+
+            try {
+                Dispose();
+            }
+            catch (Exception ex) {
+                throw new Exception($"Unable to disconnect ({PortName}): {ex.Message}");
+            }
+
+            return !IsConnected;
         }
 
         /// <summary>
         /// Disposes device instance
         /// </summary>
         public void Dispose() {
-            lock (_portLock) {
-                if (_sp == null) {
-                    return;
-                }
 
-                if (IsConnected) {
-                    _sp.Close();
-                }
-
-                // Remove handlers
-                _sp.DataReceived  -= DataReceivedHandler;
-                _sp.ErrorReceived -= ErrorReceivedHandler;
-                _sp = null;
+            if (_sp == null) {
+                return;
             }
+
+            if (IsConnected) {
+                _sp.Close();
+            }
+
+            // Remove handlers
+            _sp.DataReceived  -= DataReceivedHandler;
+            _sp.ErrorReceived -= ErrorReceivedHandler;
+            _sp = null;
         }
 
         /// <summary>
@@ -271,13 +305,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if the device responds properly to a test command</returns>
         public bool Test() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.Test);
-                }
-                catch (Exception e) {
-                    throw new Exception($"Unable to test {PortName} ({e.Message})");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.Test);
+            }
+            catch (Exception ex) {
+                throw new Exception($"Unable to test {PortName} ({ex.Message})");
             }
         }
 
@@ -286,13 +318,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>A bitmask representing available RAM supported defined in the <see cref="RswpSupport"/> struct</returns>
         public byte GetRswpSupport() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<byte>(Command.RswpReport);
-                }
-                catch (Exception e) {
-                    throw new Exception($"Unable to get {PortName} supported RAM ({e.Message})");
-                }
+            try {
+                return ExecuteCommand<byte>(Command.RswpReport);
+            }
+            catch (Exception ex) {
+                throw new Exception($"Unable to get {PortName} supported RAM ({ex.Message})");
             }
         }
 
@@ -339,27 +369,26 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>An array of addresses on the device's I2C bus</returns>
         public byte[] Scan() {
+
             Queue<byte> addresses = new Queue<byte>();
 
-            lock (_portLock) {
-                try {
-                    if (IsConnected) {
-                        byte response = ExecuteCommand<byte>(Command.ScanBus);
+            try {
+                if (IsConnected) {
+                    byte response = ExecuteCommand<byte>(Command.ScanBus);
 
-                        if (response == 0) {
-                            return new byte[0];
-                        }
+                    if (response == 0) {
+                        return new byte[0];
+                    }
 
-                        for (byte i = 0; i <= 7; i++) {
-                            if (GetBit(response, i)) {
-                                addresses.Enqueue((byte)(80 + i));
-                            }
+                    for (byte i = 0; i <= 7; i++) {
+                        if (GetBit(response, i)) {
+                            addresses.Enqueue((byte)(80 + i));
                         }
                     }
                 }
-                catch {
-                    throw new Exception($"Unable to scan I2C bus on {PortName}");
-                }
+            }
+            catch {
+                throw new Exception($"Unable to scan I2C bus on {PortName}");
             }
 
             return addresses.ToArray();
@@ -371,13 +400,11 @@ namespace SpdReaderWriterCore {
         /// <param name="fastMode">Fast mode or standard mode</param>
         /// <returns><see langword="true"/> if the operation is successful</returns>
         public bool SetI2CClock(bool fastMode) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.BusClock, fastMode);
-                }
-                catch {
-                    throw new Exception($"Unable to set I2C clock mode on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.BusClock, fastMode);
+            }
+            catch {
+                throw new Exception($"Unable to set I2C clock mode on {PortName}");
             }
         }
 
@@ -387,13 +414,11 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> if the device's I2C bus is running in fast mode,
         /// or <see langword="false"/> if it is running in standard mode</returns>
         private bool GetI2CClock() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.BusClock, Command.Get);
-                }
-                catch {
-                    throw new Exception($"Unable to get I2C clock mode on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.BusClock, Command.Get);
+            }
+            catch {
+                throw new Exception($"Unable to get I2C clock mode on {PortName}");
             }
         }
 
@@ -407,13 +432,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> once the device's settings are successfully reset to defaults</returns>
         public bool FactoryReset() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.FactoryReset);
-                }
-                catch {
-                    throw new Exception($"Unable to reset device settings on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.FactoryReset);
+            }
+            catch {
+                throw new Exception($"Unable to reset device settings on {PortName}");
             }
         }
 
@@ -439,13 +462,11 @@ namespace SpdReaderWriterCore {
         /// <param name="state">High voltage supply state</param>
         /// <returns><see langword="true"/> when operation is successful</returns>
         public bool SetHighVoltage(bool state) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.PinControl, ConfigPin.HV_SWITCH, state);
-                }
-                catch {
-                    throw new Exception($"Unable to set High Voltage state on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.PinControl, ConfigPin.HV_SWITCH, state);
+            }
+            catch {
+                throw new Exception($"Unable to set High Voltage state on {PortName}");
             }
         }
 
@@ -454,13 +475,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if high voltage is applied to pin SA0</returns>
         public bool GetHighVoltage() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.PinControl, ConfigPin.HV_SWITCH, Command.Get);
-                }
-                catch {
-                    throw new Exception($"Unable to get High Voltage state on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.PinControl, ConfigPin.HV_SWITCH, Command.Get);
+            }
+            catch {
+                throw new Exception($"Unable to get High Voltage state on {PortName}");
             }
         }
 
@@ -471,13 +490,11 @@ namespace SpdReaderWriterCore {
         /// <param name="state">Pin state</param>
         /// <returns><see langword="true"/> if the config pin has been set</returns>
         public bool SetConfigPin(ConfigPin pin, bool state) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.PinControl, pin, state);
-                }
-                catch {
-                    throw new Exception($"Unable to set config pin state on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.PinControl, pin, state);
+            }
+            catch {
+                throw new Exception($"Unable to set config pin state on {PortName}");
             }
         }
 
@@ -486,13 +503,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if pin is high, or <see langword="false"/> when pin is low</returns>
         public bool GetConfigPin(ConfigPin pin) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.PinControl, pin, Command.Get);
-                }
-                catch {
-                    throw new Exception($"Unable to get config pin state on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.PinControl, pin, Command.Get);
+            }
+            catch {
+                throw new Exception($"Unable to get config pin state on {PortName}");
             }
         }
 
@@ -501,13 +516,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> when all config pins are reset</returns>
         public bool ResetConfigPins() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.PinReset);
-                }
-                catch {
-                    throw new Exception($"Unable to reset pin state on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.PinReset);
+            }
+            catch {
+                throw new Exception($"Unable to reset pin state on {PortName}");
             }
         }
 
@@ -516,13 +529,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> when DDR5 is in offline mode</returns>
         public bool GetOfflineMode() {
-            lock (_portLock) {
-                try {
-                    return GetRswpSupport(RswpSupport.DDR5);
-                }
-                catch {
-                    throw new Exception($"Unable to get offline mode status on {PortName}");
-                }
+            try {
+                return GetRswpSupport(RswpSupport.DDR5);
+            }
+            catch {
+                throw new Exception($"Unable to get offline mode status on {PortName}");
             }
         }
 
@@ -530,9 +541,7 @@ namespace SpdReaderWriterCore {
         /// Probes default EEPROM address
         /// </summary>
         /// <returns><see langword="true"/> if EEPROM is detected at assigned <see cref="I2CAddress"/></returns>
-        public bool ProbeAddress() {
-            return Eeprom.ValidateEepromAddress(I2CAddress) && ProbeAddress(I2CAddress);
-        }
+        public bool ProbeAddress() => Eeprom.ValidateEepromAddress(I2CAddress) && ProbeAddress(I2CAddress);
 
         /// <summary>
         /// Probes specified EEPROM address
@@ -540,13 +549,11 @@ namespace SpdReaderWriterCore {
         /// <param name="busAddress">EEPROM address</param>
         /// <returns><see langword="true"/> if EEPROM is detected at the specified <see cref="I2CAddress"/></returns>
         public bool ProbeAddress(byte busAddress) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.ProbeAddress, busAddress);
-                }
-                catch {
-                    throw new Exception($"Unable to probe address {busAddress} on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.ProbeAddress, busAddress);
+            }
+            catch {
+                throw new Exception($"Unable to probe address {busAddress} on {PortName}");
             }
         }
 
@@ -554,21 +561,19 @@ namespace SpdReaderWriterCore {
         /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
         /// </summary>
         private void ClearBuffer() {
-            lock (_portLock) {
-                try {
-                    // Clear receive buffer
-                    if (BytesToRead > 0) {
-                        _sp.DiscardInBuffer();
-                    }
+            try {
+                // Clear receive buffer
+                if (BytesToRead > 0) {
+                    _sp.DiscardInBuffer();
+                }
 
-                    // Clear transmit buffer
-                    if (BytesToWrite > 0) {
-                        _sp.DiscardOutBuffer();
-                    }
+                // Clear transmit buffer
+                if (BytesToWrite > 0) {
+                    _sp.DiscardOutBuffer();
                 }
-                catch {
-                    throw new Exception($"Unable to clear {PortName} buffer");
-                }
+            }
+            catch {
+                throw new Exception($"Unable to clear {PortName} buffer");
             }
         }
 
@@ -582,13 +587,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>Firmware version number</returns>
         private int GetFirmwareVersion() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<int>(Command.Version);
-                }
-                catch (Exception ex) {
-                    throw new Exception($"Unable to get firmware version on {PortName}: {ex.Message}");
-                }
+            try {
+                return ExecuteCommand<int>(Command.Version);
+            }
+            catch (Exception ex) {
+                throw new Exception($"Unable to get firmware version on {PortName}: {ex.Message}");
             }
         }
 
@@ -656,22 +659,20 @@ namespace SpdReaderWriterCore {
                 throw new ArgumentOutOfRangeException($"Name can't be longer than {NameLength} characters");
             }
 
-            lock (_portLock) {
-                try {
-                    string newName = name.Trim();
+            try {
+                string newName = name.Trim();
 
-                    if (newName == GetName()) {
-                        return false;
-                    }
-
-                    // Prepare a byte array containing cmd byte + name length + name
-                    byte[] command = { (byte)Command.Name, (byte)newName.Length };
-
-                    return ExecuteCommand<bool>(MergeArray(command, Encoding.ASCII.GetBytes(newName)));
+                if (newName == GetName()) {
+                    return false;
                 }
-                catch {
-                    throw new Exception($"Unable to assign name to {PortName}");
-                }
+
+                // Prepare a byte array containing cmd byte + name length + name
+                byte[] command = { (byte)Command.Name, (byte)newName.Length };
+
+                return ExecuteCommand<bool>(MergeArray(command, Encoding.ASCII.GetBytes(newName)));
+            }
+            catch {
+                throw new Exception($"Unable to assign name to {PortName}");
             }
         }
 
@@ -680,13 +681,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>Device's name</returns>
         private string GetName() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<string>(Command.Name, Command.Get).Trim();
-                }
-                catch (Exception e) {
-                    throw new Exception($"Unable to get {PortName} name ({e.Message})");
-                }
+            try {
+                return ExecuteCommand<string>(Command.Name, Command.Get).Trim();
+            }
+            catch (Exception ex) {
+                throw new Exception($"Unable to get {PortName} name ({ex.Message})");
             }
         }
 
@@ -697,18 +696,16 @@ namespace SpdReaderWriterCore {
         /// <param name="length">Number of bytes to read</param>
         /// <returns>Device's EEPROM contents at <paramref name="offset"/></returns>
         public byte[] ReadEeprom(ushort offset, ushort length) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<byte[]>(
-                        Command.Eeprom, 
-                        Command.Get, 
-                        offset >> 8, offset & 0xFF, // offset MSB and LSB
-                        length >> 8, length & 0xFF  // length MSB and LSB
-                    );
-                }
-                catch (Exception e) {
-                    throw new Exception($"Unable to read EEPROM on {PortName} ({e.Message})");
-                }
+            try {
+                return ExecuteCommand<byte[]>(
+                    Command.Eeprom,
+                    Command.Get,
+                    offset >> 8, offset & 0xFF, // offset MSB and LSB
+                    length >> 8, length & 0xFF  // length MSB and LSB
+                );
+            }
+            catch (Exception ex) {
+                throw new Exception($"Unable to read EEPROM on {PortName} ({ex.Message})");
             }
         }
 
@@ -718,26 +715,26 @@ namespace SpdReaderWriterCore {
         /// <param name="baudRate">Serial port baud rate</param>
         /// <returns>An array of Arduinos</returns>
         public static Arduino[] Find(int baudRate) {
-            SerialPortSettings spSettings = new SerialPortSettings {
+            SerialPortParameters spParameters = new SerialPortParameters {
                 BaudRate = baudRate
             };
 
-            return Find(spSettings);
+            return Find(spParameters);
         }
 
         /// <summary>
         /// Finds Arduinos connected to computer
         /// </summary>
-        /// <param name="settings">Serial port settings</param>
+        /// <param name="parameters">Serial port settings</param>
         /// <returns>An array of Arduinos</returns>
-        public static Arduino[] Find(SerialPortSettings settings) {
+        public static Arduino[] Find(SerialPortParameters parameters) {
 
             SortedList<int, Arduino> sortedArduinoList = new SortedList<int, Arduino>();
 
-            string[] ports = UniqueArray(SerialPort.GetPortNames());
+            string[] ports = SerialPortNames;
 
             Parallel.ForEach(ports, portName => {
-                using (Arduino device = new Arduino(settings, portName)) {
+                using (Arduino device = new Arduino(portName, parameters)) {
                     try {
                         if (!device.Connect()) {
                             return;
@@ -756,6 +753,11 @@ namespace SpdReaderWriterCore {
 
             return arduinoArray;
         }
+
+        /// <summary>
+        /// Gets an array of serial port names for the current computer
+        /// </summary>
+        public static string[] SerialPortNames => UniqueArray(SerialPort.GetPortNames());
 
         /// <summary>
         /// Describes device's connection state
@@ -785,13 +787,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if DDR4 is found at <see cref="I2CAddress"/></returns>
         public bool DetectDdr4() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.Ddr4Detect, I2CAddress);
-                }
-                catch {
-                    throw new Exception($"Error detecting DDR4 on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.Ddr4Detect, I2CAddress);
+            }
+            catch {
+                throw new Exception($"Error detecting DDR4 on {PortName}");
             }
         }
 
@@ -800,13 +800,11 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns><see langword="true"/> if DDR5 is found at <see cref="I2CAddress"/></returns>
         public bool DetectDdr5() {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<bool>(Command.Ddr5Detect, I2CAddress);
-                }
-                catch {
-                    throw new Exception($"Error detecting DDR5 on {PortName}");
-                }
+            try {
+                return ExecuteCommand<bool>(Command.Ddr5Detect, I2CAddress);
+            }
+            catch {
+                throw new Exception($"Error detecting DDR5 on {PortName}");
             }
         }
 
@@ -816,13 +814,11 @@ namespace SpdReaderWriterCore {
         /// <param name="register">Register address</param>
         /// <returns>Register data</returns>
         public byte ReadSpd5Hub(byte register) {
-            lock (_portLock) {
-                try {
-                    return ExecuteCommand<byte>(Command.Spd5HubReg, I2CAddress, register, Command.Get);
-                }
-                catch {
-                    throw new Exception($"Unable to read SPD5 hub on {PortName}");
-                }
+            try {
+                return ExecuteCommand<byte>(Command.Spd5HubReg, I2CAddress, register, Command.Get);
+            }
+            catch {
+                throw new Exception($"Unable to read SPD5 hub on {PortName}");
             }
         }
 
@@ -833,20 +829,18 @@ namespace SpdReaderWriterCore {
         /// <param name="value">Register value</param>
         /// <returns><see langword="true"/> if command is successfully executed</returns>
         public bool WriteSpd5Hub(byte register, byte value) {
-            lock (_portLock) {
-                try {
-                    bool result = ExecuteCommand<bool>(Command.Spd5HubReg, I2CAddress, register, Command.Enable, value);
+            try {
+                bool result = ExecuteCommand<bool>(Command.Spd5HubReg, I2CAddress, register, Command.Enable, value);
 
-                    if (register == Eeprom.Spd5Register.MR12 ||
-                        register == Eeprom.Spd5Register.MR13) {
-                        return result && ReadSpd5Hub(register) == value;
-                    }
+                if (register == Eeprom.Spd5Register.MR12 ||
+                    register == Eeprom.Spd5Register.MR13) {
+                    return result && ReadSpd5Hub(register) == value;
+                }
 
-                    return result;
-                }
-                catch {
-                    throw new Exception($"Unable to read SPD5 hub on {PortName}");
-                }
+                return result;
+            }
+            catch {
+                throw new Exception($"Unable to read SPD5 hub on {PortName}");
             }
         }
 
@@ -855,20 +849,18 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <returns>EEPROM size on <see cref="I2CAddress"/></returns>
         public ushort GetSpdSize() {
-            lock (_portLock) {
-                try {
-                    return Spd.DataLength.Length[ExecuteCommand<byte>(Command.Size, I2CAddress)];
-                }
-                catch {
-                    throw new Exception($"Unable to get SPD size on {PortName}:{I2CAddress}");
-                }
+            try {
+                return Spd.DataLength.Length[ExecuteCommand<byte>(Command.Size, I2CAddress)];
+            }
+            catch {
+                throw new Exception($"Unable to get SPD size on {PortName}:{I2CAddress}");
             }
         }
 
         /// <summary>
         /// Serial Port connection and data settings
         /// </summary>
-        public SerialPortSettings PortSettings { get; set; }
+        public SerialPortParameters PortParameters { get; set; }
 
         /// <summary>
         /// Serial port name the device is connected to
@@ -1217,45 +1209,53 @@ namespace SpdReaderWriterCore {
                 }
             }
 
-            lock (_portLock) {
-                try {
-                    // Clear input and output buffers
-                    ClearBuffer();
-
-                    // Send the command to device
-                    _sp.BaseStream.Write(command, 0, command.Length);
-                    _sp.BaseStream.Flush();
-
-                    // Update stats
-                    _bytesSent += command.Length;
-
-                    // Wait for data
-                    if (!_dataReady.WaitOne(PortSettings.Timeout * 1000)) {
-                        throw new TimeoutException($"{PortName} response timeout");
-                    }
-
-                    // Validate response
-                    if (_response.Type != Header.Response) {
-                        throw new InvalidDataException("Invalid response header");
-                    }
-
-                    // Verify checksum
-                    if (!_response.IsChecksumValid) {
-                        throw new DataException("Response CRC error");
-                    }
-
-                    // Return response body
-                    return _response.Body;
+            try {
+                if (!LockMutex(_arduinoMutex, PortParameters.Timeout * 1000)) {
+                    throw new TimeoutException();
                 }
-                catch (Exception e) {
-                    throw new IOException($"{PortName} failed to execute command 0x{BytesToHexString(command)} ({e.Message})");
+
+                // Clear input and output buffers
+                ClearBuffer();
+
+                // Send the command to device
+                _sp.BaseStream.Write(command, 0, command.Length);
+                _sp.BaseStream.Flush();
+
+                // Update stats
+                _bytesSent += command.Length;
+
+                // Wait for data
+                if (!_dataReady.WaitOne(PortParameters.Timeout * 1000)) {
+                    throw new TimeoutException($"{PortName} response timeout");
                 }
-                finally {
-                    _response = new PacketData();
-                    _dataReady.Reset();
+
+                // Validate response
+                if (_response.Type != Header.Response) {
+                    throw new InvalidDataException("Invalid response header");
                 }
+
+                // Verify checksum
+                if (!_response.IsChecksumValid) {
+                    throw new DataException("Response CRC error");
+                }
+
+                // Return response body
+                return _response.Body;
+            }
+            catch (Exception ex) {
+                throw new IOException($"{PortName} failed to execute command 0x{BytesToHexString(command)} ({ex.Message})");
+            }
+            finally {
+                _response = new PacketData();
+                _dataReady.Reset();
+                UnlockMutex(_arduinoMutex);
             }
         }
+
+        /// <summary>
+        /// Arduino serial port mutex
+        /// </summary>
+        private Mutex _arduinoMutex;
 
         /// <summary>
         /// Serial port instance
@@ -1293,12 +1293,7 @@ namespace SpdReaderWriterCore {
         private int _rswpTypeSupport;
 
         /// <summary>
-        /// PortLock object used to prevent other threads from acquiring the lock
-        /// </summary>
-        private static object _portLock = new object();
-
-        /// <summary>
-        /// Lock object to prevent simultaneous <see cref="DataReceivedHandler"/> calls
+        /// Lock object to prevent simultaneous <see cref="DataReceivedHandler"/> access
         /// </summary>
         private static object _receiveLock = new object();
 
@@ -1347,6 +1342,11 @@ namespace SpdReaderWriterCore {
             /// Device Communication Test
             /// </summary>
             Test,
+
+            /// <summary>
+            /// Ping device
+            /// </summary>
+            Ping,
 
             /// <summary>
             /// Name controls
