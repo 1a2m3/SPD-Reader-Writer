@@ -16,7 +16,7 @@
 #include <EEPROM.h>
 #include "SpdReaderWriterSettings.h"  // Settings
 
-#define FW_VER 20240324  // Firmware version number (YYYYMMDD)
+#define FW_VER 20240325  // Firmware version number (YYYYMMDD)
 
 // RAM RSWP support bitmasks
 #define DDR5 _BV(5)  // Offline mode
@@ -182,9 +182,9 @@ void setup() {
   Wire.setWireTimeout(10000, true);
 
   // Setup I2C clock
-  uint32_t i2cClock = clock[getI2cClockMode()];
-  Wire.setClock(i2cClock);
-  i2cClockCurrent = i2cClock;
+  uint8_t i2cClockMode = getI2cClockMode();
+  Wire.setClock(clock[i2cClockMode]);
+  i2cClockCurrent = i2cClockMode;
   i2cClockLast = i2cClockCurrent;
 
   // Scan I2C bus

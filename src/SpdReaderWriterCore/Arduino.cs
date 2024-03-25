@@ -186,7 +186,7 @@ namespace SpdReaderWriterCore {
                 DtrEnable              = PortParameters.DtrEnable,
                 RtsEnable              = PortParameters.RtsEnable,
                 ReadTimeout            = 1000,
-                WriteTimeout           = 1000,
+                WriteTimeout           = 100,
                 ReceivedBytesThreshold = PacketData.MinSize,
             };
 
@@ -218,11 +218,15 @@ namespace SpdReaderWriterCore {
                     IsReady = _sp.ReadByte() == expectedResponse;
                 }
                 sw.Stop();
-
+#if DEBUG
+                if (IsReady) {
+                    Global.Debug($"Discovered {this} in {Math.Round(sw.ElapsedMilliseconds / (decimal)1000, 3)} sec.");
+                }
+#endif
                 // Proceed
                 if (IsReady) {
 
-                    ClearBuffer();
+                    ClearBuffers();
 
                     // Event to handle Data Reception
                     _sp.DataReceived  += DataReceivedHandler;
@@ -285,6 +289,8 @@ namespace SpdReaderWriterCore {
         /// Disposes device instance
         /// </summary>
         public void Dispose() {
+
+            UnlockMutex(_arduinoMutex);
 
             if (_sp == null) {
                 return;
@@ -560,7 +566,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Clears serial port buffers from unneeded data to prevent unwanted behavior and delays
         /// </summary>
-        private void ClearBuffer() {
+        private void ClearBuffers() {
             try {
                 // Clear receive buffer
                 if (BytesToRead > 0) {
@@ -736,6 +742,9 @@ namespace SpdReaderWriterCore {
             Parallel.ForEach(ports, portName => {
                 using (Arduino device = new Arduino(portName, parameters)) {
                     try {
+#if DEBUG
+                        Global.Debug($"Testing {device}");
+#endif
                         if (!device.Connect()) {
                             return;
                         }
@@ -962,57 +971,55 @@ namespace SpdReaderWriterCore {
         /// <param name="e">Event arguments</param>
         private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e) {
 
-            lock (_receiveLock) {
-                if (sender != _sp || !IsConnected) {
-                    return;
-                }
-
-                // Set current thread priority above normal
-                Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
-
-                // Wait till data is ready
-                while (BytesToRead < _sp.ReceivedBytesThreshold) {
-                    Thread.Sleep(10);
-                }
-
-                // Prepare input buffer
-                _inputBuffer = new byte[PacketData.MaxSize];
-
-                // Read buffer data header
-                _bytesReceived += _sp.Read(_inputBuffer, 0, _sp.ReceivedBytesThreshold);
-
-                // Process input data header
-                switch (_inputBuffer[0]) {
-                    case Header.Alert:
-
-                        // Read alert type
-                        byte messageReceived = _inputBuffer[1];
-
-                        // Invoke alert event
-                        if (Enum.IsDefined(typeof(Alert), (Alert)messageReceived)) {
-                            new Thread(() => HandleAlert((Alert)messageReceived)).Start();
-                        }
-
-                        break;
-
-                    case Header.Response:
-
-                        // Wait till full packet is ready
-                        while (BytesToRead < _inputBuffer[1] + 1) { }
-
-                        // Read the rest of the data
-                        _bytesReceived += _sp.Read(_inputBuffer, PacketData.MinSize, _inputBuffer[1] + 1);
-
-                        // Put data into response data packet
-                        _response.RawBytes = _inputBuffer;
-                        _dataReady.Set();
-
-                        break;
-                }
-
-                // Reset input buffer
-                _inputBuffer = null;
+            if (sender != _sp || !IsReady) {
+                return;
             }
+
+            // Set current thread priority above normal
+            Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
+
+            // Wait till data is ready
+            while (BytesToRead < _sp.ReceivedBytesThreshold) {
+                Thread.Sleep(1);
+            }
+
+            // Prepare input buffer
+            _inputBuffer = new byte[PacketData.MaxSize];
+
+            // Read buffer data header
+            _bytesReceived += _sp.Read(_inputBuffer, 0, _sp.ReceivedBytesThreshold);
+
+            // Process input data header
+            switch (_inputBuffer[0]) {
+                case Header.Alert:
+
+                    // Read alert type
+                    byte messageReceived = _inputBuffer[1];
+
+                    // Invoke alert event
+                    if (Enum.IsDefined(typeof(Alert), (Alert)messageReceived)) {
+                        new Thread(() => HandleAlert((Alert)messageReceived)).Start();
+                    }
+
+                    break;
+
+                case Header.Response:
+
+                    // Wait till full packet is ready
+                    while (IsConnected && BytesToRead < _inputBuffer[1] + 1) { }
+
+                    // Read the rest of the data
+                    _bytesReceived += _sp.Read(_inputBuffer, PacketData.MinSize, _inputBuffer[1] + 1);
+
+                    // Put data into response data packet
+                    _response.RawBytes = _inputBuffer;
+                    _dataReady.Set();
+
+                    break;
+            }
+
+            // Reset input buffer
+            _inputBuffer = null;
         }
 
         /// <summary>
@@ -1024,7 +1031,9 @@ namespace SpdReaderWriterCore {
             OnAlertReceived(new ArduinoEventArgs {
                 Notification = message
             });
-
+#if DEBUG
+            Global.Debug($"Alert: {message}");
+#endif
             switch (message) {
                 case Alert.SLAVEDEC:
                 case Alert.SLAVEINC:
@@ -1211,11 +1220,8 @@ namespace SpdReaderWriterCore {
 
             try {
                 if (!LockMutex(_arduinoMutex, PortParameters.Timeout * 1000)) {
-                    throw new TimeoutException();
+                    throw new TimeoutException($"{PortName} mutex timeout");
                 }
-
-                // Clear input and output buffers
-                ClearBuffer();
 
                 // Send the command to device
                 _sp.BaseStream.Write(command, 0, command.Length);
@@ -1243,7 +1249,7 @@ namespace SpdReaderWriterCore {
                 return _response.Body;
             }
             catch (Exception ex) {
-                throw new IOException($"{PortName} failed to execute command 0x{BytesToHexString(command)} ({ex.Message})");
+                throw new IOException($"{PortName} failed to execute command \"{BytesToHexString(command)}\" ({ex.Message})");
             }
             finally {
                 _response = new PacketData();
