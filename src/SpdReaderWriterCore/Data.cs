@@ -275,6 +275,15 @@ namespace SpdReaderWriterCore {
             ConvertTo<T>(Math.Pow(2, count) - 1);
 
         /// <summary>
+        /// Checks whether bitmask value matches input value
+        /// </summary>
+        /// <param name="input">Input value</param>
+        /// <param name="bitmask">Bitmask value</param>
+        /// <returns><see langword="true"/> if <paramref name="bitmask"/> value matches <paramref name="input"/> value</returns>
+        public static bool MatchBitmask(object input, object bitmask) =>
+            (ConvertTo<ulong>(input) & ConvertTo<ulong>(bitmask)) == ConvertTo<ulong>(bitmask);
+
+        /// <summary>
         /// Converts boolean value to a number
         /// </summary>
         /// <param name="input">Boolean input</param>
