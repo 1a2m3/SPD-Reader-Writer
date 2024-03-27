@@ -185,7 +185,7 @@ namespace SpdReaderWriterCore {
                 BaudRate               = PortParameters.BaudRate,
                 DtrEnable              = PortParameters.DtrEnable,
                 RtsEnable              = PortParameters.RtsEnable,
-                ReadTimeout            = 1000,
+                ReadTimeout            = 100,
                 WriteTimeout           = 100,
                 ReceivedBytesThreshold = PacketData.MinSize,
             };
@@ -209,13 +209,11 @@ namespace SpdReaderWriterCore {
 
                     Thread.Sleep(10);
 
-                    byte expectedResponse = (byte)Alert.READY; // 0x21 ('!')
-
                     if (BytesToRead < 1) {
                         continue;
                     }
 
-                    IsReady = _sp.ReadByte() == expectedResponse;
+                    IsReady = _sp.ReadByte() == (byte)Alert.READY; // 0x21 ('!')
                 }
                 sw.Stop();
 #if DEBUG
@@ -240,6 +238,7 @@ namespace SpdReaderWriterCore {
 
                     _connectionEstablished.Set();
 
+                    // Start connection monitor
                     new Thread(ConnectionMonitor) {
 #if DEBUG
                         Name = "ConnectionMonitor",
@@ -322,8 +321,8 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Gets supported RAM type(s)
         /// </summary>
-        /// <returns>A bitmask representing available RAM supported defined in the <see cref="RswpSupport"/> struct</returns>
-        public byte GetRswpSupport() {
+        /// <returns>A bitmask representing available RAM supported defined in the <see cref="RswpType"/> struct</returns>
+        public byte GetRswpReport() {
             try {
                 return ExecuteCommand<byte>(Command.RswpReport);
             }
@@ -337,8 +336,8 @@ namespace SpdReaderWriterCore {
         /// </summary>
         /// <param name="rswpTypeBitmask">RAM type bitmask</param>
         /// <returns><see langword="true"/> if the device supports RSWP</returns>
-        public bool GetRswpSupport(byte rswpTypeBitmask) {
-            return (GetRswpSupport() & rswpTypeBitmask) == rswpTypeBitmask;
+        public bool GetRswpReport(byte rswpTypeBitmask) {
+            return MatchBitmask(GetRswpReport(), rswpTypeBitmask);
         }
 
         /// <summary>
@@ -536,7 +535,7 @@ namespace SpdReaderWriterCore {
         /// <returns><see langword="true"/> when DDR5 is in offline mode</returns>
         public bool GetOfflineMode() {
             try {
-                return GetRswpSupport(RswpSupport.DDR5);
+                return GetRswpReport(RswpType.DDR5);
             }
             catch {
                 throw new Exception($"Unable to get offline mode status on {PortName}");
@@ -931,12 +930,12 @@ namespace SpdReaderWriterCore {
         }
 
         /// <summary>
-        /// Bitmask value representing RAM type supported defined in <see cref="RswpSupport"/> enum
+        /// Bitmask value representing RAM type supported defined in <see cref="RswpType"/> enum
         /// </summary>
         public byte RswpTypeSupport {
             get {
                 try {
-                    _rswpTypeSupport = GetRswpSupport();
+                    _rswpTypeSupport = GetRswpReport();
 
                     return (byte)_rswpTypeSupport;
                 }
@@ -949,7 +948,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Value representing whether the device supports RSWP capabilities based on RAM type supported reported by the device
         /// </summary>
-        public bool RswpPresent => RswpTypeSupport > 0;
+        public bool RswpSupport => RswpTypeSupport > 0;
 
         /// <summary>
         /// Occurs when an alert has been received from Arduino
@@ -979,9 +978,7 @@ namespace SpdReaderWriterCore {
             Thread.CurrentThread.Priority = ThreadPriority.AboveNormal;
 
             // Wait till data is ready
-            while (BytesToRead < _sp.ReceivedBytesThreshold) {
-                Thread.Sleep(1);
-            }
+            while (BytesToRead < _sp.ReceivedBytesThreshold) { }
 
             // Prepare input buffer
             _inputBuffer = new byte[PacketData.MaxSize];
@@ -1039,7 +1036,7 @@ namespace SpdReaderWriterCore {
                 case Alert.SLAVEINC:
                     // Update capabilities properties
                     _addresses = Scan();
-                    _rswpTypeSupport = _addresses.Length > 0 ? GetRswpSupport() : 0;
+                    _rswpTypeSupport = _addresses.Length > 0 ? GetRswpReport() : 0;
                     break;
                 case Alert.READY:
                     // Set ready flag
@@ -1068,7 +1065,10 @@ namespace SpdReaderWriterCore {
                 while (IsConnected) {
                     Thread.Sleep(50);
                 }
-                OnConnectionLost(EventArgs.Empty);
+
+                if (_sp != null) {
+                    OnConnectionLost(EventArgs.Empty);
+                }
             }
 
             Disconnect();
@@ -1294,7 +1294,7 @@ namespace SpdReaderWriterCore {
         private byte[] _addresses;
 
         /// <summary>
-        /// Bitmask value representing RSWP type supported defined in <see cref="RswpSupport"/> enum
+        /// Bitmask value representing RSWP type supported defined in <see cref="RswpType"/> enum
         /// </summary>
         private int _rswpTypeSupport;
 
@@ -1492,7 +1492,7 @@ namespace SpdReaderWriterCore {
             public byte[] RawBytes {
                 get => _rawBytes;
                 set {
-                    if (MaxSize < value.Length || value.Length < MinSize) {
+                    if (MinSize > value.Length || value.Length > MaxSize) {
                         throw new ArgumentOutOfRangeException(value.Length.ToString());
                     }
 
@@ -1571,7 +1571,7 @@ namespace SpdReaderWriterCore {
         /// <summary>
         /// Bitmask values describing specific RSWP support in response to <see cref="Command.RswpReport"/> command
         /// </summary>
-        public struct RswpSupport {
+        public struct RswpType {
 
             /// <summary>
             /// Value describing the device supports VHV and SA1 controls for DDR3 and older RAM RSWP support
